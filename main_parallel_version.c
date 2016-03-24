@@ -490,6 +490,7 @@ int main(int argc, char *argv[]) {
 
 	/* Split local buffer in chunks of 10000000 bases */
 	maxsiz = 10000000.0 / blen * slen;
+	maxsiz *= opt->n_threads;
 	maxsiz /= files; totsiz = 0;
 	filsiz = locsiz / maxsiz + 1;
 	res = MPI_Type_size(MPI_OFFSET, &c);
