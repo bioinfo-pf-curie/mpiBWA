@@ -2,7 +2,7 @@ Introduction
 ------------
 
 This program optimize access file and parallelized the jobs for BWA-MEM alignment.
-The input are fasta files of pair reads sequenced with Illumina technology. 
+The input are fastq files of pair reads sequenced with Illumina technology. 
 Batch of 100M bases are loaded and aligned assuring the result is identical to classic BWA. 
 
 
@@ -79,7 +79,7 @@ Authors
 
 This program has been developed by 
 
-Frederic Jarlier from Instut Curie
+Frederic Jarlier from Institut Curie
 Nicolas Joly from Institut Pasteur
 
 and supervised by
