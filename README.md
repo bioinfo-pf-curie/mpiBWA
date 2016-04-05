@@ -10,7 +10,7 @@ Requirements
 ------------
 
 You need a C compiler as required for classic BWA program.
-This program runs on supercomperter architecture but supports also NFS file system. 
+This program runs on supercomputer architecture but supports also NFS file system. 
 A classic 1Gb or 10Gb network is sufficient.
 
 Compilation 

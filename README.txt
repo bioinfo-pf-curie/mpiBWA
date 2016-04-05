@@ -2,7 +2,7 @@ Introduction
 ------------
 
 This program optimize access file and parallelized the jobs for BWA-MEM alignment.
-The input are fasta files of pair reads sequenced with Illumina technology. 
+The input are fastq files of pair reads sequenced with Illumina technology. 
 Batch of 100M bases are loaded and aligned assuring the result is identical to classic BWA. 
 
 
@@ -10,7 +10,7 @@ Requirements
 ------------
 
 You need a C compiler as required for classic BWA program.
-This program runs on supercomperter architecture but supports also NFS file system. 
+This program runs on supercomputer architecture but supports also NFS file system. 
 A classic 1Gb or 10Gb network is sufficient.
 
 Compilation 
@@ -79,7 +79,7 @@ Authors
 
 This program has been developed by 
 
-Frédéric Jarlier from Instut Curie
+Frédéric Jarlier from Institut Curie
 Nicolas Joly from Institut Pasteur
 
 and supervised by
