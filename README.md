@@ -5,7 +5,7 @@ Introduction
 This program optimizes access files and parallelized the jobs for BWA-MEM alignment v7.12.
 The input are fasta files of pair reads sequenced with Illumina technology. 
 Batch of 100M pair bases are loaded and aligned assuring the result is identical to classic BWA-MEM. 
-=======
+
 This program optimize access file and parallelized the jobs for BWA-MEM alignment.
 The input are fastq files of pair reads sequenced with Illumina technology. 
 Batch of 100M bases are loaded and aligned assuring the result is identical to classic BWA. 
