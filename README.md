@@ -1,7 +1,7 @@
 Introduction
 ------------
 
-<<<<<<< HEAD
+
 This program optimizes access files and parallelized the jobs for BWA-MEM alignment v7.12.
 The input are fasta files of pair reads sequenced with Illumina technology. 
 Batch of 100M pair bases are loaded and aligned assuring the result is identical to classic BWA-MEM. 
@@ -9,18 +9,15 @@ Batch of 100M pair bases are loaded and aligned assuring the result is identical
 This program optimize access file and parallelized the jobs for BWA-MEM alignment.
 The input are fastq files of pair reads sequenced with Illumina technology. 
 Batch of 100M bases are loaded and aligned assuring the result is identical to classic BWA. 
->>>>>>> 39542319f617a6ab11e77c85f06981fe97c530b5
-
 
 Requirements
 ------------
 
 You need a C compiler as required for classic BWA program.
-<<<<<<< HEAD
 You need a mpi compiler too. This program runs on supercomperter architecture and supports also NFS file system. 
 =======
 This program runs on supercomputer architecture but supports also NFS file system. 
->>>>>>> 39542319f617a6ab11e77c85f06981fe97c530b5
+
 A classic 1Gb or 10Gb network is sufficient.
 
 Compilation 
