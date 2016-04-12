@@ -14,16 +14,14 @@ Requirements
 ------------
 
 You need a C compiler as required for classic BWA program.
-You need a mpi compiler too. This program runs on supercomperter architecture and supports also NFS file system. 
-=======
-This program runs on supercomputer architecture but supports also NFS file system. 
-
+You need a mpi compiler too. to check your mpi installation tell in a command window whereis mpirun normally it is installed in /usr/bin/mpirun.
+This program runs on supercomputer architecture and supports also NFS file system. 
 A classic 1Gb or 10Gb network is sufficient.
 
 Compilation 
 -----------
 
-To compile the source open the makefile tell where mpicc is installed and make it.
+To compile the source open the makefile tell where mpicc is installed (in CC directive of makefile) and make it.
 Results are 2 executables pidx and pbwa7.
 
 Build a reference
