@@ -1,16 +1,16 @@
 Introduction
 ------------
 
-This program optimize access file and parallelized the jobs for BWA-MEM alignment.
+This program optimizes access files and parallelized the jobs for BWA-MEM alignment v7.12.
 The input are fasta files of pair reads sequenced with Illumina technology. 
-Batch of 100M bases are loaded and aligned assuring the result is identical to classic BWA. 
+Batch of 100M pair bases are loaded and aligned assuring the result is identical to classic BWA-MEM. 
 
 
 Requirements
 ------------
 
 You need a C compiler as required for classic BWA program.
-This program runs on supercomperter architecture but supports also NFS file system. 
+You need a mpi compiler too. This program runs on supercomperter architecture and supports also NFS file system. 
 A classic 1Gb or 10Gb network is sufficient.
 
 Compilation 
@@ -64,9 +64,13 @@ tell the striping of the results
 
 lfs setstripe -c 128 -s 3g $OUTPUT_DIR 
 
-launch the job
+launch the job with torque
 
 echo " mpirun -n $TOTAL_PROC $pBWA_BIN_DIR/pbwa7 mem -t 1 -o $FILE_TO_WRITE $BWA_REF_TMP $FILE_TO_ALIGN_R1 $FILE_TO_ALIGN_R2" | qsub -o $PBS_OUTPUT -e $PBS_ERROR -N ${SAMPLENAME} -q batch  -l nodes=40:ppn=15
+
+launch the job with mpirun
+
+mpirun -n $TOTAL_PROC $pBWA_BIN_DIR/pbwa7 mem -t 1 -o $FILE_TO_WRITE $BWA_REF_TMP $FILE_TO_ALIGN_R1 $FILE_TO_ALIGN_R2
 
 Remarks
 -------
