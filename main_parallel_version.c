@@ -115,9 +115,9 @@ int main(int argc, char *argv[]) {
 				"Contact 1: Frederic Jarlier (frederic.jarlier@curie.fr) \n\n"
 				"Contact 2: Nicolas Joly (njoly@pasteur.fr) \n\n"
 				"usage : mpirun -n TOTAL_PROC %s mem -t 1 -o RESULTS REFERENCE FASTQ_R1 FASTQ_R2\n\n"
-				"Requirements : First you need to create a referenced map file genome with pidx. \n"
-				"	   pidx ref.fasta generate a ref.fasta.map. The .map file is a copy of memory \n"
-				"	   mapped reference used for shared memory purpose.\n" , basename(*argv));
+				"Requirements : After the creation of reference file with BWA you need to create a referenced \n"
+				"	   map file genome with pidx like this  pidx ref.fasta generate a ref.fasta.map. \n"
+				"	   The .map file is a copy of memory mapped reference used for shared memory purpose.\n" , basename(*argv));
 		return 1; }
 
 	/* Validate provided command (first argument) */
