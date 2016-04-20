@@ -25,13 +25,12 @@ Results are 2 executables pidx and pbwa7.
 
 Build a reference
 -----------------
-After the creation of the reference file with BWA
-You need to build a mapped reference genome. 
-To do that: pidx my_reg.fa 
-pidx build a reference with the extension .map: my_ref.fa.map 
+After the creation of the reference file with BWA, you need to build a mapped reference genome. 
+To do that: pidx my_ref.fa (where my_ref.fa has been build with BWA).
+Pidx build a reference with the extension .map (my_ref.fa.map). 
 This reference will be mapped in share memory.
 
-To speed-up the mapping of the reference copy it in /tmp of each servers before launching the alignment. 
+If you want to speed-up the mapping of the reference in shared memory you can copy the reference in /tmp of each servers before launching the alignment. 
 
 Start alignment
 ---------------
@@ -77,7 +76,9 @@ mpirun -n $TOTAL_PROC $pBWA_BIN_DIR/pbwa7 mem -t 1 -o $FILE_TO_WRITE $BWA_REF_TM
 Remarks
 -------
 
-If you intend to run the mpiSort after the alignment you have to tell the striping of the results. 
+1) Do not type the .map extension when you give the reference to pbwa7
+
+2) If you intend to run the mpiSort after the alignment you have to tell the striping of the results. 
 This is done according to the striping you set in the mpiSort program with lfs setstripe command (lfs setstripe -c -1 -s 2gb .). 
 
 Authors
