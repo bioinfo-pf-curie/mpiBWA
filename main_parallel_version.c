@@ -506,7 +506,7 @@ int main(int argc, char *argv[]) {
 	filsiz = locsiz / maxsiz + 1;
 	res = MPI_Type_size(MPI_OFFSET, &c);
 	assert(res == MPI_SUCCESS);
-	coff = malloc(filsiz * c * files);
+	coff = malloc(filsiz * 2 * c);
 	assert(coff != NULL);
 	c = 0;
 	s = buffer_r1 + locoff; e = buffer_r1 + locoff + locsiz;
