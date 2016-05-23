@@ -1,0 +1,4 @@
+*.o
+libbwa.a
+pbwa7
+pidx
