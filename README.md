@@ -1,7 +1,6 @@
 Introduction
 ------------
 
-
 This program optimizes access files and parallelizes the jobs alignment with BWA-MEM alignment v0.7.12.
 The input are fasta files of pair reads sequenced with Illumina technology (see sample files).  
 Batch of 100M pair bases are loaded and aligned assuring the result is identical to classic BWA-MEM. 
@@ -16,6 +15,13 @@ You need a C compiler as required for classic BWA program.
 You need a mpi compiler too. to check your mpi installation tell in a command window whereis mpirun normally it is installed in /usr/bin/mpirun.
 This program runs on supercomputer architecture and supports also NFS file system. 
 A classic 1Gb or 10Gb network is sufficient.
+
+Your reads should be paired or single but not trimmed.
+
+Known issues:
+--------------------------
+
+Primary hits are reproduced between the serial version and the parallel but you can see differences in mapping position for alternate contigs.  
 
 Compilation 
 -----------
@@ -78,8 +84,9 @@ Remarks
 
 1) Do not type the .map extension when you give the reference to pbwa7
 
-2) If you intend to run the mpiSort after the alignment you have to tell the striping of the results. 
+2) For Lustre or parallel file system users. If you intend to run the mpiSort after the alignment you have to tell the striping of the results. 
 This is done according to the striping you set in the mpiSort program with lfs setstripe command (lfs setstripe -c -1 -s 2gb .). 
+
 
 Authors
 -------
