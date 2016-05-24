@@ -19,10 +19,28 @@ A classic 1Gb or 10Gb network is sufficient.
 Your reads should be paired or single but not trimmed.
 
 Known issues:
---------------------------
+-------------
 
 Primary hits are reproduced between the serial version and the parallel but you can see differences in mapping position for alternate contigs.
-this issues is under investigation.  
+This issut is under investigation.  
+
+How to integrate further version
+--------------------------------
+
+This version of mpiBWA has been build with 0.7.12 BWA version.
+
+To integrate the 0.7.13 or 0.7.14:
+
+1) git clone the 0.7.14 of BWA.
+
+2) in the folder of bwa copy-pass the following function from mpiBWA:
+
+makefile
+main_parallel_version.c 
+pidx.c
+
+then make.
+
 
 Compilation 
 -----------

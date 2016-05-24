@@ -161,8 +161,6 @@ int main(int argc, char *argv[]) {
 		else if (c == 'p') opt->flag |= MEM_F_PE | MEM_F_SMARTPE;
 		else if (c == 'M') opt->flag |= MEM_F_NO_MULTI;
 		else if (c == 'S') opt->flag |= MEM_F_NO_RESCUE;
-		else if (c == 'e') opt->flag |= MEM_F_SELF_OVLP;
-		else if (c == 'F') opt->flag |= MEM_F_ALN_REG;
 		else if (c == 'Y') opt->flag |= MEM_F_SOFTCLIP;
 		else if (c == 'V') opt->flag |= MEM_F_REF_HDR;
 		else if (c == 'c') opt->max_occ = atoi(optarg), opt0.max_occ = 1;
@@ -248,7 +246,7 @@ int main(int argc, char *argv[]) {
 			if (!opt0.b) opt->b = 1;
 			if (opt0.split_factor == 0.) opt->split_factor = 10.;
 			if (strcmp(mode, "pbread") == 0) { // pacbio read-to-read setting; NOT working well!
-				opt->flag |= MEM_F_ALL | MEM_F_SELF_OVLP | MEM_F_ALN_REG;
+				opt->flag |= MEM_F_ALL;
 				if (!opt0.min_chain_weight) opt->min_chain_weight = 40;
 				if (!opt0.max_occ) opt->max_occ = 1000;
 				if (!opt0.min_seed_len) opt->min_seed_len = 13;
@@ -297,13 +295,12 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "       -d INT        off-diagonal X-dropoff [%d]\n", opt->zdrop);
 		fprintf(stderr, "       -r FLOAT      look for internal seeds inside a seed longer than {-k} * FLOAT [%g]\n", opt->split_factor);
 		fprintf(stderr, "       -y INT        seed occurrence for the 3rd round seeding [%ld]\n", (long)opt->max_mem_intv);
-                fprintf(stderr, "       -c INT        skip seeds with more than INT occurrences [%d]\n", opt->max_occ);
+        fprintf(stderr, "       -c INT        skip seeds with more than INT occurrences [%d]\n", opt->max_occ);
 		fprintf(stderr, "       -D FLOAT      drop chains shorter than FLOAT fraction of the longest overlapping chain [%.2f]\n", opt->drop_ratio);
 		fprintf(stderr, "       -W INT        discard a chain if seeded bases shorter than INT [0]\n");
 		fprintf(stderr, "       -m INT        perform at most INT rounds of mate rescues for each read [%d]\n", opt->max_matesw);
 		fprintf(stderr, "       -S            skip mate rescue\n");
 		fprintf(stderr, "       -P            skip pairing; mate rescue performed unless -S also in use\n");
-		fprintf(stderr, "       -e            discard full-length exact matches\n");
 		fprintf(stderr, "\nScoring options:\n\n");
 		fprintf(stderr, "       -A INT        score for a sequence match, which scales options -TdBOELU unless overridden [%d]\n", opt->a);
 		fprintf(stderr, "       -B INT        penalty for a mismatch [%d]\n", opt->b);
@@ -314,7 +311,7 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "       -x STR        read type. Setting -x changes multiple parameters unless overriden [null]\n");
 		fprintf(stderr, "                     pacbio: -k17 -W40 -r10 -A1 -B1 -O1 -E1 -L0  (PacBio reads to ref)\n");
 		fprintf(stderr, "                     ont2d: -k14 -W20 -r10 -A1 -B1 -O1 -E1 -L0  (Oxford Nanopore 2D-reads to ref)\n");
-                fprintf(stderr, "                     intractg: -B9 -O16 -L5  (intra-species contigs to ref)\n");
+        fprintf(stderr, "                     intractg: -B9 -O16 -L5  (intra-species contigs to ref)\n");
 		fprintf(stderr, "\nInput/output options:\n\n");
 		fprintf(stderr, "       -p            smart pairing (ignoring in2.fq)\n");
 		fprintf(stderr, "       -R STR        read group header line such as '@RG\\tID:foo\\tSM:bar' [null]\n");
