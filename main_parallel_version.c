@@ -128,7 +128,7 @@ int main(int argc, char *argv[]) {
 	/* initialize the BWA-MEM parameters to the default values */
 	opt = mem_opt_init();
 	memset(&opt0, 0, sizeof(opt0));
-	while ((c = getopt(argc-1, argv+1, "1epaFMCSPVYjk:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:W:x:G:h:y:K:X:H:o:")) >= 0) {
+	while ((c = getopt(argc-1, argv+1, "1paMCSPVYjk:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:W:x:G:h:y:K:X:H:o:")) >= 0) {
 		if (c == 'k') opt->min_seed_len = atoi(optarg), opt0.min_seed_len = 1;
 		else if (c == '1') ; /* FIXME: unsupported */
 		else if (c == 'x') mode = optarg;
@@ -238,21 +238,14 @@ int main(int argc, char *argv[]) {
 			if (!opt0.b) opt->b = 9;
 			if (!opt0.pen_clip5) opt->pen_clip5 = 5;
 			if (!opt0.pen_clip3) opt->pen_clip3 = 5;
-		} else if (strcmp(mode, "pacbio") == 0 || strcmp(mode, "pbref") == 0 || strcmp(mode, "pbread") == 0 || strcmp(mode, "ont2d") == 0) {
+		} else if (strcmp(mode, "pacbio") == 0 || strcmp(mode, "pbref") == 0 || strcmp(mode, "ont2d") == 0) {
                         if (!opt0.o_del) opt->o_del = 1;
 			if (!opt0.e_del) opt->e_del = 1;
 			if (!opt0.o_ins) opt->o_ins = 1;
 			if (!opt0.e_ins) opt->e_ins = 1;
 			if (!opt0.b) opt->b = 1;
 			if (opt0.split_factor == 0.) opt->split_factor = 10.;
-			if (strcmp(mode, "pbread") == 0) { // pacbio read-to-read setting; NOT working well!
-				opt->flag |= MEM_F_ALL;
-				if (!opt0.min_chain_weight) opt->min_chain_weight = 40;
-				if (!opt0.max_occ) opt->max_occ = 1000;
-				if (!opt0.min_seed_len) opt->min_seed_len = 13;
-				if (!opt0.max_chain_extend) opt->max_chain_extend = 25;
-				if (opt0.drop_ratio == 0.) opt->drop_ratio = .001;
-			} else if (strcmp(mode, "ont2d") == 0) {
+			if (strcmp(mode, "ont2d") == 0) {
 				if (!opt0.min_chain_weight) opt->min_chain_weight = 20;
 				if (!opt0.min_seed_len) opt->min_seed_len = 14;
 				if (!opt0.pen_clip5) opt->pen_clip5 = 0;
