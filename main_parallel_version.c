@@ -97,7 +97,7 @@ int main(int argc, char *argv[]) {
 	bseq1_t *seqs;
 
 	int res, count;
-	int files;
+	int files, nargs;
 
 	char *p, *q, *s, *e;
 	off_t locoff, locsiz, *alloff, *curoff, maxsiz, totsiz, filsiz;
@@ -285,8 +285,9 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+	nargs = argc - 1 - optind;
 	if (opt->n_threads < 1) opt->n_threads = 1;
-	if (argc - 1 - optind != 3) {
+	if (nargs != 2 && nargs != 3) {
                 fprintf(stderr, "\n");
 		fprintf(stderr, "Usage: bwa mem [options] <idxbase> <in1.fq> [in2.fq]\n\n");
 		fprintf(stderr, "Algorithm options:\n\n");
@@ -344,9 +345,13 @@ int main(int argc, char *argv[]) {
 
 	files = 0;
 	file_ref = argv[optind+1+0];
-	file_r1 = argv[optind+1+1]; files += 1;
-	file_r2 = argv[optind+1+2]; files += 1;
-	opt->flag |= MEM_F_PE;
+	if (nargs > 1) {
+		file_r1 = argv[optind+1+1]; files += 1;
+	}
+	if (nargs > 2) {
+		file_r2 = argv[optind+1+2]; files += 1;
+		opt->flag |= MEM_F_PE;
+	}
 
 	/* Derived file names */
 	sprintf(file_map, "%s.map", file_ref);
@@ -369,19 +374,19 @@ int main(int argc, char *argv[]) {
 	}
 
 	/* Check R1 & R2 file sizes */
-	if (stat(file_r1, &stat_r1) == -1) {
+	if (file_r1 != NULL && stat(file_r1, &stat_r1) == -1) {
 		fprintf(stderr, "%s: %s\n", file_r1, strerror(errno));
 		res = MPI_Finalize();
 		assert(res == MPI_SUCCESS);
 		exit(2);
 	}
-	if (stat(file_r2, &stat_r2) == -1) {
+	if (file_r2 != NULL && stat(file_r2, &stat_r2) == -1) {
 		fprintf(stderr, "%s: %s\n", file_r2, strerror(errno));
 		res = MPI_Finalize();
 		assert(res == MPI_SUCCESS);
 		exit(2);
 	}
-	if (stat_r1.st_size != stat_r2.st_size) {
+	if (file_r2 != NULL && stat_r1.st_size != stat_r2.st_size) {
 		fprintf(stderr, "file sizes for R1 and R2 do not match\n");
 		res = MPI_Finalize();
 		assert(res == MPI_SUCCESS);
@@ -550,12 +555,16 @@ int main(int argc, char *argv[]) {
 	/* Process all chunks */
 	res = MPI_File_open(MPI_COMM_WORLD, file_tmp, MPI_MODE_RDONLY|MPI_MODE_DELETE_ON_CLOSE, MPI_INFO_NULL, &fh_tmp);
 	assert(res == MPI_SUCCESS);
-	res = MPI_File_open(MPI_COMM_WORLD, file_r1, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh_r1);
-	assert(res == MPI_SUCCESS);
-	res = MPI_File_open(MPI_COMM_WORLD, file_r2, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh_r2);
-	assert(res == MPI_SUCCESS);
 	res = MPI_File_open(MPI_COMM_WORLD, file_out, MPI_MODE_WRONLY|MPI_MODE_APPEND, MPI_INFO_NULL, &fh_out);
 	assert(res == MPI_SUCCESS);
+	if (file_r1 != NULL) {
+		res = MPI_File_open(MPI_COMM_WORLD, file_r1, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh_r1);
+		assert(res == MPI_SUCCESS);
+	}
+	if (file_r2 != NULL) {
+		res = MPI_File_open(MPI_COMM_WORLD, file_r2, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh_r2);
+		assert(res == MPI_SUCCESS);
+	}
 
 	buffer_r1 = buffer_r2 = NULL; seqs = NULL;
 	coff = malloc(2 * sizeof(*coff));
@@ -576,90 +585,103 @@ int main(int argc, char *argv[]) {
 
 		/* Read sequence datas ... */
 		bef = MPI_Wtime();
-		buffer_r1 = realloc(buffer_r1, (size_t)coff[1]);
-		assert(buffer_r1 != NULL);
-		res = MPI_File_read_at(fh_r1, coff[0], buffer_r1, (int)coff[1], MPI_CHAR, &status);
-		assert(res == MPI_SUCCESS);
-		res = MPI_Get_count(&status, MPI_CHAR, &count);
-		assert(res == MPI_SUCCESS);
-		assert(count == (int)coff[1] && *buffer_r1 == '@');
-		buffer_r2 = realloc(buffer_r2, (size_t)coff[1]);
-		assert(buffer_r2 != NULL);
-		res = MPI_File_read_at(fh_r2, coff[0], buffer_r2, (int)coff[1], MPI_CHAR, &status);
-		assert(res == MPI_SUCCESS);
-		res = MPI_Get_count(&status, MPI_CHAR, &count);
-		assert(res == MPI_SUCCESS);
-		assert(count == (int)coff[1] && *buffer_r2 == '@');
+		if (file_r1 != NULL) {
+			buffer_r1 = realloc(buffer_r1, (size_t)coff[1]);
+			assert(buffer_r1 != NULL);
+			res = MPI_File_read_at(fh_r1, coff[0], buffer_r1, (int)coff[1], MPI_CHAR, &status);
+			assert(res == MPI_SUCCESS);
+			res = MPI_Get_count(&status, MPI_CHAR, &count);
+			assert(res == MPI_SUCCESS);
+			assert(count == (int)coff[1] && *buffer_r1 == '@');
+		}
+		if (file_r2 != NULL) {
+			buffer_r2 = realloc(buffer_r2, (size_t)coff[1]);
+			assert(buffer_r2 != NULL);
+			res = MPI_File_read_at(fh_r2, coff[0], buffer_r2, (int)coff[1], MPI_CHAR, &status);
+			assert(res == MPI_SUCCESS);
+			res = MPI_Get_count(&status, MPI_CHAR, &count);
+			assert(res == MPI_SUCCESS);
+			assert(count == (int)coff[1] && *buffer_r2 == '@');
+		}
 		aft = MPI_Wtime();
 		fprintf(stderr, "%s: read sequences (%.02f)\n", __func__, aft - bef);
 
 		/* Count sequences ... */
 		bef = MPI_Wtime();
-		p = buffer_r1; e = buffer_r1 + coff[1]; reads_r1 = 0;
-		while (p < e) { reads_r1 += (*p++ == '\n') ? 1 : 0; }
-		p = buffer_r1; e = buffer_r1 + coff[1]; reads_r2 = 0;
-		while (p < e) { reads_r2 += (*p++ == '\n') ? 1 : 0; }
+		reads_r1 = reads_r2 = 0;
+		if (file_r1 != NULL) {
+			p = buffer_r1; e = buffer_r1 + coff[1];
+			while (p < e) { reads_r1 += (*p++ == '\n') ? 1 : 0; }
+		}
+		if (file_r2 != NULL) {
+			p = buffer_r1; e = buffer_r1 + coff[1];
+			while (p < e) { reads_r2 += (*p++ == '\n') ? 1 : 0; }
+		}
 		reads_r1 /= 4; reads_r2 /= 4;
-		assert(reads_r1 == reads_r2);
+		assert(reads_r2 == 0 || reads_r1 == reads_r2);
 		reads = reads_r1 + reads_r2; bases = 0;
 
 		/* Parse sequences ... */
 		seqs = malloc(reads * sizeof(*seqs));
 		assert(seqs != NULL);
-		p = q = buffer_r1; e = buffer_r1 + coff[1]; line_number = 0;
-		while (q < e) {
-			if (*q != '\n') { q++; continue; }
-			/* We have a full line ... process it */
-			*q = '\0'; n = files * (line_number / 4);
-			switch (line_number % 4) {
-			case 0: /* Line1: Name and Comment */
-				assert(*p == '@');
-				seqs[n].name = p + 1;
-				while (*p && !isspace((unsigned char)*p)) p++;
-				if (*(p-2) == '/' && isdigit((unsigned char)*(p-1))) *(p-2) = '\0';
-				if (*p) *p++ = '\0';
-				seqs[n].comment = (copy_comment != 0) ? p : NULL;
-				seqs[n].sam = NULL;
-				break;
-			case 1: /* Line2: Sequence */
-				seqs[n].seq = p;
-				seqs[n].l_seq = q - p;
-				bases += seqs[n].l_seq;
-				break;
-			case 2: /* Line3: Ignored */
-				assert(*p == '+');
-				break;
-			case 3: /* Line4: Quality */
-				seqs[n].qual = p;
-				break; }
-			p = ++q; line_number++; }
-		p = q = buffer_r2; e = buffer_r2 + coff[1]; line_number = 0;
-		while (q < e) {
-			if (*q != '\n') { q++; continue; }
-			/* We have a full line ... process it */
-			*q = '\0'; n = files * (line_number / 4) + 1;
-			switch (line_number % 4) {
-			case 0: /* Line1: Name and Comment */
-				assert(*p == '@');
-				seqs[n].name = p + 1;
-				while (*p && !isspace((unsigned char)*p)) p++;
-				if (*(p-2) == '/' && isdigit((unsigned char)*(p-1))) *(p-2) = '\0';
-				if (*p) *p++ = '\0';
-				seqs[n].comment = (copy_comment != 0) ? p : NULL;
-				seqs[n].sam = NULL;
-				break;
-			case 1: /* Line2: Sequence */
-				seqs[n].seq = p;
-				seqs[n].l_seq = q - p;
-				bases += seqs[n].l_seq;
-				break;
-			case 2: /* Line3: Ignored */
-				assert(*p == '+');
-				break;
-			case 3: /* Line4: Quality */
-				seqs[n].qual = p;
-				break; }
-			p = ++q; line_number++; }
+		if (file_r1 != NULL) {
+			p = q = buffer_r1; e = buffer_r1 + coff[1]; line_number = 0;
+			while (q < e) {
+				if (*q != '\n') { q++; continue; }
+				/* We have a full line ... process it */
+				*q = '\0'; n = files * (line_number / 4);
+				switch (line_number % 4) {
+				case 0: /* Line1: Name and Comment */
+					assert(*p == '@');
+					seqs[n].name = p + 1;
+					while (*p && !isspace((unsigned char)*p)) p++;
+					if (*(p-2) == '/' && isdigit((unsigned char)*(p-1))) *(p-2) = '\0';
+					if (*p) *p++ = '\0';
+					seqs[n].comment = (copy_comment != 0) ? p : NULL;
+					seqs[n].sam = NULL;
+					break;
+				case 1: /* Line2: Sequence */
+					seqs[n].seq = p;
+					seqs[n].l_seq = q - p;
+					bases += seqs[n].l_seq;
+					break;
+				case 2: /* Line3: Ignored */
+					assert(*p == '+');
+					break;
+				case 3: /* Line4: Quality */
+					seqs[n].qual = p;
+					break; }
+				p = ++q; line_number++; }
+		}
+		if (file_r2 != NULL) {
+			p = q = buffer_r2; e = buffer_r2 + coff[1]; line_number = 0;
+			while (q < e) {
+				if (*q != '\n') { q++; continue; }
+				/* We have a full line ... process it */
+				*q = '\0'; n = files * (line_number / 4) + 1;
+				switch (line_number % 4) {
+				case 0: /* Line1: Name and Comment */
+					assert(*p == '@');
+					seqs[n].name = p + 1;
+					while (*p && !isspace((unsigned char)*p)) p++;
+					if (*(p-2) == '/' && isdigit((unsigned char)*(p-1))) *(p-2) = '\0';
+					if (*p) *p++ = '\0';
+					seqs[n].comment = (copy_comment != 0) ? p : NULL;
+					seqs[n].sam = NULL;
+					break;
+				case 1: /* Line2: Sequence */
+					seqs[n].seq = p;
+					seqs[n].l_seq = q - p;
+					bases += seqs[n].l_seq;
+					break;
+				case 2: /* Line3: Ignored */
+					assert(*p == '+');
+					break;
+				case 3: /* Line4: Quality */
+					seqs[n].qual = p;
+					break; }
+				p = ++q; line_number++; }
+		}
 		aft = MPI_Wtime();
 		fprintf(stderr, "%s: parsed sequences (%.02f)\n", __func__, aft - bef);
 		if (bwa_verbose >= 3)
@@ -700,11 +722,15 @@ int main(int argc, char *argv[]) {
 	free(buffer_r1);
 	free(buffer_r2);
 
+	if (file_r2 != NULL) {
+		res = MPI_File_close(&fh_r2);
+		assert(res == MPI_SUCCESS);
+	}
+	if (file_r1 != NULL) {
+		res = MPI_File_close(&fh_r1);
+		assert(res == MPI_SUCCESS);
+	}
 	res = MPI_File_close(&fh_out);
-	assert(res == MPI_SUCCESS);
-	res = MPI_File_close(&fh_r2);
-	assert(res == MPI_SUCCESS);
-	res = MPI_File_close(&fh_r1);
 	assert(res == MPI_SUCCESS);
 	res = MPI_File_close(&fh_tmp);
 	assert(res == MPI_SUCCESS);
