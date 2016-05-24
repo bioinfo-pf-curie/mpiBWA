@@ -21,7 +21,8 @@ Your reads should be paired or single but not trimmed.
 Known issues:
 --------------------------
 
-Primary hits are reproduced between the serial version and the parallel but you can see differences in mapping position for alternate contigs.  
+Primary hits are reproduced between the serial version and the parallel but you can see differences in mapping position for alternate contigs.
+this issues is under investigation.  
 
 Compilation 
 -----------
