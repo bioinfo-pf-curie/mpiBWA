@@ -2,7 +2,7 @@ Introduction
 ------------
 
 This program optimizes access files and parallelizes the jobs alignment with BWA-MEM alignment v0.7.12.
-The input are fasta files of pair reads sequenced with Illumina technology (see sample files).  
+The input are fasta files of pair reads sequenced with Illumina technology (see sample files). 
 Batch of 100M pair bases are loaded and aligned assuring the result is identical to classic BWA-MEM. 
 This program optimize access file and parallelized the jobs for BWA-MEM alignment.
 The input are fastq files of pair reads sequenced with Illumina technology. 
@@ -21,8 +21,10 @@ Your reads should be paired or single but not trimmed.
 Known issues:
 -------------
 
-Primary hits are reproduced between the serial version and the parallel but you can see differences in mapping position for alternate contigs.
-This issut is under investigation.  
+1) The input files must be same sizes. Indeed paired reads with different size (trimmed) are not supported yet. This issue is under investigation and will be available in the future release. 
+
+2) Primary hits are reproduced between the serial version and the parallel but you can see differences in mapping position for alternate contigs. 
+This problem stems from the randomization of multi-hits reads. When running with the same number of MPI jobs alternative positions are reproduced but when the number of jobs varies the positions can switch for secondary alignment.  
 
 How to integrate further version
 --------------------------------
@@ -106,6 +108,7 @@ Remarks
 2) For Lustre or parallel file system users. If you intend to run the mpiSort after the alignment you have to tell the striping of the results. 
 This is done according to the striping you set in the mpiSort program with lfs setstripe command (lfs setstripe -c -1 -s 2gb .). 
 
+3) Hybrid mode is possible with -t options. MPI rank fix the number of servers and -t options the number of threads per job. 
 
 Authors
 -------
