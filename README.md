@@ -12,7 +12,10 @@ Requirements
 ------------
 
 You need a C compiler as required for classic BWA program.
-You need a mpi compiler too. to check your mpi installation tell in a command window whereis mpirun normally it is installed in /usr/bin/mpirun.
+
+You need to install a version of MPI.
+
+You need a mpi compiler too. to check your mpi installation tell in a command window whereis mpirun, normally it is installed in /usr/bin/mpirun.
 This program runs on supercomputer architecture and supports also NFS file system. 
 A classic 1Gb or 10Gb network is sufficient.
 
@@ -24,7 +27,7 @@ Known issues:
 1) The input files must be same sizes. Indeed paired reads with different size (trimmed) are not supported yet. This issue is under investigation and will be available in the future release. 
 
 2) Primary hits are reproduced between the serial version and the parallel but you can see differences in mapping position for alternate contigs. 
-This problem stems from the randomization of multi-hits reads. When running with the same number of MPI jobs alternative positions are reproduced but when the number of jobs varies the positions can switch for secondary alignment.  
+This problem stems from the randomization of multi-hits reads. When running with the same number of MPI jobs alternative positions are reproduced but when the number of jobs varies the positions can switch for secondary alignments. 
 
 How to integrate further version
 --------------------------------
@@ -89,7 +92,6 @@ OUTPUT_DIR=/data/Test/RESULTS/
 FILE_TO_WRITE=/data/Test/RESULTS/test.sam
 
 Only for Lustre usage tell the striping of the results
-
 lfs setstripe -c -1 -s 3g $OUTPUT_DIR 
 
 launch the jobs with torque
@@ -103,12 +105,16 @@ mpirun -n $TOTAL_PROC $pBWA_BIN_DIR/pbwa7 mem -t 1 -o $FILE_TO_WRITE $BWA_REF_TM
 Remarks
 -------
 
-1) Do not type the .map extension when you give the reference to pbwa7
+1) Do not type the .map extension when you give the reference to pbwa7.
 
-2) For Lustre or parallel file system users. If you intend to run the mpiSort after the alignment you have to tell the striping of the results. 
-This is done according to the striping you set in the mpiSort program with lfs setstripe command (lfs setstripe -c -1 -s 2gb .). 
+2) Hybrid mode is possible with -t options. MPI rank fix the number of servers and -t options the number of threads per job. 
 
-3) Hybrid mode is possible with -t options. MPI rank fix the number of servers and -t options the number of threads per job. 
+3) For Lustre or parallel file system users: If you intend to run the mpiSort after the alignment you have to tell the striping of the results. 
+This is done according to the striping you set in the mpiSort program with the Lustre "lfs setstripe" command (lfs setstripe -c -1 -s 2gb .). 
+The "-c -1" option tells Lustre to use all the file system servers and and "-s 2gb" is the size of contigues data blocks. 
+For speed purpose reading commands (particularly MPI commands) are aligned on those blocks.
+
+Notes: The striping (like with Hadoop) is the way your data is distributed among servers. This technic accelerates access files and meta file information.
 
 Authors
 -------
