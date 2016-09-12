@@ -594,7 +594,7 @@ int main(int argc, char *argv[]) {
 			assert(count == (int)coff[1] && *buffer_r2 == '@');
 		}
 		aft = MPI_Wtime();
-		fprintf(stderr, "%s: read sequences (%.02f)\n", __func__, aft - bef);
+		xfprintf(stderr, "%s: read sequences (%.02f)\n", __func__, aft - bef);
 
 		/* Count sequences ... */
 		bef = MPI_Wtime();
@@ -673,7 +673,7 @@ int main(int argc, char *argv[]) {
 				p = ++q; line_number++; }
 		}
 		aft = MPI_Wtime();
-		fprintf(stderr, "%s: parsed sequences (%.02f)\n", __func__, aft - bef);
+		xfprintf(stderr, "%s: parsed sequences (%.02f)\n", __func__, aft - bef);
 		if (bwa_verbose >= 3)
 			fprintf(stderr, "[M::%s] read %zu sequences (%ld bp)...\n", __func__, reads, (long)bases);
 
@@ -681,7 +681,7 @@ int main(int argc, char *argv[]) {
 		bef = MPI_Wtime();
 		mem_process_seqs(opt, indix.bwt, indix.bns, indix.pac, 0, reads, seqs, pes0);
 		aft = MPI_Wtime();
-		fprintf(stderr, "%s: computed mappings (%.02f)\n", __func__, aft - bef);
+		xfprintf(stderr, "%s: computed mappings (%.02f)\n", __func__, aft - bef);
 
 		/* Write results ... */
 		bef = MPI_Wtime();
@@ -705,7 +705,7 @@ int main(int argc, char *argv[]) {
 		assert(count == localsize);
 		free(buffer_out);
 		aft = MPI_Wtime();
-		fprintf(stderr, "%s: wrote results (%.02f)\n", __func__, aft - bef);
+		xfprintf(stderr, "%s: wrote results (%.02f)\n", __func__, aft - bef);
 
 	}
 	free(coff);
