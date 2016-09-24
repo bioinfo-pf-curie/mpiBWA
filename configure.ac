@@ -4,6 +4,7 @@ AM_INIT_AUTOMAKE([foreign])
 
 # Checks for programs.
 AC_PROG_CC([mpicc])
+AC_PROG_RANLIB
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
