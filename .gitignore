@@ -2,8 +2,10 @@ autom4te.cache
 config.log
 config.status
 Makefile
+.deps
 *.o
 libbwa.a
 pbwa7
 pidx
+mpibwa-*.tar.gz
 /.local.el
