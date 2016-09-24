@@ -285,9 +285,7 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-AM_CPPFLAGS = -DUSE_MALLOC_WRAPPERS -DHAVE_PTHREAD \
-	-D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE
-
+AM_CPPFLAGS = -DUSE_MALLOC_WRAPPERS -DHAVE_PTHREAD
 noinst_LIBRARIES = libbwa.a
 noinst_HEADERS = $(HDR)
 libbwa_a_SOURCES = $(SRC)
