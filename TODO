@@ -3,5 +3,4 @@
 
 - Allow processing single-read datas.
 - Handle trimmed reads (offsets and sizes differ for R1/R2).
-- autotools framework for easier packaging.
 
