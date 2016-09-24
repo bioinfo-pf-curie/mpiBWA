@@ -10,6 +10,7 @@ AC_PROG_RANLIB
 AC_CHECK_LIB([m], [sqrt])
 AC_CHECK_LIB([z], [gzdopen])
 
+# Check for large-file support.
 AC_SYS_LARGEFILE
 
 AC_CONFIG_FILES([Makefile])

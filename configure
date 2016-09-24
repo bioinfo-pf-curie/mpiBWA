@@ -3472,6 +3472,7 @@ _ACEOF
 fi
 
 
+# Check for large-file support.
 # Check whether --enable-largefile was given.
 if test "${enable_largefile+set}" = set; then :
   enableval=$enable_largefile;
