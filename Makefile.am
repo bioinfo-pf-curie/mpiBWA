@@ -2,10 +2,16 @@
 AM_CPPFLAGS = -DUSE_MALLOC_WRAPPERS -DHAVE_PTHREAD \
 	-D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE
 
+bin_PROGRAMS = pbwa7 pidx
 noinst_LIBRARIES = libbwa.a
 noinst_HEADERS = $(HDR)
 
 libbwa_a_SOURCES = $(SRC)
+
+pbwa7_SOURCES = main_parallel_version.c
+pbwa7_LDADD = libbwa.a
+pidx_SOURCES = pidx.c
+pidx_LDADD = libbwa.a
 
 SRC = utils.c kthread.c kstring.c ksw.c bwt.c bntseq.c bwa.c bwamem.c \
 	bwamem_pair.c bwamem_extra.c malloc_wrap.c
