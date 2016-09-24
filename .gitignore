@@ -1,6 +1,7 @@
 autom4te.cache
 config.log
 config.status
+Makefile
 *.o
 libbwa.a
 pbwa7
