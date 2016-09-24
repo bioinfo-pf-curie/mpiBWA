@@ -17,3 +17,4 @@ SRC = utils.c kthread.c kstring.c ksw.c bwt.c bntseq.c bwa.c bwamem.c \
 HDR = utils.h kstring.h ksw.h bwt.h bntseq.h bwa.h bwamem.h malloc_wrap.h \
 	kbtree.h khash.h kseq.h ksort.h kvec.h
 
+EXTRA_DIST = INSTALL
