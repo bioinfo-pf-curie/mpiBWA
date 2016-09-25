@@ -23,7 +23,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #define _GNU_SOURCE
-#define _LARGEFILE_SOURCE
 
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -62,7 +61,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define xfprintf(...) /**/
 #endif
 
-#define MAXSIZE (100UL * 1024 * 1024)
 
 int main(int argc, char *argv[]) {
 	double bef, aft;
