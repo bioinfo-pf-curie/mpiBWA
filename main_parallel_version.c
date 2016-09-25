@@ -689,6 +689,7 @@ int main(int argc, char *argv[]) {
 			/* Reuse .l_seq to store SAM line length to avoid multiple strlen() calls */
 			seqs[n].l_seq = strlen(seqs[n].sam);
 			localsize += seqs[n].l_seq; }
+		assert(localsize <= INT_MAX);
 		buffer_out = malloc(localsize);
 		assert(buffer_out != NULL);
 		p = buffer_out;
@@ -697,11 +698,11 @@ int main(int argc, char *argv[]) {
 			p += seqs[n].l_seq;
 			free(seqs[n].sam); }
 		free(seqs);
-		res = MPI_File_write_shared(fh_out, buffer_out, localsize, MPI_CHAR, &status);
+		res = MPI_File_write_shared(fh_out, buffer_out, (int)localsize, MPI_CHAR, &status);
 		assert(res == MPI_SUCCESS);
 		res = MPI_Get_count(&status, MPI_CHAR, &count);
 		assert(res == MPI_SUCCESS);
-		assert(count == localsize);
+		assert(count == (int)localsize);
 		free(buffer_out);
 		aft = MPI_Wtime();
 		xfprintf(stderr, "%s: wrote results (%.02f)\n", __func__, aft - bef);
