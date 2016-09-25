@@ -609,6 +609,7 @@ int main(int argc, char *argv[]) {
 		reads_r1 /= 4; reads_r2 /= 4;
 		assert(reads_r2 == 0 || reads_r1 == reads_r2);
 		reads = reads_r1 + reads_r2; bases = 0;
+		assert(reads <= INT_MAX);
 
 		/* Parse sequences ... */
 		seqs = malloc(reads * sizeof(*seqs));
@@ -678,7 +679,7 @@ int main(int argc, char *argv[]) {
 
 		/* Datas computation ... */
 		bef = MPI_Wtime();
-		mem_process_seqs(opt, indix.bwt, indix.bns, indix.pac, 0, reads, seqs, pes0);
+		mem_process_seqs(opt, indix.bwt, indix.bns, indix.pac, 0, (int)reads, seqs, pes0);
 		aft = MPI_Wtime();
 		xfprintf(stderr, "%s: computed mappings (%.02f)\n", __func__, aft - bef);
 
