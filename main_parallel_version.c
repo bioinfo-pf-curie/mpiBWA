@@ -414,7 +414,7 @@ int main(int argc, char *argv[]) {
 	 */
 	if (rank_num == 0) {
 		int s, len;
-		char* buff;
+		char *buff;
 
 		res = MPI_File_delete(file_out, MPI_INFO_NULL);
                 assert(res == MPI_SUCCESS || res == MPI_ERR_NO_SUCH_FILE || res == MPI_ERR_IO);
