@@ -26,9 +26,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "bwa.h"
 
-extern int bwa_idx2mem(bwaidx_t *idx);
-extern int bwa_mem2idx(int64_t l_mem, uint8_t *mem, bwaidx_t *idx);
-
 int main(int argc, char **argv) {
 	char *indx, imem[PATH_MAX];
 	int fd;
