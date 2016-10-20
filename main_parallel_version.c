@@ -50,6 +50,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #  include "malloc_wrap.h"
 #endif
 
+
 /* We require 64bit offsets */
 #ifndef MPI_OFFSET
 #define MPI_OFFSET MPI_LONG_LONG
@@ -897,7 +898,7 @@ int main(int argc, char *argv[]) {
 		 * second part
 		 *
 		 * Then even ranks trade the local number of read and local offset and build an index of the all reads
-		 * with their offsets in the fastq file. Communication are done in the splitted communicator in a ring fashion
+		 * with their offsets in the fastq file. Communication are done in the splitted communicator.
 		 *
 		 * third part
 		 *
@@ -910,16 +911,32 @@ int main(int argc, char *argv[]) {
 
 		fprintf(stderr, "we split comm \n");
 
+		size_t chunk_count = 0;
 		int color = rank_num%2;
 		MPI_Comm NEW_COMM;
+		MPI_Comm INTER_COMM;
 		//split communicator according to odd or even rank
 		int res_split=MPI_Comm_split(MPI_COMM_WORLD, color, rank_num, &NEW_COMM);
 		assert(res_split == MPI_SUCCESS);
+
 		// size in the new communicator
 		int new_num_proc = 0;
 		MPI_Comm_size(NEW_COMM, &new_num_proc);
 		int new_rank_num=0;
 		MPI_Comm_rank(NEW_COMM, &new_rank_num);
+
+
+		//we create an intercomm
+		if (color){
+			res_split=MPI_Intercomm_create(NEW_COMM, 0,MPI_COMM_WORLD, 0, 0, &INTER_COMM);
+			assert(res_split == MPI_SUCCESS);
+		}
+		else{
+			res_split=MPI_Intercomm_create(NEW_COMM, 0,MPI_COMM_WORLD, 1, 0, &INTER_COMM);
+			assert(res_split == MPI_SUCCESS);
+		}
+
+
 
 		fprintf(stderr, "new comm has size of %d \n", new_num_proc);
 		fprintf(stderr, "old rank = %d ::: new rank = %d\n", rank_num, new_rank_num);
@@ -928,14 +945,20 @@ int main(int argc, char *argv[]) {
 
 		MPI_File mpi_fd_in1;
 		bef = MPI_Wtime();
+		char *file_to_read;
 		if (rank_num%2){
 			//odd ranks get the forward fastq
-			MPI_File_open(NEW_COMM, file_r1,  MPI_MODE_RDONLY , MPI_INFO_NULL, &mpi_fd_in1);
+			file_to_read = file_r1;
 		}
 		else{
 			//even ranks get the backward fastq
-			MPI_File_open(NEW_COMM, file_r2,  MPI_MODE_RDONLY , MPI_INFO_NULL, &mpi_fd_in1);
+			file_to_read = file_r2;
+			//MPI_File_open(NEW_COMM, file_r2,  MPI_MODE_RDONLY , MPI_INFO_NULL, &mpi_fd_in1);
 		}
+
+		MPI_File_open(NEW_COMM, file_to_read,  MPI_MODE_RDONLY , MPI_INFO_NULL, &mpi_fd_in1);
+
+
 		/*
 		 * first we parse the buffer and see
 		 * how many reads we have
@@ -943,7 +966,7 @@ int main(int argc, char *argv[]) {
 
 		size_t read_number=0;
 		assert(fd_in1 != -1);
-		size_t *goff;
+		size_t *goff; //global offset contain the start offset in the fastq
 
 		if (rank_num%2){
 
@@ -1018,15 +1041,16 @@ int main(int argc, char *argv[]) {
 			if (*t == '\n') lines++;
 				t++;
 		}
-		fprintf(stderr, "rank %d ::: number of reads = %d \n", rank_num, lines/4);
+		//fprintf(stderr, "rank %d ::: number of reads = %d \n", rank_num, lines/4);
 		size_t local_num_reads=lines/4;
 
 		//we malloc a vector to hold offsets of the read
 		//local_read_offset contains the ofset of the read
 		//in the file
-		size_t *local_read_offsets = (size_t *)malloc((local_num_reads +1)*sizeof(size_t));
-		lines = 0;
+		//size_t *local_read_offsets = (size_t *)malloc((local_num_reads +1)*sizeof(size_t));
+		size_t local_read_offsets[local_num_reads +1];
 
+		lines = 0;
 		local_read_offsets[0] =goff[new_rank_num];
 
 		int n = 1;
@@ -1041,29 +1065,41 @@ int main(int argc, char *argv[]) {
 			u++;
 			g++;
 		}
-		free(buffer_r1);
+		if (buffer_r1)
+			free(buffer_r1);
 
 
-		MPI_Barrier(NEW_COMM);
-		MPI_Barrier(MPI_COMM_WORLD);
-		//Now the roots of new communicator gather all the offsets vectors for R1 and R2
-		size_t *num_reads_by_proc = (size_t *)malloc(new_rank_num * sizeof(size_t));
-		res = MPI_Allgather(&local_num_reads, 1, MPI_LONG_LONG_INT, num_reads_by_proc, 1, MPI_LONG_LONG_INT, NEW_COMM);
+		//MPI_Barrier(NEW_COMM);
+		//MPI_Barrier(MPI_COMM_WORLD);
 
 		//the roots in NEW_COMM compute the total number of reads
 		size_t total_num_reads = 0;
 		MPI_Reduce(&local_num_reads, &total_num_reads, 1,MPI_LONG_LONG_INT, MPI_SUM, 0,NEW_COMM);
 
+		//Now the roots of new communicator gather all the offsets vectors for R1 and R2
+		//size_t *num_reads_by_proc = (size_t *)malloc(new_rank_num * sizeof(size_t));
+		size_t num_reads_by_proc[new_rank_num];
+
+		res = MPI_Allgather(&local_num_reads, 1, MPI_LONG_LONG_INT, num_reads_by_proc, 1, MPI_LONG_LONG_INT, NEW_COMM);
 
 		//we dispatch the previous result
-		MPI_Scatter(&total_num_reads, 1, MPI_LONG_LONG_INT,	&total_num_reads, 1, MPI_LONG_LONG_INT, 0, NEW_COMM);
+		MPI_Bcast(&total_num_reads, 1, MPI_LONG_LONG_INT, 0, NEW_COMM);
 
-
+		if ( rank_num == 0 || rank_num ==1 )
 		fprintf(stderr, "rank %d ::: total_num_reads = %zu \n", new_rank_num, total_num_reads);
 
+
+		//MPI_Barrier(NEW_COMM);
+		//MPI_Barrier(MPI_COMM_WORLD);
+
 		//each root in NEW_COMM gather the vector of reads offset
-		size_t *all_reads_offsets = (size_t *)malloc(total_num_reads*sizeof(size_t));
-		size_t *disp = (size_t *)malloc(new_num_proc * sizeof(size_t));
+		fprintf(stderr, "rank %d ::: new_num_proc = %zu \n", new_rank_num, new_num_proc );
+
+		//malloc don't work problem in malloc_wrap (line 26)
+		//size_t *disp = (size_t *)malloc(new_num_proc * sizeof(size_t));
+
+		size_t disp[new_num_proc];
+		assert(disp !=0);
 
 		disp[0] = 0;
 		for (m = 1; m < new_num_proc; m++)
@@ -1072,17 +1108,24 @@ int main(int argc, char *argv[]) {
 		for ( m = 1; m < new_num_proc ; m++)
 			disp[m] = disp[m] + disp[m-1];
 
+		//malloc don't work problem in malloc_wrap (line 26)
+		//size_t *all_reads_offsets = malloc(total_num_reads*sizeof(size_t));
+
+		size_t all_reads_offsets[total_num_reads];
+		assert(all_reads_offsets !=0);
 
 		//each root in communicator NEW_COMM recieve all_reads_offsets
 		if (new_rank_num == 0){
 			//first we copy local_read_num from 0
+
 			for (m = 0; m < local_num_reads; m++){
 				all_reads_offsets[m] = local_read_offsets[m];
 			}
+
 			for ( m = 1; m < new_num_proc; m++){
 
-				size_t *tmp =malloc(sizeof(size_t)*num_reads_by_proc[m]);
-
+				//size_t *tmp =malloc(sizeof(size_t)*num_reads_by_proc[m]);
+				size_t tmp[num_reads_by_proc[m]];
 				MPI_Recv(tmp,
 		                num_reads_by_proc[m],
 		                MPI_LONG_LONG_INT,
@@ -1109,7 +1152,8 @@ int main(int argc, char *argv[]) {
 			MPI_Send(local_read_offsets ,local_num_reads, MPI_LONG_LONG_INT, 0, 0, NEW_COMM);
 		}
 
-		free(local_read_offsets);
+		if (local_read_offsets)
+			free(local_read_offsets);
 
 		/*
 		 *
@@ -1148,17 +1192,6 @@ int main(int argc, char *argv[]) {
 		}
 		*/
 
-		//MPI_File_close(&mpi_fd_in1);
-
-
-		if (new_rank_num == 0){
-			fprintf(stderr, "rank %d ::: finish collecting reads offsets %d \n", new_rank_num, 0);
-			fprintf(stderr, "rank %d ::: last read offsets = %zu \n", rank_num, all_reads_offsets[total_num_reads -1]);
-			fprintf(stderr, "rank %d ::: total_num_reads = %zu \n", rank_num, total_num_reads);
-		}
-
-		MPI_Barrier(NEW_COMM);
-
 		/*
 		 *
 		 * In this part the root who cares for the forward (the rank 1)
@@ -1171,17 +1204,17 @@ int main(int argc, char *argv[]) {
 		 *
 		 */
 
-		maxsiz = 100000;
-		//maxsiz *= opt->n_threads;
-		size_t chunk_count = 0;
-		if (rank_num == 1){
+		fprintf(stderr, "rank %d ::: compute chunk \n", rank_num );
+
+
+		if (new_rank_num ==0 && rank_num == 1){
 			/*
 			 * We compute number of chunks for forward reads
 			 * and send it to
 			 *
 			 */
 			size_t u=0;
-			size_t *position;
+			maxsiz = 100000;
 			for (u = 0; u < total_num_reads; u++){
 				//we for offsets multiple of maxsize
 				if ( all_reads_offsets[u] > maxsiz){
@@ -1195,7 +1228,9 @@ int main(int argc, char *argv[]) {
 
 			//we malloc a position vector
 			//we will send to other root
-			position = malloc(sizeof(size_t)*chunk_count);
+
+			//size_t *position = malloc(sizeof(size_t)*chunk_count);
+			size_t position[chunk_count];
 			position[0] = 0;
 			chunk_count = 1;
 			maxsiz = 100000;
@@ -1209,17 +1244,17 @@ int main(int argc, char *argv[]) {
 			}
 
 			//we send the number of chunks we found in forward files
-			MPI_Send(&chunk_count, 1, MPI_LONG_LONG_INT, 0, 0, MPI_COMM_WORLD);
+			MPI_Send(&chunk_count, 1, MPI_LONG_LONG_INT, 0, 0, INTER_COMM);
 
 			//then we send the index of start offsets for each chunk
-			MPI_Send(position, chunk_count, MPI_LONG_LONG_INT, 0, 0, MPI_COMM_WORLD);
+			MPI_Send(position, chunk_count, MPI_LONG_LONG_INT, 0, 0, INTER_COMM);
 
 			// now each root compute
 			// coff an c.
 			// coff contains the start offset of the chunks and the number of characters to
 			// read
 
-			coff = malloc(sizeof(MPI_Offset)*chunk_count*2); //hold the start offset of the chunk
+			coff = malloc(sizeof(MPI_Offset)*(chunk_count*2)); //hold the start offset of the chunk
 
 			size_t last_chunk_start_offset = all_reads_offsets[position[chunk_count - 1]];
 			size_t last_chunk_size = all_reads_offsets[total_num_reads -1] - all_reads_offsets[position[chunk_count - 1]];
@@ -1238,48 +1273,47 @@ int main(int argc, char *argv[]) {
 		}
 
 		if (rank_num == 0){
-				//the root process recieve the number of position
+			//the root process recieve the number of position
+			size_t u=0;
+			MPI_Recv(&chunk_count,
+					1,
+					MPI_LONG_LONG_INT,
+					0,
+					0,
+					INTER_COMM,
+					MPI_STATUS_IGNORE);
 
-				size_t u=0;
-				MPI_Recv(&chunk_count,
-						1,
-						MPI_LONG_LONG_INT,
-						1,
-						0,
-						MPI_COMM_WORLD,
-						MPI_STATUS_IGNORE);
+			//size_t *position = malloc(sizeof(size_t)*chunk_count);
+			size_t position[chunk_count];
 
-				size_t *position = malloc(sizeof(size_t)*chunk_count);
-
-
-				MPI_Recv(position,
-						 chunk_count,
-						 MPI_LONG_LONG_INT,
-						 1,
-						 0,
-						 MPI_COMM_WORLD,
-						 MPI_STATUS_IGNORE);
+			MPI_Recv(position,
+					 chunk_count,
+					 MPI_LONG_LONG_INT,
+					 0,
+					 0,
+					 INTER_COMM,
+					 MPI_STATUS_IGNORE);
 
 
-				//now each root compute coff an c
-				coff = malloc(sizeof(MPI_Offset)*chunk_count*2); //hold the start offset of the chunk
+			//now each root compute coff an c
+			coff = malloc(sizeof(MPI_Offset)*(chunk_count*2)); //hold the start offset of the chunk
 
-				size_t last_chunk_start_offset = all_reads_offsets[position[chunk_count - 1]];
-				size_t last_chunk_size = all_reads_offsets[total_num_reads -1] - all_reads_offsets[position[chunk_count - 1]];
+			size_t last_chunk_start_offset = all_reads_offsets[position[chunk_count - 1]];
+			size_t last_chunk_size = all_reads_offsets[total_num_reads -1] - all_reads_offsets[position[chunk_count - 1]];
 
-				coff[0] = 0;
-				coff[1] = all_reads_offsets[position[1]];
-				size_t k=0;
+			coff[0] = 0;
+			coff[1] = all_reads_offsets[position[1]];
+			size_t k=0;
 
-				for (u = 1; u < (chunk_count - 1); u++){
-					coff[2*u] = all_reads_offsets[position[u]];
-					coff[2*u+1] = all_reads_offsets[position[u +1]] - all_reads_offsets[position[u]];
-				}
+			for (u = 1; u < (chunk_count - 1); u++){
+				coff[2*u] = all_reads_offsets[position[u]];
+				coff[2*u+1] = all_reads_offsets[position[u +1]] - all_reads_offsets[position[u]];
+			}
 
-				coff[2*chunk_count -2] = last_chunk_start_offset;
-				coff[2*chunk_count -1] = last_chunk_size;
+			coff[2*chunk_count -2] = last_chunk_start_offset;
+			coff[2*chunk_count -1] = last_chunk_size;
 
-		}
+	}
 
 		/*
 		 * FOR DEBUG
@@ -1322,7 +1356,8 @@ int main(int argc, char *argv[]) {
 		*/
 
 
-		//MPI_File_close(mpi_fd_in1);
+		//MPI_File_close(&mpi_fd_in1);
+
 		//now we collect the vectors of offset for reads forward and backward
 		MPI_Barrier(NEW_COMM);
 		MPI_Barrier(MPI_COMM_WORLD);
