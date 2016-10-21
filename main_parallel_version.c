@@ -1382,10 +1382,10 @@ int main(int argc, char *argv[]) {
 
 		}
 
-
-
-		fprintf(stderr, "chunks and offsets saved\n");
 		MPI_Barrier(MPI_COMM_WORLD);
+		if (rank_num == 0)
+			fprintf(stderr, "chunks and offsets saved\n");
+
 
 		/*
 		 * Now we dont' need split comm.
@@ -1424,7 +1424,6 @@ int main(int argc, char *argv[]) {
 			assert(res == MPI_SUCCESS);
 		}
 
-		fprintf(stderr, "rank :::: %d Files opened \n", rank_num);
 		buffer_r1 = buffer_r2 = NULL; seqs = NULL;
 		MPI_Offset *coff_offsets = malloc(4 * sizeof(*coff));
 		assert(coff_offsets != NULL);
@@ -1499,13 +1498,13 @@ int main(int argc, char *argv[]) {
 				p = buffer_r2; e = buffer_r2 + coff_offsets[3];
 				while (p < e) { reads_r2 += (*p++ == '\n') ? 1 : 0; }
 			}
-			fprintf(stderr, "rank %d ::::  read sequences reads_r1 = %zu \n", rank_num, reads_r1);
-			fprintf(stderr, "rank %d ::::  read sequences reads_r2 = %zu \n", rank_num, reads_r2);
 			reads_r1 /= 4; reads_r2 /= 4;
 			assert(reads_r1 == reads_r2);
 			reads = reads_r1 + reads_r2; bases = 0;
 			assert(reads <= INT_MAX);
-			MPI_Barrier(MPI_COMM_WORLD);
+			//MPI_Barrier(MPI_COMM_WORLD);
+			if (rank_num == 0)
+				fprintf(stderr, "rank %d :::: Parse sequences \n", rank_num);
 
 			/* Parse sequences ... */
 			seqs = malloc(reads * sizeof(*seqs));
@@ -1572,29 +1571,33 @@ int main(int argc, char *argv[]) {
 				fprintf(stderr, "rank %d ::: Parse %d lines \n",rank_num, line_number );
 			}
 
-			if (rank_num == 0){
-				size_t g=0;
-				for ( g =0; g < reads; g++){
-					fprintf(stderr, "rank %d ::: seqs[%zu].name = %s\n",rank_num,g, seqs[g].name );
-					fprintf(stderr, "rank %d ::: seqs[%zu].seq = %s\n",rank_num,g, seqs[g].seq );
-					fprintf(stderr, "rank %d ::: seqs[%zu].l_leq = %s\n",rank_num,g, seqs[g].l_seq );
-					//fprintf(stderr, "rank %d ::: seqs[%zu].qual = %s\n",rank_num,g, seqs[g].qual );
+			MPI_Barrier(MPI_COMM_WORLD);
+
+			size_t g=0;
+			for ( g =0; g < reads; g++){
+				assert(seqs[g].name != NULL);
+				assert(strlen(seqs[g].seq) ==  seqs[g].l_seq);
+				assert(strlen(seqs[g].qual) ==  seqs[g].l_seq);
+				//fprintf(stderr, "rank %d ::: %zu \n",rank_num, g );
+				if ((strlen(seqs[g].seq) !=  seqs[g].l_seq) || (strlen(seqs[g].qual) != seqs[g].l_seq)){
+
+					fprintf(stderr, "rank %d ::: problem with read %zu \n",rank_num, g );
+					fprintf(stderr, "rank %d ::: strlen(seqs[%zu].seq) = %zu \n",rank_num, g, strlen(seqs[g].seq) );
+					fprintf(stderr, "rank %d ::: seqs[%zu].l_seq = %d \n",rank_num, g, seqs[g].l_seq );
+					fprintf(stderr, "rank %d ::: strlen(seqs[%zu].qual) = %zu \n",rank_num, g, strlen(seqs[g].qual) );
 				}
 			}
-
-			MPI_Barrier(MPI_COMM_WORLD);
 			aft = MPI_Wtime();
 			xfprintf(stderr, "%s: parsed sequences (%.02f)\n", __func__, aft - bef);
 			if (bwa_verbose >= 3)
 				fprintf(stderr, "rank %d ::: [M::%s] read %zu sequences (%ld bp)...\n",rank_num , __func__, reads, (long)bases);
 
-
-
-
 			/* Datas computation ... */
 			bef = MPI_Wtime();
 			fprintf(stderr, "rank %d ::::  Call memseqs with count sequences %zu \n", rank_num, reads);
+
 			mem_process_seqs(opt, indix.bwt, indix.bns, indix.pac, 0, (int)reads, seqs, pes0);
+
 			aft = MPI_Wtime();
 			xfprintf(stderr, "%s: computed mappings (%.02f)\n", __func__, aft - bef);
 
