@@ -3,7 +3,7 @@ Release notes
 
 Release 1.0 from 07/11/2016
 
-1) Early support for trimmed reads. Works with an even number of jobs. Tested with toy data up to 10 jobs.
+1) Support for trimmed reads. Works with an even number of jobs. Tested with toy data up to 10 jobs.
 Need more test for scalability, and load balancing of chunks sizes.
 
 Introduction
@@ -38,15 +38,14 @@ Known issues:
 -------------
 
 1) Primary hits are reproduced between the serial version and the parallel but you can see differences in mapping position for alternate contigs. 
-This problem stems from the randomization of multi-hits reads. When running with the same number of MPI jobs alternative positions are reproduced but when the number of jobs varies the positions can switch for secondary alignments. 
+This problem stems from the randomization of multi-hits reads. When running with the same number of MPI jobs alternative positions are reproduced but when the number of jobs varies the positions can switch for secondary alignments.
 
-2) On some architecture the mmaping of the references can be slow. Speed-up the mapping by copying it in the /tmp of each computers nodes before aligning. For instance add the command "mprun -n $NUM_CPU cp $BWA_REF /tmp". 
+2) The reference genome is an image in binary format of the .fa reference file and its extension is .map (from the hgXX.fa we create a hgXX.fa.map). On some architecture the mmaping of the references .map can be slow. Ordinary mmaping of the should 1 or 2 minutes. To solve this issue before the mapping copy with cp or rsync the reference file .map in the /tmp of each computers nodes before aligning. For instance with the command "mprun -n $NUM_CPU cp $BWA_REF /tmp".
 
 How to integrate further version
 --------------------------------
 
 This version of mpiBWA has been build with 0.7.12 BWA version.
-
 To integrate the 0.7.13 or 0.7.14:
 
 1) git clone the 0.7.14 of BWA.
@@ -59,7 +58,6 @@ pidx.c
 
 then make.
 
-
 Compilation 
 -----------
 
@@ -67,7 +65,7 @@ You need automake 1.15 for the installation.
 You can install automake and autoconf in differents directories and export the path like this:
 export PATH=../automake-1.15/bin:../autoconf-2.69/bin:$PATH
 
-Download from git. In the folder mpiSORT type:
+Download from git. In the folder mpiBWA type:
 ./configure && make install && make
 
 or for distribution:
@@ -138,7 +136,7 @@ Remarks
 
 2) Hybrid mode is possible with -t options. MPI rank fix the number of servers and -t options the number of threads per job. 
 
-3) For Lustre or parallel file system users: If you intend to run the mpiSort after the alignment you have to tell the striping of the results. 
+3) For Lustre or parallel file system users: If you intend to run the mpiSort after the alignment you can tell the striping of the results. 
 This is done according to the striping you set in the mpiSort program with the Lustre "lfs setstripe" command (lfs setstripe -c -1 -s 2gb .). 
 The "-c -1" option tells Lustre to use all the file system servers and and "-s 2gb" is the size of contigues data blocks. 
 For speed purpose reading commands (particularly MPI commands) are aligned on those blocks.
