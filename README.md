@@ -115,10 +115,10 @@ OUTPUT_DIR=/data/Test/RESULTS/
 
 FILE_TO_WRITE=/data/Test/RESULTS/test.sam
 
-#Only for Lustre usage tell the striping of the results
-#lfs setstripe -c -1 -s 3g $OUTPUT_DIR 
+Only for Lustre usage tell the striping of the results
+lfs setstripe -c -1 -s 3g $OUTPUT_DIR 
 
-#launch the jobs with torque and one job per core (-t 1)
+launch the jobs with torque and one job per core (-t 1)
 
 echo " mpirun -n $TOTAL_PROC $pBWA_BIN_DIR/pbwa7 mem -t 1 -o $FILE_TO_WRITE $BWA_REF_TMP $FILE_TO_ALIGN_R1 $FILE_TO_ALIGN_R2" | qsub -o $PBS_OUTPUT -e $PBS_ERROR -N ${SAMPLENAME} -q batch  -l nodes=40:ppn=15
 
