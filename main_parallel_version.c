@@ -435,6 +435,57 @@ int main(int argc, char *argv[]) {
 	aft = MPI_Wtime();
 	xfprintf(stderr, "%s: mmapped indexes (%.02f)\n", __func__, aft - bef);
 
+	/*
+	 * Create SAM header
+	 * TODO: Add line for BWA version
+	 */
+	if (rank_num == 0) {
+	    int s, len;
+	    char *buff;
+
+	    res = MPI_File_delete(file_out, MPI_INFO_NULL);
+	    assert(res == MPI_SUCCESS || res == MPI_ERR_NO_SUCH_FILE || res == MPI_ERR_IO);
+	    res = MPI_File_open(MPI_COMM_SELF, file_out, MPI_MODE_CREATE|MPI_MODE_WRONLY, MPI_INFO_NULL, &fh_out);
+	    assert(res == MPI_SUCCESS);
+	    /* Add reference sequence lines */
+	    for (s = 0; s < indix.bns->n_seqs; ++s) {
+		len = asprintf(&buff, "@SQ\tSN:%s\tLN:%d\n", indix.bns->anns[s].name, indix.bns->anns[s].len);
+		res = MPI_File_write(fh_out, buff, len, MPI_CHAR, &status);
+		assert(res == MPI_SUCCESS);
+		res = MPI_Get_count(&status, MPI_CHAR, &count);
+		assert(res == MPI_SUCCESS);
+		assert(count == len);
+		free(buff);
+	    }
+	    /* Add header lines */
+	    if (hdr_line != NULL) {
+		len = asprintf(&buff, "%s\n", hdr_line);
+		res = MPI_File_write(fh_out, buff, len, MPI_CHAR, &status);
+		assert(res == MPI_SUCCESS);
+		res = MPI_Get_count(&status, MPI_CHAR, &count);
+		assert(res == MPI_SUCCESS);
+		assert(count == len);
+		free(buff);
+	    }
+	    /* Add read group line */
+	    if (rg_line != NULL) {
+		len = asprintf(&buff, "%s\n", rg_line);
+		res = MPI_File_write(fh_out, buff, len, MPI_CHAR, &status);
+		assert(res == MPI_SUCCESS);
+		res = MPI_Get_count(&status, MPI_CHAR, &count);
+		assert(res == MPI_SUCCESS);
+		assert(count == len);
+		free(buff);
+	    }
+	    res = MPI_File_close(&fh_out);
+	    assert(res == MPI_SUCCESS);
+	}
+	bef = MPI_Wtime();
+	res = MPI_Barrier(MPI_COMM_WORLD);
+	assert(res == MPI_SUCCESS);
+	aft = MPI_Wtime();
+	xfprintf(stderr, "%s: synched processes (%.02f)\n", __func__, aft - bef);
+
 	/******* Now we split in 2 cases ************/
 
 	if (stat_r1.st_size == stat_r2.st_size) {
@@ -443,57 +494,6 @@ int main(int argc, char *argv[]) {
 		 * We are in the case the reads are not trimmed
 		 *
 		 */
-
-		/*
-		 * Create SAM header
-		 * TODO: Add line for BWA version
-		 */
-		if (rank_num == 0) {
-			int s, len;
-			char *buff;
-
-			res = MPI_File_delete(file_out, MPI_INFO_NULL);
-					assert(res == MPI_SUCCESS || res == MPI_ERR_NO_SUCH_FILE || res == MPI_ERR_IO);
-			res = MPI_File_open(MPI_COMM_SELF, file_out, MPI_MODE_CREATE|MPI_MODE_WRONLY, MPI_INFO_NULL, &fh_out);
-			assert(res == MPI_SUCCESS);
-			/* Add reference sequence lines */
-			for (s = 0; s < indix.bns->n_seqs; ++s) {
-				len = asprintf(&buff, "@SQ\tSN:%s\tLN:%d\n", indix.bns->anns[s].name, indix.bns->anns[s].len);
-				res = MPI_File_write(fh_out, buff, len, MPI_CHAR, &status);
-				assert(res == MPI_SUCCESS);
-				res = MPI_Get_count(&status, MPI_CHAR, &count);
-				assert(res == MPI_SUCCESS);
-				assert(count == len);
-				free(buff);
-			}
-			/* Add header lines */
-			if (hdr_line != NULL) {
-				len = asprintf(&buff, "%s\n", hdr_line);
-				res = MPI_File_write(fh_out, buff, len, MPI_CHAR, &status);
-				assert(res == MPI_SUCCESS);
-				res = MPI_Get_count(&status, MPI_CHAR, &count);
-				assert(res == MPI_SUCCESS);
-				assert(count == len);
-				free(buff);
-			}
-			/* Add read group line */
-			if (rg_line != NULL) {
-				len = asprintf(&buff, "%s\n", rg_line);
-				res = MPI_File_write(fh_out, buff, len, MPI_CHAR, &status);
-				assert(res == MPI_SUCCESS);
-				res = MPI_Get_count(&status, MPI_CHAR, &count);
-				assert(res == MPI_SUCCESS);
-				assert(count == len);
-				free(buff);
-			}
-			res = MPI_File_close(&fh_out);
-			assert(res == MPI_SUCCESS);
-		}
-		bef = MPI_Wtime();
-		res = MPI_Barrier(MPI_COMM_WORLD);
-		assert(res == MPI_SUCCESS);
-		aft = MPI_Wtime();
-		xfprintf(stderr, "%s: synched processes (%.02f)\n", __func__, aft - bef);
 
 		/* Split sequence file in chunks. */
 		bef = MPI_Wtime();
@@ -794,60 +794,6 @@ int main(int argc, char *argv[]) {
 		}
 
 		fprintf(stderr, "in trimmed part\n");
-
-		/*
-		 * Create SAM header
-		 * TODO: Add line for BWA version
-		 */
-		if (rank_num == 0) {
-			int s, len;
-			char *buff;
-
-			res = MPI_File_delete(file_out, MPI_INFO_NULL);
-			assert(res == MPI_SUCCESS || res == MPI_ERR_NO_SUCH_FILE || res == MPI_ERR_IO);
-			res = MPI_File_open(MPI_COMM_SELF, file_out, MPI_MODE_CREATE|MPI_MODE_WRONLY, MPI_INFO_NULL, &fh_out);
-			assert(res == MPI_SUCCESS);
-
-			/* Add reference sequence lines */
-			for (s = 0; s < indix.bns->n_seqs; ++s) {
-				len = asprintf(&buff, "@SQ\tSN:%s\tLN:%d\n", indix.bns->anns[s].name, indix.bns->anns[s].len);
-				res = MPI_File_write(fh_out, buff, len, MPI_CHAR, &status);
-				assert(res == MPI_SUCCESS);
-				res = MPI_Get_count(&status, MPI_CHAR, &count);
-				assert(res == MPI_SUCCESS);
-				assert(count == len);
-				free(buff);
-			}
-
-			/* Add header lines */
-			if (hdr_line != NULL) {
-				len = asprintf(&buff, "%s\n", hdr_line);
-				res = MPI_File_write(fh_out, buff, len, MPI_CHAR, &status);
-				assert(res == MPI_SUCCESS);
-				res = MPI_Get_count(&status, MPI_CHAR, &count);
-				assert(res == MPI_SUCCESS);
-				assert(count == len);
-				free(buff);
-			}
-
-			/* Add read group line */
-			if (rg_line != NULL) {
-				len = asprintf(&buff, "%s\n", rg_line);
-				res = MPI_File_write(fh_out, buff, len, MPI_CHAR, &status);
-				assert(res == MPI_SUCCESS);
-				res = MPI_Get_count(&status, MPI_CHAR, &count);
-				assert(res == MPI_SUCCESS);
-				assert(count == len);
-				free(buff);
-			}
-			res = MPI_File_close(&fh_out);
-			assert(res == MPI_SUCCESS);
-		}
-		bef = MPI_Wtime();
-		res = MPI_Barrier(MPI_COMM_WORLD);
-		assert(res == MPI_SUCCESS);
-		aft = MPI_Wtime();
-		xfprintf(stderr, "%s: synched processes (%.02f)\n", __func__);
 
 		/***************************************************/
 
