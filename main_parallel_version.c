@@ -416,9 +416,24 @@ int main(int argc, char *argv[]) {
 	aft = 0; aft++;
 	bef = 0; bef++;
 
-	xfprintf(stderr, "%s: in trimmed part \n",__func__);
-	/**************************************************************************/
-	/**************************************************************************/
+	/*
+	 * Now each proc load the index and place it in shmem
+	 * location
+	 */
+
+	bef = MPI_Wtime();
+	fd_map = open(file_map, O_RDONLY, 0666);
+	assert(fd_map != -1);
+	assert(fstat(fd_map, &stat_map) != -1);
+	size_map = stat_map.st_size;
+	buffer_map = mmap(NULL, size_map, PROT_READ, MAP_FILE|MAP_PRIVATE, fd_map, 0);
+	assert(buffer_map != MAP_FAILED);
+	bwa_mem2idx(size_map, buffer_map, &indix);
+	if (ignore_alt)
+	    for (c = 0; c < indix.bns->n_seqs; ++c)
+		indix.bns->anns[c].is_alt = 0;
+	aft = MPI_Wtime();
+	xfprintf(stderr, "%s: mmapped indexes (%.02f)\n", __func__, aft - bef);
 
 	/******* Now we split in 2 cases ************/
 
@@ -428,24 +443,6 @@ int main(int argc, char *argv[]) {
 		 * We are in the case the reads are not trimmed
 		 *
 		 */
-		/*
-		 * Now each proc load the index and place it in shmem
-		 * location
-		 */
-
-		bef = MPI_Wtime();
-		fd_map = open(file_map, O_RDONLY, 0666);
-		assert(fd_map != -1);
-		assert(fstat(fd_map, &stat_map) != -1);
-		size_map = stat_map.st_size;
-		buffer_map = mmap(NULL, size_map, PROT_READ, MAP_FILE|MAP_PRIVATE, fd_map, 0);
-		assert(buffer_map != MAP_FAILED);
-		bwa_mem2idx(size_map, buffer_map, &indix);
-		if (ignore_alt)
-			for (c = 0; c < indix.bns->n_seqs; ++c)
-				indix.bns->anns[c].is_alt = 0;
-		aft = MPI_Wtime();
-		xfprintf(stderr, "%s: mmapped indexes (%.02f)\n", __func__, aft - bef);
 
 		/*
 		 * Create SAM header
@@ -797,21 +794,7 @@ int main(int argc, char *argv[]) {
 		}
 
 		fprintf(stderr, "in trimmed part\n");
-		bef = MPI_Wtime();
-		fd_map = open(file_map, O_RDONLY, 0666);
-		assert(fd_map != -1);
-		assert(fstat(fd_map, &stat_map) != -1);
-		size_map = stat_map.st_size;
-		buffer_map = mmap(NULL, size_map, PROT_READ, MAP_FILE|MAP_PRIVATE, fd_map, 0);
-		assert(buffer_map != MAP_FAILED);
-		bwa_mem2idx(size_map, buffer_map, &indix);
-		if (ignore_alt)
-			for (c = 0; c < indix.bns->n_seqs; ++c)
-				indix.bns->anns[c].is_alt = 0;
-		aft = MPI_Wtime();
-		xfprintf(stderr, "%s: mmapped indexes (%.02f)\n", __func__, aft - bef);
 
-		fprintf(stderr, "index mapped\n");
 		/*
 		 * Create SAM header
 		 * TODO: Add line for BWA version
