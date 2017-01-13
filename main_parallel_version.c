@@ -64,7 +64,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
 
-void *init_goff(size_t *goff, MPI_File mpi_filed, size_t fsize,int numproc,int rank){
+void init_goff(size_t *goff, MPI_File mpi_filed, size_t fsize,int numproc,int rank){
 
 
 	char * current_line = NULL;
