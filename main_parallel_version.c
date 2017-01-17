@@ -97,27 +97,26 @@ int main(int argc, char *argv[]) {
 
 	char *file_r1 = NULL, *file_r2 = NULL;
 	struct stat stat_r1, stat_r2;
-	char *buffer_r1, *buffer_r2;
+	char *buffer_r1, *buffer_r2, *a, *addr, *addr_map;
 	int fd_in1, fd_in2;
 
 	char *file_out = NULL;
 	char *buffer_out;
 
 	char *file_ref = NULL;
-	struct stat stat_map;
-	uint8_t *buffer_map;
-	off_t size_map;
-	int fd_map;
 
 	char file_map[PATH_MAX], file_tmp[PATH_MAX];
 
-	int proc_num, rank_num;
+	int proc_num, rank_num, rank_shr;
 	size_t localsize;
 	size_t n = 0;
 
-	MPI_File fh_r1, fh_r2, fh_out, fh_tmp;
-	MPI_Offset *coff;
+	MPI_Aint size_shr;
+	MPI_Comm comm_shr;
+	MPI_File fh_map, fh_r1, fh_r2, fh_out, fh_tmp;
+	MPI_Offset *coff, m, size_map, size_tot;
 	MPI_Status status;
+	MPI_Win win_shr;
 
 	mem_opt_t *opt, opt0;
 	mem_pestat_t pes[4], *pes0 = NULL;
@@ -422,16 +421,38 @@ int main(int argc, char *argv[]) {
 	 */
 
 	bef = MPI_Wtime();
-	fd_map = open(file_map, O_RDONLY, 0666);
-	assert(fd_map != -1);
-	assert(fstat(fd_map, &stat_map) != -1);
-	size_map = stat_map.st_size;
-	buffer_map = mmap(NULL, size_map, PROT_READ, MAP_FILE|MAP_PRIVATE, fd_map, 0);
-	assert(buffer_map != MAP_FAILED);
-	bwa_mem2idx(size_map, buffer_map, &indix);
+	res = MPI_File_open(MPI_COMM_WORLD, file_map, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh_map);
+	assert(res == MPI_SUCCESS);
+	res = MPI_File_get_size(fh_map, &size_map);
+	assert(res == MPI_SUCCESS);
+	res = MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &comm_shr);
+	assert(res == MPI_SUCCESS);
+	res = MPI_Comm_rank(comm_shr, &rank_shr);
+	assert(res == MPI_SUCCESS);
+	size_shr = (rank_shr == 0) ? size_map : 0;
+	res = MPI_Win_allocate_shared(size_shr, 0, MPI_INFO_NULL, comm_shr, &addr, &win_shr);
+	assert(res == MPI_SUCCESS);
+	res = MPI_Win_shared_query(win_shr, MPI_PROC_NULL, &size_shr, &res, &addr_map);
+	assert(res == MPI_SUCCESS);
+
+	m = size_map; a = addr_map; size_tot = 0;
+	while (rank_shr == 0) {
+	    res = MPI_File_read(fh_map, a, m, MPI_BYTE, &status);
+	    assert(res == MPI_SUCCESS);
+	    res = MPI_Get_count(&status, MPI_BYTE, &count);
+	    assert(res == MPI_SUCCESS);
+	    if (count == 0) break;
+	    m -= count; a += count; size_tot += count; }
+	assert(size_tot == 0 || size_tot == size_map);
+	res = MPI_Win_fence(0, win_shr);
+	assert(res == MPI_SUCCESS);
+	bwa_mem2idx(size_map, addr_map, &indix);
 	if (ignore_alt)
 	    for (c = 0; c < indix.bns->n_seqs; ++c)
 		indix.bns->anns[c].is_alt = 0;
+
+	res = MPI_File_close(&fh_map);
+	assert(res == MPI_SUCCESS);
 	aft = MPI_Wtime();
 	xfprintf(stderr, "%s: mmapped indexes (%.02f)\n", __func__, aft - bef);
 
@@ -1583,11 +1604,11 @@ int main(int argc, char *argv[]) {
 		assert(res == MPI_SUCCESS);
 	}
 
-	res = MPI_File_close(&fh_out);
+	res = MPI_Win_free(&win_shr);
 	assert(res == MPI_SUCCESS);
 
-	assert(munmap(buffer_map, size_map) != -1);
-	assert(close(fd_map) != -1);
+	res = MPI_File_close(&fh_out);
+	assert(res == MPI_SUCCESS);
 
 	bef = MPI_Wtime();
 	res = MPI_Finalize();
