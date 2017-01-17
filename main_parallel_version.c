@@ -747,30 +747,8 @@ int main(int argc, char *argv[]) {
 		free(buffer_r1);
 		free(buffer_r2);
 
-		if (file_r2 != NULL) {
-			res = MPI_File_close(&fh_r2);
-			assert(res == MPI_SUCCESS);
-		}
-		if (file_r1 != NULL) {
-			res = MPI_File_close(&fh_r1);
-			assert(res == MPI_SUCCESS);
-		}
-		res = MPI_File_close(&fh_out);
-		assert(res == MPI_SUCCESS);
 		res = MPI_File_close(&fh_tmp);
 		assert(res == MPI_SUCCESS);
-
-		assert(munmap(buffer_map, size_map) != -1);
-		assert(close(fd_map) != -1);
-
-		bef = MPI_Wtime();
-		res = MPI_Finalize();
-		assert(res == MPI_SUCCESS);
-		aft = MPI_Wtime();
-		xfprintf(stderr, "%s: synched processes (%.02f)\n", __func__, aft - bef);
-
-		free(opt);
-
 
 	}//end if if (stat_r1.st_size == stat_r2.st_size)
 	else {
@@ -1591,10 +1569,10 @@ int main(int argc, char *argv[]) {
 		//res = MPI_File_close(&fh_tmp); //closed before
 		//assert(res == MPI_SUCCESS);
 
-		free(opt);
 		fprintf(stderr, "rank %d :::: finish mappings for trimmed reads \n", rank_num);
 	}
 
+	free(opt);
 
 	if (file_r2 != NULL) {
 		res = MPI_File_close(&fh_r2);
