@@ -437,7 +437,7 @@ int main(int argc, char *argv[]) {
 
 	m = size_map; a = addr_map; size_tot = 0;
 	while (rank_shr == 0) {
-	    res = MPI_File_read(fh_map, a, m, MPI_BYTE, &status);
+	    res = MPI_File_read(fh_map, a, INT_MAX/2, MPI_BYTE, &status);
 	    assert(res == MPI_SUCCESS);
 	    res = MPI_Get_count(&status, MPI_BYTE, &count);
 	    assert(res == MPI_SUCCESS);
