@@ -416,8 +416,7 @@ int main(int argc, char *argv[]) {
 	bef = 0; bef++;
 
 	/*
-	 * Now each proc load the index and place it in shmem
-	 * location
+	 * Map reference genome indexes in shared memory (by host)
 	 */
 
 	bef = MPI_Wtime();
@@ -454,7 +453,7 @@ int main(int argc, char *argv[]) {
 	res = MPI_File_close(&fh_map);
 	assert(res == MPI_SUCCESS);
 	aft = MPI_Wtime();
-	xfprintf(stderr, "%s: mmapped indexes (%.02f)\n", __func__, aft - bef);
+	xfprintf(stderr, "%s: mapped indexes (%.02f)\n", __func__, aft - bef);
 
 	/*
 	 * Create SAM header
