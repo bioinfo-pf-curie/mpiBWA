@@ -1615,7 +1615,5 @@ int main(int argc, char *argv[]) {
 	aft = MPI_Wtime();
 	xfprintf(stderr, "%s: synched processes (%.02f)\n", __func__, aft - bef);
 
-	fprintf(stderr, "rank %d :::: exit \n", rank_num);
 	return 0;
-
 }
