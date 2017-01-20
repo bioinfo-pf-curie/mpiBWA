@@ -1,6 +1,11 @@
 Release notes
 ------------
 
+Release 1.0 from 20/01/2017
+
+No need to copy the reference genome in /tmp before the mapping. This is done automatically by MPI. 
+To change the target directory set $TMPDIR to the new location.
+
 Release 1.0 from 07/11/2016
 
 1) Support for trimmed reads. Works with an even number of jobs. Tested with sample data up to 10 jobs.
@@ -34,10 +39,8 @@ All the BWA-MEM options are available in this version, of course according to th
 Known issues:
 -------------
 
-1) Primary hits are reproduced between the serial version and the parallel but you can see differences in mapping position for alternate contigs. 
+Primary hits are reproduced between the serial version and the parallel but you can see differences in mapping position for alternate contigs. 
 This problem stems from the randomization of multi-hits reads. When running with the same number of MPI jobs alternative positions are reproduced but when the number of jobs varies the positions can switch for secondary alignments.
-
-2) The reference genome is an image in binary format of the .fa reference file and its extension is .map (from the hgXX.fa we create a hgXX.fa.map). On some architecture the mmaping of the references .map can be slow. Ordinary the mmaping of the genome last 1 or 2 minutes. To solve this issue before the mapping copy with cp or rsync the reference file .map in the /tmp of each computers nodes before aligning. For instance with the command "mprun -n $NUM_CPU cp $BWA_REF /tmp".
 
 How to integrate further version
 --------------------------------
