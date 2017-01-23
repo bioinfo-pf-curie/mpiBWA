@@ -5,7 +5,7 @@ NGS aligner inspired by BWA
 
 The project was developped by Frederic Jarlier from Institut Curie and Nicolas Joly from Institut Pasteur
 
-Copyright (C) 2016  Institut Curie / Institut Pasteur
+Copyright (C) 2016-2017  Institut Curie / Institut Pasteur
 
 
 

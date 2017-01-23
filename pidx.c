@@ -3,7 +3,7 @@ This file is part of <mpiBWA>
 
 pidx create a reference .map a copy of what's in memory.
 
-Copyright (C) 2016  Institut Curie / Institut Pasteur
+Copyright (C) 2016-2017  Institut Curie / Institut Pasteur
 
 This program is free software: you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the Free
