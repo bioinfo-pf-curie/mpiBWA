@@ -97,8 +97,9 @@ int main(int argc, char *argv[]) {
 
 	char *file_r1 = NULL, *file_r2 = NULL;
 	struct stat stat_r1, stat_r2;
-	char *buffer_r1, *buffer_r2, *a, *addr, *addr_map;
+	char *buffer_r1, *buffer_r2;
 	int fd_in1, fd_in2;
+	uint8_t *a, *addr, *addr_map;
 
 	char *file_out = NULL;
 	char *buffer_out;
@@ -436,9 +437,9 @@ int main(int argc, char *argv[]) {
 
 	m = size_map; a = addr_map; size_tot = 0;
 	while (rank_shr == 0) {
-	    res = MPI_File_read(fh_map, a, INT_MAX/2, MPI_BYTE, &status);
+	    res = MPI_File_read(fh_map, a, INT_MAX/2, MPI_UINT8_T, &status);
 	    assert(res == MPI_SUCCESS);
-	    res = MPI_Get_count(&status, MPI_BYTE, &count);
+	    res = MPI_Get_count(&status, MPI_UINT8_T, &count);
 	    assert(res == MPI_SUCCESS);
 	    if (count == 0) break;
 	    m -= count; a += count; size_tot += count; }
