@@ -129,6 +129,13 @@ or launch the jobs with mpirun
 
 mpirun -n $TOTAL_PROC $pBWA_BIN_DIR/pbwa7 mem -t 1 -o $FILE_TO_WRITE $BWA_REF_TMP $FILE_TO_ALIGN_R1 $FILE_TO_ALIGN_R2
 
+Results
+-------
+
+Here results wo obtain from test realized with TGCC (Très Grand Centre de Calcul - Bruyères le Chatel - France).
+
+![img](Results_TGCC_Broadwell.jpg)
+
 Remarks
 -------
 
