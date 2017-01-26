@@ -24,9 +24,6 @@
 
 #define _GNU_SOURCE
 
-#include <sys/mman.h>
-#include <sys/stat.h>
-
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
@@ -70,7 +67,6 @@ int main(int argc, char *argv[]) {
 	double bef, aft;
 
 	char *file_r1 = NULL, *file_r2 = NULL;
-	struct stat stat_r1, stat_r2;
 	char *buffer_r1, *buffer_r2;
 	int fd_tmp;
 	uint8_t *a, *addr, *addr_map;
@@ -349,6 +345,14 @@ int main(int argc, char *argv[]) {
 		opt->flag |= MEM_F_PE;
 	}
 
+	/* Check that output file (-o) is not null ... */
+	if (file_out == NULL) {
+		fprintf(stderr, "missing mandatory output file (-o)\n");
+		res = MPI_Finalize();
+		assert(res == MPI_SUCCESS);
+		exit(2);
+	}
+
 	/* Derived file names */
 	sprintf(file_map, "%s.map", file_ref);
 	sprintf(file_tmp, "%s.tmp", file_out);
@@ -361,34 +365,6 @@ int main(int argc, char *argv[]) {
 	res = MPI_Comm_rank(MPI_COMM_WORLD, &rank_num);
 	assert(res == MPI_SUCCESS);
 
-	/* Check that output file (-o) is not null ... */
-	if (file_out == NULL) {
-		fprintf(stderr, "missing mandatory output file (-o)\n");
-		res = MPI_Finalize();
-		assert(res == MPI_SUCCESS);
-		exit(2);
-	}
-
-	/* Check R1 & R2 file sizes */
-	if (file_r1 != NULL && stat(file_r1, &stat_r1) == -1) {
-		fprintf(stderr, "%s: %s\n", file_r1, strerror(errno));
-		res = MPI_Finalize();
-		assert(res == MPI_SUCCESS);
-		exit(2);
-	}
-	if (file_r2 != NULL && stat(file_r2, &stat_r2) == -1) {
-		fprintf(stderr, "%s: %s\n", file_r2, strerror(errno));
-		res = MPI_Finalize();
-		assert(res == MPI_SUCCESS);
-		exit(2);
-	}
-	if (file_r2 != NULL && stat_r1.st_size != stat_r2.st_size) {
-		fprintf(stderr, "file sizes for R1 and R2 do not match\n");
-		//res = MPI_Finalize();
-		//assert(res == MPI_SUCCESS);
-		//exit(2);
-	}
-
 	/* Work around build warning in non timing case */
 	aft = 0; aft++;
 	bef = 0; bef++;
@@ -396,7 +372,6 @@ int main(int argc, char *argv[]) {
 	/*
 	 * Map reference genome indexes in shared memory (by host)
 	 */
-
 	bef = MPI_Wtime();
 	res = MPI_File_open(MPI_COMM_WORLD, file_map, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh_map);
 	assert(res == MPI_SUCCESS);
@@ -484,7 +459,7 @@ int main(int argc, char *argv[]) {
 	aft = MPI_Wtime();
 	xfprintf(stderr, "%s: synched processes (%.02f)\n", __func__, aft - bef);
 
-	/* Open input+output files */
+	/* Open input files */
 	if (file_r1 != NULL) {
 		res = MPI_File_open(MPI_COMM_WORLD, file_r1, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh_r1);
 		assert(res == MPI_SUCCESS);
@@ -493,9 +468,12 @@ int main(int argc, char *argv[]) {
 		res = MPI_File_open(MPI_COMM_WORLD, file_r2, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh_r2);
 		assert(res == MPI_SUCCESS);
 	}
+
+	/* Open output file */
 	res = MPI_File_open(MPI_COMM_WORLD, file_out, MPI_MODE_WRONLY|MPI_MODE_APPEND, MPI_INFO_NULL, &fh_out);
 	assert(res == MPI_SUCCESS);
-	/* Open temporary shared offset file */
+
+	/* Open temporary offset file */
 	fd_tmp = open(file_tmp, O_RDWR|O_CREAT|O_TRUNC, 0666);
 	assert(fd_tmp != -1);
 
