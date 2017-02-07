@@ -486,7 +486,7 @@ int main(int argc, char *argv[]) {
 	uint64_t bases = opt->chunk_size * opt->n_threads;
 	while (1) {
 		char *x, *b1, *b2;
-		size_t csiz = sizeof(curr) * 2;
+		size_t csiz = sizeof(curr);
 		ssize_t ssiz, size_r1, size_r2;
 		int count_r1, count_r2, full_r1, full_r2, line_r1, line_r2, line_number;
 		uint64_t seqs_r1, seqs_r2, base_r1, base_r2;
