@@ -558,16 +558,16 @@ again:
 		lck.l_type = F_UNLCK;
 		assert(fcntl(fd_tmp, F_SETLK, &lck) != -1);
 
-		/* Allocate sequence structure */
-		assert(line_r1 % 4 == 0); assert(line_r2 % 4 == 0);
-		seqs_r1 = line_r1 / 4; seqs_r2 = line_r2 / 4;
-		seqs = realloc(seqs, (seqs_r1 + seqs_r2) * sizeof(*seqs));
-		assert(seqs != NULL);
-
 		/* Stop if nothing to process */
 		if (size_r1 + size_r2 == 0) break;
 		if ((file_r1 != NULL && size_r1 == 0) || (file_r2 != NULL && size_r2 == 0))
 			fprintf(stderr, "[M::%s] sequences count differ between R1 and R2\n", __func__);
+
+		/* Allocate sequence structure */
+		assert(line_r1 % 4 == 0); assert(line_r2 % 4 == 0);
+		seqs_r1 = line_r1 / 4; seqs_r2 = line_r2 / 4;
+		seqs = malloc((seqs_r1 + seqs_r2) * sizeof(*seqs));
+		assert(seqs != NULL);
 
 		/* Parse sequences ... */
 		bef = MPI_Wtime();
@@ -661,6 +661,9 @@ again:
 		free(buffer_out);
 		aft = MPI_Wtime();
 		xfprintf(stderr, "%s: wrote results (%.02f)\n", __func__, aft - bef);
+
+		/* Free sequence structure */
+		free(seqs);
 
 		/* Reset input buffer to default size */
 		rlen_r1 = rlen_r2 = 0;
