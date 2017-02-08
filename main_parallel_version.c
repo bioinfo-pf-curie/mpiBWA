@@ -669,6 +669,9 @@ again:
 		rlen_r1 = rlen_r2 = 0;
 	}
 
+	res = MPI_Barrier(MPI_COMM_WORLD);
+	assert(res == MPI_SUCCESS);
+
 	(void)unlink(file_tmp);
 	res = close(fd_tmp);
 	assert(res != -1);
