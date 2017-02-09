@@ -502,7 +502,7 @@ int main(int argc, char *argv[]) {
 again:
 		if (file_r1 != NULL) {
 			/* Read some sequences */
-			rlen_r1 += READSIZE;
+			rlen_r1 += READSIZE / files;
 			buffer_r1 = realloc(buffer_r1, rlen_r1);
 			assert(buffer_r1 != NULL);
 			res = MPI_File_read_at(fh_r1, curr[0], buffer_r1, rlen_r1, MPI_CHAR, &status);
@@ -513,7 +513,7 @@ again:
 		}
 		if (file_r2 != NULL) {
 			/* Read some sequences */
-			rlen_r2 += READSIZE;
+			rlen_r2 += READSIZE / files;
 			buffer_r2 = realloc(buffer_r2, rlen_r2);
 			assert(buffer_r2 != NULL);
 			res = MPI_File_read_at(fh_r2, curr[1], buffer_r2, rlen_r2, MPI_CHAR, &status);
