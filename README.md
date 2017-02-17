@@ -106,15 +106,13 @@ mpirun -n 2  pbwa7 mem -t 10...
 
 And so on.
 
-Start alignment
----------------
+Alignment with a scheduler
+------------
 
 Example of bash to run the pbwa7 on Torque scheduler
 
 SPLITTED_READS_DIR=../WholeGenomeSampleReads
-
 MAIL="mymail@toto.fr"
-
 PBS_OUTPUT=../OUTPUT
 PBS_ERROR=../ERROR
 pBWA_BIN_DIR=../mpiBWA
@@ -170,7 +168,7 @@ Future work:
 References:
 ---------
 
-This work is based on the original bwa aligner (in its maximum exact matching version) and written by Li et al.
+This work is based on the original bwa aligner written by Li et al.
 
 Li H. and Durbin R. (2010) Fast and accurate long-read alignment with Burrows-Wheeler transform. Bioinformatics, 26, 589-595. [PMID: 20080505] 
 
