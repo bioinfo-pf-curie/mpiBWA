@@ -87,47 +87,58 @@ To do that: pidx my_ref.fa (where my_ref.fa has been build with BWA).
 Pidx build a reference with the extension .map (my_ref.fa.map). 
 This reference will be mapped in share memory.
 
-If you want to speed-up the mapping of the reference in shared memory you can copy the reference in /tmp of each servers before launching the alignment. 
+The pidx needs the following files my_ref.fa.sa, my_ref.fa.bwt, my_ref.fa.ann, my_ref.fa.pac, my_ref.fa.amb to construct the fa.map.
+ Those files are generated with bwa index. It works also with the fasta.
+
+How to manage the multithreading
+----------------
+
+You have the option to use the multithreading options. 
+To do that you fix the number of nodes with mpirun and then the number of threads per nodes with the -t.
+
+Examples:
+
+1 server with 8 threads per server:
+mpirun -n 1  pbwa7 mem -t 8... 
+
+2 servers with 10 threads per servers
+mpirun -n 2  pbwa7 mem -t 10... 
+
+And so on.
 
 Start alignment
 ---------------
 
 Example of bash to run the pbwa7 on Torque scheduler
 
-SPLITTED_READS_DIR=/data/tmp/WholeGenomeTestSplittedReads
+SPLITTED_READS_DIR=../WholeGenomeSampleReads
 
 MAIL="mymail@toto.fr"
 
-PBS_OUTPUT=/data/Test/OUTPUT
-
-PBS_ERROR=/data/Test/ERROR
-
-pBWA_BIN_DIR=/data/Test/mpiBWA
-
-BWA_REF_TMP=/data/tmp/fjarlier/BWA_reference_idx/hg19.fasta
-
+PBS_OUTPUT=../OUTPUT
+PBS_ERROR=../ERROR
+pBWA_BIN_DIR=../mpiBWA
+BWA_REF_TMP=../hg19.fasta
 SAMPLENAME="MPIBWA"
-
-FILE_TO_ALIGN_R1=/data/HCC1187C/HCC1187C_R1_10X.fastq
-
-FILE_TO_ALIGN_R2=/data/HCC1187C/HCC1187C_R2_10X.fastq
-
+FILE_TO_ALIGN_R1=../myread_forward.fastq
+FILE_TO_ALIGN_R2=../myread_backward.fastq
 TOTAL_PROC=600
+OUTPUT_DIR=../RESULTS/
+FILE_TO_WRITE=../RESULTS/test.sam
 
-OUTPUT_DIR=/data/Test/RESULTS/
-
-FILE_TO_WRITE=/data/Test/RESULTS/test.sam
-
-Only for Lustre usage tell the striping of the results
-lfs setstripe -c -1 -s 3g $OUTPUT_DIR 
-
-launch the jobs with torque and one job per core (-t 1)
-
+//launch the jobs with torque and one job per core (-t 1)
 echo " mpirun -n $TOTAL_PROC $pBWA_BIN_DIR/pbwa7 mem -t 1 -o $FILE_TO_WRITE $BWA_REF_TMP $FILE_TO_ALIGN_R1 $FILE_TO_ALIGN_R2" | qsub -o $PBS_OUTPUT -e $PBS_ERROR -N ${SAMPLENAME} -q batch  -l nodes=40:ppn=15
 
 or launch the jobs with mpirun
 
 mpirun -n $TOTAL_PROC $pBWA_BIN_DIR/pbwa7 mem -t 1 -o $FILE_TO_WRITE $BWA_REF_TMP $FILE_TO_ALIGN_R1 $FILE_TO_ALIGN_R2
+
+Results
+-------
+
+Here results wo obtain from test realized with TGCC (Très Grand Centre de Calcul - Bruyères le Chatel - France).
+
+![img](Results_TGCC_Broadwell.jpg)
 
 Remarks
 -------
@@ -143,10 +154,33 @@ For speed purpose reading commands (particularly MPI commands) are aligned on th
 
 Notes: The striping (like with Hadoop) is the way your data is distributed among servers. This technic accelerates access files and meta file information.
 
+4) Make sure you have the same version of MPI for compiling and running.
+
+5) From our experiences some scheduler do not interpret shared memory and jobs ends up stuck for overloading memory.
+In this case take 6gb per job. This is approximately the total reference plus the chunk size.
+
+
+Future work:
+----------
+
+1) Manage the randomization of alternate contigs. To mimic original algorithm.
+
+2) Manage the insert size statistics between jobs.
+
+References:
+---------
+
+This work is based on the original bwa aligner (in its maximum exact matching version) and written by Li et al.
+
+Li H. and Durbin R. (2010) Fast and accurate long-read alignment with Burrows-Wheeler transform. Bioinformatics, 26, 589-595. [PMID: 20080505] 
+
+Li H. (2013) Aligning sequence reads, clone sequences and assembly contigs with BWA-MEM. arXiv:1303.3997v1 [q-bio.GN]
+
+
 Authors
 -------
 
-This program has been developed by 
+The program has been developed by 
 
 Frederic Jarlier from Institut Curie and 
 Nicolas Joly from Institut Pasteur
