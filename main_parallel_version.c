@@ -60,7 +60,7 @@
 #endif
 
 /* Default read size */
-#define READSIZE (50UL * 1024 * 1024)
+#define READSIZE (10UL * 1024 * 1024)
 
 
 int main(int argc, char *argv[]) {
@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
 	char *buffer_r1, *buffer_r2;
 	int fd_tmp;
 	uint8_t *a, *addr, *addr_map;
-	size_t rlen_r1, rlen_r2;
+	size_t rlen_r1, rlen_r2, rlen;
 
 	char *file_out = NULL;
 	char *buffer_out;
@@ -477,11 +477,10 @@ int main(int argc, char *argv[]) {
 	fd_tmp = open(file_tmp, O_RDWR|O_CREAT|O_TRUNC, 0666);
 	assert(fd_tmp != -1);
 
-
 	/* Process chunks */
 	lck.l_start = lck.l_len = 0; lck.l_whence = SEEK_SET;
 	curr[0] = curr[1] = 0;
-	rlen_r1 = rlen_r2 = 0;
+	rlen_r1 = rlen_r2 = READSIZE * opt->n_threads;
 	buffer_r1 = buffer_r2 = NULL; seqs = NULL;
 	uint64_t bases = opt->chunk_size * opt->n_threads;
 	while (1) {
@@ -502,7 +501,6 @@ int main(int argc, char *argv[]) {
 again:
 		if (file_r1 != NULL) {
 			/* Read some sequences */
-			rlen_r1 += READSIZE / files * opt->n_threads;
 			buffer_r1 = realloc(buffer_r1, rlen_r1);
 			assert(buffer_r1 != NULL);
 			res = MPI_File_read_at(fh_r1, curr[0], buffer_r1, rlen_r1, MPI_CHAR, &status);
@@ -513,7 +511,6 @@ again:
 		}
 		if (file_r2 != NULL) {
 			/* Read some sequences */
-			rlen_r2 += READSIZE / files * opt->n_threads;
 			buffer_r2 = realloc(buffer_r2, rlen_r2);
 			assert(buffer_r2 != NULL);
 			res = MPI_File_read_at(fh_r2, curr[1], buffer_r2, rlen_r2, MPI_CHAR, &status);
@@ -547,12 +544,16 @@ again:
 		}
 		full_r1 = (file_r1 != NULL) ? count_r1 == rlen_r1 : 0;
 		full_r2 = (file_r2 != NULL) ? count_r2 == rlen_r2 : 0;
-		if ((full_r1 || full_r2) && base_r1 + base_r2 < bases) goto again;
+		if ((full_r1 || full_r2) && base_r1 + base_r2 < bases) {
+			fprintf(stderr, "[M::%s] Read buffer too small, increasing\n", __func__);
+			rlen_r1 += READSIZE * opt->n_threads;
+			rlen_r2 += READSIZE * opt->n_threads;
+			goto again; }
 		size_r1 = b1 - buffer_r1; size_r2 = b2 - buffer_r2;
 		assert(size_r1 <= rlen_r1); assert(size_r2 <= rlen_r2);
-		curr[0] += size_r1; curr[1] += size_r2;
 
 		/* Unlock offset file, and set next offset values */
+		curr[0] += size_r1; curr[1] += size_r2;
 		ssiz = pwrite(fd_tmp, curr, csiz, 0);
 		assert(ssiz == csiz);
 		lck.l_type = F_UNLCK;
@@ -664,9 +665,6 @@ again:
 
 		/* Free sequence structure */
 		free(seqs);
-
-		/* Reset input buffer to default size */
-		rlen_r1 = rlen_r2 = 0;
 	}
 
 	res = MPI_Barrier(MPI_COMM_WORLD);
