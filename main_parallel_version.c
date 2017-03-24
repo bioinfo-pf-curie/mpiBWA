@@ -545,7 +545,6 @@ again:
 		full_r1 = (file_r1 != NULL) ? count_r1 == rlen_r1 : 0;
 		full_r2 = (file_r2 != NULL) ? count_r2 == rlen_r2 : 0;
 		if ((full_r1 || full_r2) && base_r1 + base_r2 < bases) {
-			fprintf(stderr, "[M::%s] Read buffer too small, increasing\n", __func__);
 			rlen_r1 += READSIZE * opt->n_threads;
 			rlen_r2 += READSIZE * opt->n_threads;
 			goto again; }
