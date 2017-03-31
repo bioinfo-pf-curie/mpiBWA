@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
 	char *buffer_r1, *buffer_r2;
 	int fd_tmp;
 	uint8_t *a, *addr, *addr_map;
-	size_t rlen_r1, rlen_r2, rlen;
+	size_t rlen_r1, rlen_r2;
 
 	char *file_out = NULL;
 	char *buffer_out;
