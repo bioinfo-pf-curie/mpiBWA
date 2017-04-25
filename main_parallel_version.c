@@ -53,7 +53,7 @@
 #define MPI_OFFSET MPI_LONG_LONG
 #endif
 
-#ifdef TIMIMG
+#ifdef TIMING
 #define xfprintf fprintf
 #else
 #define xfprintf(...) /**/
