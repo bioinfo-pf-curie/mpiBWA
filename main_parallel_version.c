@@ -416,9 +416,9 @@ int main(int argc, char *argv[]) {
 		int s, len;
 		char *buff;
 
-		res = MPI_File_delete(file_out, MPI_INFO_NULL);
-		assert(res == MPI_SUCCESS || res == MPI_ERR_NO_SUCH_FILE || res == MPI_ERR_IO);
 		res = MPI_File_open(MPI_COMM_SELF, file_out, MPI_MODE_CREATE|MPI_MODE_WRONLY, MPI_INFO_NULL, &fh_out);
+		assert(res == MPI_SUCCESS);
+		res = MPI_File_set_size(fh_out, 0);
 		assert(res == MPI_SUCCESS);
 		/* Add reference sequence lines */
 		for (s = 0; s < indix.bns->n_seqs; ++s) {
