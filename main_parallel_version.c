@@ -498,6 +498,7 @@ int main(int argc, char *argv[]) {
 		assert(ssiz == csiz || ssiz == 0);
 
 		/* Read current chunk data to be processed ... */
+		bef = MPI_Wtime();
 again:
 		if (file_r1 != NULL) {
 			/* Read some sequences */
@@ -550,6 +551,8 @@ again:
 			goto again; }
 		size_r1 = b1 - buffer_r1; size_r2 = b2 - buffer_r2;
 		assert(size_r1 <= rlen_r1); assert(size_r2 <= rlen_r2);
+		aft = MPI_Wtime();
+		xfprintf(stderr, "%s: read+count bases (%.02f)\n", __func__, aft - bef);
 
 		/* Unlock offset file, and set next offset values */
 		curr[0] += size_r1; curr[1] += size_r2;
