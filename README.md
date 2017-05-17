@@ -1,6 +1,15 @@
 Release notes
 ------------
 
+Release 1.0 from 17/05/2017
+
+To enhance reproducibility and accuracy we have implemented a new method for read's chunk evaluation. 
+The reads chunk sizes are now identical compare to serial BWA-MEM for both trimmed reads or not.
+
+But the algorithm suffers from scalability. The algorithm scales up to 300 cpu (test on Cobalt TGCC) with same speed up than previous version. 
+Above that number we encounter lock contention. We are working on a solution now. 
+Go back to february 2017 version for more scalability. 
+ 
 Release 1.0 from 20/01/2017
 
 No need to copy the reference genome in /tmp before the mapping. This is done automatically by MPI. 

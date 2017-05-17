@@ -1,6 +1,15 @@
 Release notes
 ------------
 
+Release 1.0 from 17/05/2017
+
+To enhance reproducibility and accuracy we have implemented a new method for read's chunk evaluation. 
+The reads chunk sizes are now identical compare to serial BWA-MEM for both trimmed reads or not.
+
+But the algorithm suffers from scalability. The algorithm scales up to 300 cpu (test on Cobalt TGCC) with same speed up than previous version. 
+Above that number we encounter lock contention. We are working on a solution now. 
+Go back to february 2017 version for more scalability. 
+ 
 Release 1.0 from 20/01/2017
 
 No need to copy the reference genome in /tmp before the mapping. This is done automatically by MPI. 
@@ -106,15 +115,13 @@ mpirun -n 2  pbwa7 mem -t 10...
 
 And so on.
 
-Start alignment
----------------
+Alignment with a scheduler
+------------
 
 Example of bash to run the pbwa7 on Torque scheduler
 
 SPLITTED_READS_DIR=../WholeGenomeSampleReads
-
 MAIL="mymail@toto.fr"
-
 PBS_OUTPUT=../OUTPUT
 PBS_ERROR=../ERROR
 pBWA_BIN_DIR=../mpiBWA
@@ -170,7 +177,7 @@ Future work:
 References:
 ---------
 
-This work is based on the original bwa aligner (in its maximum exact matching version) and written by Li et al.
+This work is based on the original bwa aligner written by Li et al.
 
 Li H. and Durbin R. (2010) Fast and accurate long-read alignment with Burrows-Wheeler transform. Bioinformatics, 26, 589-595. [PMID: 20080505] 
 
