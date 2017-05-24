@@ -59,9 +59,105 @@
 #define xfprintf(...) /**/
 #endif
 
+
+
 /* Default read size */
 #define READSIZE (10UL * 1024 * 1024)
 
+
+/*
+ *
+ * 					FIRST IMPLEMENTATION FOR RMA LOCK (24/05/2017)
+ * 					IMPLEMENTATION OF A MCS LOCK
+ *
+ */
+
+static int64_t lock_rank;
+static MPI_Win win;
+static int64_t *lmem;
+enum { nextRank = 0, blocked = 1, lockTail = 2 };
+
+void MCSLockInit()
+{
+
+	MPI_Aint winsize;
+	int temp_rank;
+	MPI_Comm comm = MPI_COMM_WORLD;
+	MPI_Comm_rank(comm, &temp_rank);
+	lock_rank = (int64_t) temp_rank;
+
+	winsize = 3 * sizeof(int64_t);
+	MPI_Win_allocate(winsize, sizeof(int64_t), MPI_INFO_NULL, comm, &lmem, &win);
+
+	lmem[nextRank] = -1;
+	lmem[blocked] = 0;
+	lmem[lockTail] = -1;
+
+	MPI_Win_fence(0, win);
+	MPI_Win_lock_all(0, win);
+
+	fprintf(stderr, "rank %zu finish initialization \n", lock_rank );
+	fflush(stderr);
+}
+
+void MCSLockAcquire(){
+
+	int64_t predecessor;
+	lmem[blocked] = 1;
+	lmem[nextRank] = -1;
+
+	/* Add yourself to end of queue */
+	MPI_Fetch_and_op(&lock_rank, &predecessor, MPI_INT64_T, 0, lockTail, MPI_REPLACE, win);
+	MPI_Win_flush(0, win);
+
+	if(predecessor != -1){
+		//fprintf(stderr, "rank %zu predecessor is %zu\n", rank, predecessor);
+		//fflush(stderr);
+	    /* We didn't get lock. Add us as next at predecessor. */
+	    MPI_Accumulate(&lock_rank, 1, MPI_INT64_T, predecessor, nextRank, 1, MPI_INT64_T, MPI_REPLACE, win);
+		MPI_Win_flush((int)predecessor, win);
+		/* Now spin on our local value "blocked" until we are given the lock. */
+	    do {
+	    	MPI_Win_sync(win);
+	    } while (lmem[blocked] == 1);
+	}
+}
+
+void MCSLockRelease(){
+
+	int64_t nullrank = -1, zero = 0, curtail;
+
+	if (lmem[nextRank] == -1){
+		/* See if we're waiting for the next to notify us */
+		MPI_Compare_and_swap(&nullrank, &lock_rank, &curtail, MPI_INT64_T, 0, lockTail, win);
+		MPI_Win_flush(0, win);
+
+		//fprintf(stderr, "rank %zu after flush, curtail: %zu\n", rank, curtail);
+		//fflush(stderr);
+		if(curtail == lock_rank){
+			/* We are the only process in the list */
+			return;
+		}
+
+		/* Otherwise, someone else has added themselves to the list. */
+		do {
+			MPI_Win_sync(win);
+			} while (lmem[nextRank] == -1);
+	}
+	/* Now we can notify them. */
+	fprintf(stderr, "rank %zu release to successor : %zu\n", lock_rank, lmem[nextRank]);
+	fflush(stderr);
+	MPI_Accumulate(&zero, 1, MPI_INT64_T, (int) lmem[nextRank], blocked, 1, MPI_INT64_T, MPI_REPLACE, win);
+	MPI_Win_flush((int)lmem[nextRank], win);
+	//MPI_Win_sync(win);
+}
+
+/* Free window for MCS-queue */
+void HMCSLockFinalize(){
+
+	MPI_Win_unlock_all(win);
+	MPI_Win_free(&win);
+}
 
 int main(int argc, char *argv[]) {
 	double bef, aft;
@@ -78,7 +174,14 @@ int main(int argc, char *argv[]) {
 	char *file_ref = NULL;
 
 	char file_map[PATH_MAX], file_tmp[PATH_MAX];
-
+	char processor_name[MPI_MAX_PROCESSOR_NAME];
+	off_t val_succ1;
+	off_t val_succ2;
+	int successor = 0;
+	int name_len;
+	off_t val1 = 0;
+	off_t val2 = 0;
+	int zero = 0;
 	off_t curr[2];
 	struct flock lck;
 
@@ -92,7 +195,7 @@ int main(int argc, char *argv[]) {
 	MPI_Offset m, size_map, size_tot;
 	MPI_Status status;
 	MPI_Win win_shr;
-
+	MPI_Win win_offset;
 	mem_opt_t *opt, opt0;
 	mem_pestat_t pes[4], *pes0 = NULL;
 	bwaidx_t indix;
@@ -369,6 +472,7 @@ int main(int argc, char *argv[]) {
 	aft = 0; aft++;
 	bef = 0; bef++;
 
+	MPI_Get_processor_name(processor_name, &name_len);
 	/*
 	 * Map reference genome indexes in shared memory (by host)
 	 */
@@ -479,11 +583,26 @@ int main(int argc, char *argv[]) {
 
 	/* Process chunks */
 	lck.l_start = lck.l_len = 0; lck.l_whence = SEEK_SET;
-	curr[0] = curr[1] = 0;
+
 	rlen_r1 = rlen_r2 = READSIZE * opt->n_threads;
 	buffer_r1 = buffer_r2 = NULL; seqs = NULL;
 	uint64_t bases = opt->chunk_size * opt->n_threads;
+	curr[0] = curr[1] = 0;
+
+	/*
+	 * MPI_Lock_Init
+	 */
+
+	MCSLockInit();
+
+	res = MPI_Barrier(MPI_COMM_WORLD);
+	assert(res == MPI_SUCCESS);
+
 	while (1) {
+
+		MCSLockAcquire();
+		fprintf(stderr,"I have the lock: (rank %d, cpu_name: %s)\n", rank_num, processor_name);
+		bef = MPI_Wtime();
 		char *x, *b1, *b2;
 		size_t csiz = sizeof(curr);
 		ssize_t ssiz, size_r1, size_r2;
@@ -492,10 +611,13 @@ int main(int argc, char *argv[]) {
 		ptrdiff_t diff_r1, diff_r2;
 
 		/* Lock offset file and get current offset values */
-		lck.l_type = F_WRLCK;
-		assert(fcntl(fd_tmp, F_SETLKW, &lck) != -1);
+		//lck.l_type = F_WRLCK;
+		//assert(fcntl(fd_tmp, F_SETLKW, &lck) != -1);
 		ssiz = pread(fd_tmp, curr, csiz, 0);
 		assert(ssiz == csiz || ssiz == 0);
+
+		bef = MPI_Wtime();
+		fprintf(stderr, "Rank %d :::: MCSLock acquired curr[0] = %zu ::: curr[1] = %zu \n", rank_num, curr[0], curr[1]);
 
 		/* Read current chunk data to be processed ... */
 again:
@@ -520,15 +642,21 @@ again:
 			assert(count_r2 == 0 || *buffer_r2 == '@');
 		}
 
+		fprintf(stderr, "Rank %d :::: After reading chunk \n", rank_num);
 		/* Check for expected base count */
 		b1 = buffer_r1; size_r1 = count_r1; line_r1 = 0; base_r1 = 0;
 		b2 = buffer_r2; size_r2 = count_r2; line_r2 = 0; base_r2 = 0;
-		while (1) {
+		while (1) {off_t val1 = 0;
+		off_t val2 = 0;
+		int zero = 0;
 			if (file_r1 != NULL) {
 				x = memchr(b1, '\n', size_r1);
 				if (x == NULL) break;
-				diff_r1 = x - b1 + 1; b1 = x + 1;
-				line_r1++; size_r1 -= diff_r1;
+				diff_r1 = x - b1 + 1;
+				b1 = x + 1;
+				line_r1++;
+				size_r1 -= diff_r1;
+
 				if (line_r1 % 4 == 0) {
 					base_r1 += (uint64_t)diff_r1 - 1; }
 			}
@@ -547,6 +675,7 @@ again:
 		if ((full_r1 || full_r2) && base_r1 + base_r2 < bases) {
 			rlen_r1 += READSIZE * opt->n_threads;
 			rlen_r2 += READSIZE * opt->n_threads;
+			fprintf(stderr, "Rank %d :::: call goto \n", rank_num);
 			goto again; }
 		size_r1 = b1 - buffer_r1; size_r2 = b2 - buffer_r2;
 		assert(size_r1 <= rlen_r1); assert(size_r2 <= rlen_r2);
@@ -555,8 +684,11 @@ again:
 		curr[0] += size_r1; curr[1] += size_r2;
 		ssiz = pwrite(fd_tmp, curr, csiz, 0);
 		assert(ssiz == csiz);
-		lck.l_type = F_UNLCK;
-		assert(fcntl(fd_tmp, F_SETLK, &lck) != -1);
+
+		aft = MPI_Wtime();
+		fprintf(stderr, "rank %d: time to parse data chunk (%.02f)\n", rank_num, aft - bef);
+		MCSLockRelease();
+		fprintf(stderr,"rank %d We release the lock \n", rank_num);
 
 		/* Stop if nothing to process */
 		if (size_r1 + size_r2 == 0) break;
@@ -666,12 +798,16 @@ again:
 		free(seqs);
 	}
 
+
 	res = MPI_Barrier(MPI_COMM_WORLD);
 	assert(res == MPI_SUCCESS);
+
+	HMCSLockFinalize();
 
 	(void)unlink(file_tmp);
 	res = close(fd_tmp);
 	assert(res != -1);
+
 	res = MPI_File_close(&fh_out);
 	assert(res == MPI_SUCCESS);
 	if (file_r2 != NULL) {
@@ -685,6 +821,8 @@ again:
 
 	free(opt);
 
+	//MPI_Free_mem(curr);
+
 	res = MPI_Win_free(&win_shr);
 	assert(res == MPI_SUCCESS);
 
@@ -696,3 +834,4 @@ again:
 
 	return 0;
 }
+
