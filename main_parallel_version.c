@@ -627,9 +627,9 @@ int main(int argc, char *argv[]) {
 		int s, len;
 		char *buff;
 
-		res = MPI_File_delete(file_out, MPI_INFO_NULL);
-		assert(res == MPI_SUCCESS || res == MPI_ERR_NO_SUCH_FILE || res == MPI_ERR_IO);
 		res = MPI_File_open(MPI_COMM_SELF, file_out, MPI_MODE_CREATE|MPI_MODE_WRONLY, MPI_INFO_NULL, &fh_out);
+		assert(res == MPI_SUCCESS);
+		res = MPI_File_set_size(fh_out, 0);
 		assert(res == MPI_SUCCESS);
 		/* Add reference sequence lines */
 		for (s = 0; s < indix.bns->n_seqs; ++s) {
@@ -727,6 +727,7 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "Rank %d :::: MCSLock acquired curr[0] = %zu ::: curr[1] = %zu \n", rank_num, curr[0], curr[1]);
 
 		/* Read current chunk data to be processed ... */
+		bef = MPI_Wtime();
 again:
 		if (file_r1 != NULL) {
 			/* Read some sequences */
@@ -786,6 +787,8 @@ again:
 			goto again; }
 		size_r1 = b1 - buffer_r1; size_r2 = b2 - buffer_r2;
 		assert(size_r1 <= rlen_r1); assert(size_r2 <= rlen_r2);
+		aft = MPI_Wtime();
+		xfprintf(stderr, "%s: read+count bases (%.02f)\n", __func__, aft - bef);
 
 		/* Unlock offset file, and set next offset values */
 		curr[0] += size_r1; curr[1] += size_r2;
