@@ -64,99 +64,204 @@
 /* Default read size */
 #define READSIZE (10UL * 1024 * 1024)
 
+#define MAGIC_UNLOCK_TAG 0xBEEF
 
-/*
- *
- * 					FIRST IMPLEMENTATION FOR RMA LOCK (24/05/2017)
- * 					IMPLEMENTATION OF A MCS LOCK
- *
- */
+#define MPI_ASSERT(fx) do { \
+  assert(fx == MPI_SUCCESS); \
+} while(0)
 
-static int64_t lock_rank;
-static MPI_Win win;
-static int64_t *lmem;
-enum { nextRank = 0, blocked = 1, lockTail = 2 };
-
-void MCSLockInit()
+typedef struct rma_mutex
 {
+  int owner, rank, size;
+  char *req, *req_slice_buffer;
+  MPI_Win win;
+  MPI_Comm comm;
+  MPI_Datatype req_slice_type;
+} rma_mutex_t;
 
-	MPI_Aint winsize;
-	int temp_rank;
-	MPI_Comm comm = MPI_COMM_WORLD;
-	MPI_Comm_rank(comm, &temp_rank);
-	lock_rank = (int64_t) temp_rank;
 
-	winsize = 3 * sizeof(int64_t);
-	MPI_Win_allocate(winsize, sizeof(int64_t), MPI_INFO_NULL, comm, &lmem, &win);
+/**
+ * Non-public: Create the MPI derived type corresponding to the req array on
+ * the owner rank, minus the element mapped to the origin rank (this is written
+ * to the `req_slice_type` member of partially constructed mutex `new`).
+ */
+static void create_req_buffer_type(rma_mutex_t *new)
+{
+  int ret, nblock, *len, *dsp;
 
-	lmem[nextRank] = -1;
-	lmem[blocked] = 0;
-	lmem[lockTail] = -1;
+  new->req_slice_type = MPI_DATATYPE_NULL;
 
-	MPI_Win_fence(0, win);
-	MPI_Win_lock_all(0, win);
+  len = NULL;
+  dsp = NULL;
 
-	fprintf(stderr, "rank %zu finish initialization \n", lock_rank );
-	fflush(stderr);
+  if (new->rank == 0 || new->rank == new->size - 1)
+    nblock = 1;
+  else
+    nblock = 2;
+
+  len = calloc(nblock, sizeof(int));
+  assert(len != NULL);
+  dsp = calloc(nblock, sizeof(int));
+  assert(dsp != NULL);
+
+  if (new->rank == 0) {
+    len[0] = new->size - 1;
+    dsp[0] = 1;
+  } else if (new->rank == new->size - 1) {
+    len[0] = new->size - 1;
+    dsp[0] = 0;
+  } else {
+    len[0] = new->rank;
+    dsp[0] = 0;
+    len[1] = new->size - 1 - new->rank;
+    dsp[1] = new->rank + 1;
+  }
+
+  MPI_ASSERT(MPI_Type_indexed(nblock, len, dsp, MPI_BYTE, &new->req_slice_type));
+  MPI_ASSERT(MPI_Type_commit(&new->req_slice_type));
+
+  free(len);
+  free(dsp);
 }
 
-void MCSLockAcquire(){
+/**
+ * Initialize the RMA mutex `m` owned by rank `owner` of communcator `comm`.
+ * This call is collective.
+ */
+void rma_mutex_init(rma_mutex_t *m, MPI_Comm comm, int owner)
+{
+  int ret;
+  MPI_Aint req_size;
+  rma_mutex_t new;
 
-	int64_t predecessor;
-	lmem[blocked] = 1;
-	lmem[nextRank] = -1;
+  new.owner = owner;
+  new.comm = comm;
 
-	/* Add yourself to end of queue */
-	MPI_Fetch_and_op(&lock_rank, &predecessor, MPI_INT64_T, 0, lockTail, MPI_REPLACE, win);
-	MPI_Win_flush(0, win);
+  new.req = NULL;
+  new.req_slice_buffer = NULL;
 
-	if(predecessor != -1){
-		//fprintf(stderr, "rank %zu predecessor is %zu\n", rank, predecessor);
-		//fflush(stderr);
-	    /* We didn't get lock. Add us as next at predecessor. */
-	    MPI_Accumulate(&lock_rank, 1, MPI_INT64_T, predecessor, nextRank, 1, MPI_INT64_T, MPI_REPLACE, win);
-		MPI_Win_flush((int)predecessor, win);
-		/* Now spin on our local value "blocked" until we are given the lock. */
-	    do {
-	    	MPI_Win_sync(win);
-	    } while (lmem[blocked] == 1);
-	}
+  MPI_ASSERT(MPI_Comm_rank(new.comm, &new.rank));
+  MPI_ASSERT(MPI_Comm_size(new.comm, &new.size));
+
+  new.req_slice_buffer = malloc(new.size);
+  assert(new.req_slice_buffer != NULL);
+
+  create_req_buffer_type(&new);
+
+  if (new.rank == new.owner) {
+    req_size = new.size;
+    MPI_ASSERT(MPI_Alloc_mem(req_size, MPI_INFO_NULL, &new.req));
+    bzero(new.req, req_size);
+  } else {
+    req_size = 0;
+  }
+
+  MPI_ASSERT(MPI_Win_create(new.req, req_size, 1, MPI_INFO_NULL, new.comm, &new.win));
+
+  /* lookin good - safe to modify argument */
+  memcpy(m, &new, sizeof(rma_mutex_t));
 }
 
-void MCSLockRelease(){
+/**
+ * Free resources associated with the RMA mutex `m`. This call is collective.
+ */
+void rma_mutex_free(rma_mutex_t *m)
+{
+  int ret;
 
-	int64_t nullrank = -1, zero = 0, curtail;
+  MPI_ASSERT(MPI_Win_free(&m->win)); /* collective */
 
-	if (lmem[nextRank] == -1){
-		/* See if we're waiting for the next to notify us */
-		MPI_Compare_and_swap(&nullrank, &lock_rank, &curtail, MPI_INT64_T, 0, lockTail, win);
-		MPI_Win_flush(0, win);
+  if (m->rank == m->owner)
+    MPI_ASSERT(MPI_Free_mem(m->req));
 
-		//fprintf(stderr, "rank %zu after flush, curtail: %zu\n", rank, curtail);
-		//fflush(stderr);
-		if(curtail == lock_rank){
-			/* We are the only process in the list */
-			return;
-		}
+  MPI_ASSERT(MPI_Type_free(&m->req_slice_type));
 
-		/* Otherwise, someone else has added themselves to the list. */
-		do {
-			MPI_Win_sync(win);
-			} while (lmem[nextRank] == -1);
-	}
-	/* Now we can notify them. */
-	fprintf(stderr, "rank %zu release to successor : %zu\n", lock_rank, lmem[nextRank]);
-	fflush(stderr);
-	MPI_Accumulate(&zero, 1, MPI_INT64_T, (int) lmem[nextRank], blocked, 1, MPI_INT64_T, MPI_REPLACE, win);
-	MPI_Win_flush((int)lmem[nextRank], win);
-	//MPI_Win_sync(win);
+  free(m->req_slice_buffer);
 }
 
-/* Free window for MCS-queue */
-void HMCSLockFinalize(){
+/**
+ * Acquire the lock associated with RMA mutex `m`.
+ */
+void rma_mutex_lock(rma_mutex_t *m)
+{
+  int i, contested, ret;
+  uint8_t one = 1;
 
-	MPI_Win_unlock_all(win);
-	MPI_Win_free(&win);
+  /* exclusive lock
+   * .. get full req_buffer
+   * .. set my entry to 1 */
+  MPI_ASSERT(MPI_Win_lock(MPI_LOCK_EXCLUSIVE, m->owner, 0, m->win));
+
+  MPI_ASSERT(MPI_Get(m->req_slice_buffer, m->size - 1, MPI_BYTE, m->owner, 0, 1,
+                     m->req_slice_type, m->win));
+  MPI_ASSERT(MPI_Put(&one, 1, MPI_BYTE, m->owner, m->rank, 1, MPI_BYTE,
+                     m->win));
+
+  MPI_ASSERT(MPI_Win_unlock(m->owner, m->win));
+
+  /* lock obtained? */
+  contested = 0;
+  for (i = 0; i < m->size - 1; i++)
+    if (m->req_slice_buffer[i]) {
+      contested = 1;
+      break;
+    }
+
+  /* no, it's contested - wait for it ... */
+  if (contested)
+    MPI_ASSERT(MPI_Recv(NULL, 0, MPI_BYTE, MPI_ANY_SOURCE, MAGIC_UNLOCK_TAG,
+                        m->comm, MPI_STATUS_IGNORE));
+}
+
+/**
+ * Non-public: Once the `req_slice_buffer` field of mutex `m` has been
+ * populated, determine the next rank to receive the lock.
+ * Return value: rank on the next process to get the lock (m->rank if no rank is
+ * currently waiting).
+ */
+static int next_rank(rma_mutex_t *m)
+{
+  int i, j, next;
+  next = m->rank;
+  for (i = 0; i < m->size - 1; i++) {
+    j = (m->rank + i) % (m->size - 1);
+    if (m->req_slice_buffer[j]) {
+      if (j < m->rank)
+        next = j;
+      else
+        next = j + 1;
+      break;
+    }
+  }
+  return next;
+}
+
+/**
+ * Release the lock associated with RMA mutex `m`.
+ */
+void rma_mutex_unlock(rma_mutex_t *m)
+{
+  int next, ret;
+  uint8_t zero = 0;
+
+  /* exclusive lock
+   * .. get new full req_buffer
+   * .. set my entry to 0 */
+  MPI_ASSERT(MPI_Win_lock(MPI_LOCK_EXCLUSIVE, m->owner, 0, m->win));
+
+  MPI_ASSERT(MPI_Get(m->req_slice_buffer, m->size - 1, MPI_BYTE, m->owner, 0, 1,
+                     m->req_slice_type, m->win));
+  MPI_ASSERT(MPI_Put(&zero, 1, MPI_BYTE, m->owner, m->rank, 1, MPI_BYTE,
+                     m->win));
+
+  MPI_ASSERT(MPI_Win_unlock(m->owner, m->win));
+
+  /* who gets it next? */
+  next = next_rank(m);
+
+  /* someone ... give it to them ... */
+  if (next != m->rank)
+    MPI_ASSERT(MPI_Send(NULL, 0, MPI_BYTE, next, MAGIC_UNLOCK_TAG, m->comm));
 }
 
 int main(int argc, char *argv[]) {
@@ -210,6 +315,8 @@ int main(int argc, char *argv[]) {
 	char *rg_line = NULL, *hdr_line = NULL;
 	int ignore_alt = 0;
 	const char *mode = NULL;
+
+	rma_mutex_t mutex;
 
 	char *progname = basename(argv[0]);
 
@@ -593,14 +700,14 @@ int main(int argc, char *argv[]) {
 	 * MPI_Lock_Init
 	 */
 
-	MCSLockInit();
+	rma_mutex_init(&mutex, MPI_COMM_WORLD, 0);
 
 	res = MPI_Barrier(MPI_COMM_WORLD);
 	assert(res == MPI_SUCCESS);
 
 	while (1) {
 
-		MCSLockAcquire();
+		rma_mutex_lock(&mutex);
 		fprintf(stderr,"I have the lock: (rank %d, cpu_name: %s)\n", rank_num, processor_name);
 		bef = MPI_Wtime();
 		char *x, *b1, *b2;
@@ -687,7 +794,7 @@ again:
 
 		aft = MPI_Wtime();
 		fprintf(stderr, "rank %d: time to parse data chunk (%.02f)\n", rank_num, aft - bef);
-		MCSLockRelease();
+		rma_mutex_unlock(&mutex);
 		fprintf(stderr,"rank %d We release the lock \n", rank_num);
 
 		/* Stop if nothing to process */
@@ -802,7 +909,7 @@ again:
 	res = MPI_Barrier(MPI_COMM_WORLD);
 	assert(res == MPI_SUCCESS);
 
-	HMCSLockFinalize();
+	rma_mutex_free(&mutex);
 
 	(void)unlink(file_tmp);
 	res = close(fd_tmp);
