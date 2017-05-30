@@ -1,6 +1,10 @@
 Release notes
 ------------
 
+Release 1.0 from 30/05/2017
+
+To overcome lock contention problem we use a RMA MCS lock inspired from Latham R. et al. (2007).
+
 Release 1.0 from 17/05/2017
 
 To enhance reproducibility and accuracy we have implemented a new method for read's chunk evaluation. 
