@@ -1,3 +1,13 @@
+Your are in the master branch of the the mpiBWA project.
+
+This version is dedicated to fit a large variety of cluster.
+
+If you are equiped with low latency network and network file system (NFS) use this branch.
+
+If your are equiped with Lustre and Low latency network use the FULLMPI branch of the project.
+  
+If your are equiped with Lustre and Low latency network and want to go very fast and be less precise use the LAZYCHUNK branch.
+
 Release notes
 ------------
 
@@ -175,9 +185,7 @@ mpirun -n $TOTAL_PROC $pBWA_BIN_DIR/pbwa7 mem -t 1 -o $FILE_TO_WRITE $BWA_REF_TM
 Results
 -------
 
-Here results wo obtain from test realized with TGCC (Très Grand Centre de Calcul - Bruyères le Chatel - France).
-
-![img](Results_TGCC_Broadwell.jpg)
+(Coming soon)
 
 Remarks
 -------
