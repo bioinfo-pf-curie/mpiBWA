@@ -1,9 +1,37 @@
 Release notes
 ------------
 
+First we would like to think about Nicolas Joly who passed away last month.
+Without him none of this work could have been achieved. 
+It's sad, we lost a great man. Thanks for all and rest in peace Nicolas.
+
+Release 1.0 from 30/06/2017
+
+Major changes:
+
+1) new algorithm. 
+
+We mimic original BWA algorithm when spliting chunk of reads.
+
+In this version 2 workers are responsible for computing offsets chuncks. 
+Then offset workers sends the offsets to aligning workers.
+
+To change the number of offset workers modify the line 65 (we will pass it in parameters in the next release).
+Adapt the number of offset workers according to the number of aligners.
+We have tested 2 offset workers for 80 aligners with a NFS and low ethernet with a good effciency.
+ 
+This version has a low adherence with MPI in order to be compatible with NFS and low ethernet connectors.
+Tested with openMPI 2.1.1.
+
+
+Release 1.0 from 13/06/2017
+
+Update version of bwa 7.15
+
 Release 1.0 from 30/05/2017
 
-To overcome lock contention problem we use a RMA MCS lock inspired from Latham R. et al. (2007).
+To overcome lock contention problem we use a RMA MCS lock inspired from Latham R. et al. (2007). 
+
 
 Release 1.0 from 17/05/2017
 
@@ -187,8 +215,7 @@ Li H. and Durbin R. (2010) Fast and accurate long-read alignment with Burrows-Wh
 
 Li H. (2013) Aligning sequence reads, clone sequences and assembly contigs with BWA-MEM. arXiv:1303.3997v1 [q-bio.GN]
 
-
-Authors
+Latham R. et al. (2007)  Implementing MPI-IO Atomic Mode and Shared File Pointers Using MPI One-Sided Communication Authors [http://www.mcs.anl.gov/~thakur/papers/rmaops.pdf]
 -------
 
 The program has been developed by 
