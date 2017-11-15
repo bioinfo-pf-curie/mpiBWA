@@ -6,14 +6,24 @@ If you are equiped with low latency network and network file system (NFS) use th
 
 If your are equiped with Lustre and Low latency network use the FULLMPI branch of the project.
   
-If your are equiped with Lustre and Low latency network and want to go very fast and be less precise use the LAZYCHUNK branch.
+If your are equiped with NFS and high latency network and want to go very fast but less precise use the LAZYCHUNK branch.
 
 Release notes
 ------------
 
-First we would like to think about Nicolas Joly who passed away last month.
-Without him none of this work could have been achieved. 
-It's sad, we lost a great man. Thanks for all and rest in peace Nicolas.
+Release 1.0 from 15/11/2017
+
+Changes in LAZYCHUNK branch
+
+1) Due to a mmap in the previous version the virtual memory may be big when the fastq file is large.
+Some scheduler like Torque doesn't like this. We review the algorithm of computing chuncks.
+first we divide the file in window of size (number of jobs) * 1Gb. On each window jobs approximate chuncks of 10 mega bases.
+this way the virtual memory stay low. 
+ 
+2) We also saw problem on some architecture with MPI file read shared we replace it with MPI file read at. 
+
+3) We have also other projects of parallelization (sorting, marking duplicates, clustering... ) and we are looking for people willing to help us for developments and tests. Don't hesitate to contact me (frederic.jarlier@curie.fr). 
+
 
 Release 1.0 from 30/06/2017
 
