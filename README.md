@@ -1,29 +1,32 @@
-Your are in the master branch of the the mpiBWA project.
 
-This version is dedicated to fit a large variety of cluster.
+You are in the LAZYCHUNK branch of the mpiBWA project
+In this branch we don't precompute offset for the chunk of fatsq reads.
+This is fast but less precise.
 
-If you are equiped with low latency network and network file system (NFS) use this branch.
-
-If your are equiped with Lustre and Low latency network use the FULLMPI branch of the project.
-  
-If your are equiped with NFS and high latency network and want to go very fast but less precise use the LAZYCHUNK branch.
+In memory of Nicolas Joly.
 
 Release notes
 ------------
 
+Release 1.0 from 17/11/2017
+
+Changes in  LAZYCHUNCK branch
+
+1) Improvement of the algorithm for window sizing.
+2) Change the number of bases for the estimation line 541. 
+
 Release 1.0 from 15/11/2017
 
-Changes in LAZYCHUNK branch
+Changes in LAZYCHUNCK branch
 
-1) Due to a mmap in the previous version the virtual memory may be big when the fastq file is large.
+1) Due to mmap of the previous version the virtual memory may be big when the fastq file is large.
 Some scheduler like Torque doesn't like this. We review the algorithm of computing chuncks.
-first we divide the file in window of size (number of jobs) * 1Gb. On each window jobs approximate chuncks of 10 mega bases.
+first we divide the file in window of size (number of jobs) * 1Gb. On each window we approximate chuncks of 10 mega bases.
 this way the virtual memory stay low. 
  
 2) We also saw problem on some architecture with MPI file read shared we replace it with MPI file read at. 
 
-3) We have also other projects of parallelization (sorting, marking duplicates, clustering... ) and we are looking for people willing to help us for developments and tests. Don't hesitate to contact me (frederic.jarlier@curie.fr). 
-
+3) We have also other projects and we are looking for people willing to help us for developments and tests. Don't hesitate to contact me at frederic.jarlier@curie.fr 
 
 Release 1.0 from 30/06/2017
 
@@ -87,8 +90,8 @@ You need a C compiler as required for classic BWA program.
 You need to install a version of MPI.
 
 You need a mpi compiler too. to check your mpi installation tell in a command window whereis mpirun, normally it is installed in /usr/bin/mpirun.
-This program runs on supercomputer architecture and supports also NFS file system. 
-A classic 1Gb or 10Gb network is sufficient.
+
+You need a low latency network and a parallel file system to use this branch
 
 Your reads should be paired or single.
 
@@ -195,7 +198,9 @@ mpirun -n $TOTAL_PROC $pBWA_BIN_DIR/pbwa7 mem -t 1 -o $FILE_TO_WRITE $BWA_REF_TM
 Results
 -------
 
-(Coming soon)
+Here results wo obtain from test realized with TGCC (Très Grand Centre de Calcul - Bruyères le Chatel - France).
+
+![img](Results_TGCC_Broadwell.jpg)
 
 Remarks
 -------
@@ -233,7 +238,7 @@ Li H. and Durbin R. (2010) Fast and accurate long-read alignment with Burrows-Wh
 
 Li H. (2013) Aligning sequence reads, clone sequences and assembly contigs with BWA-MEM. arXiv:1303.3997v1 [q-bio.GN]
 
-Latham R. et al. (2007)  Implementing MPI-IO Atomic Mode and Shared File Pointers Using MPI One-Sided Communication Authors 
+Latham R. et al. (2007)  Implementing MPI-IO Atomic Mode and Shared File Pointers Using MPI One-Sided Communication Authors
 
 -------
 
