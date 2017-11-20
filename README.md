@@ -13,10 +13,16 @@ Release notes
 
 Release 1.0 from 20/11/2017
 
+Changes in  LAZYCHUNCK branch:
+1) remove memory leaks
+2) update results section
+3) test with 600Gb (x2) fastq files and 100 jobs: ok.
+4) reproducibility with constant number of jobs: ok.
+ 
 Notes:
-
 If want 100% reproducibility whatever the number of jobs use the master branch or the FULLMPI branch.
-
+But if you want go faster use LAZYCHUNK branch. 
+ 
 Release 1.0 from 17/11/2017
 
 Changes in  LAZYCHUNCK branch
