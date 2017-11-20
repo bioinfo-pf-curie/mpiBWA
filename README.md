@@ -11,6 +11,12 @@ If your are equiped with NFS and high latency network and want to go very fast b
 Release notes
 ------------
 
+Release 1.0 from 20/11/2017
+
+Notes:
+
+If want 100% reproducibility whatever the number of jobs use the master branch or the FULLMPI branch.
+
 Release 1.0 from 17/11/2017
 
 Changes in  LAZYCHUNCK branch
@@ -202,7 +208,12 @@ mpirun -n $TOTAL_PROC $pBWA_BIN_DIR/pbwa7 mem -t 1 -o $FILE_TO_WRITE $BWA_REF_TM
 Results
 -------
 
-(Coming soon)
+See the results here:
+
+http://devlog.cnrs.fr/jdev2017/posters
+
+in the section HPC@NGS
+
 
 Remarks
 -------
