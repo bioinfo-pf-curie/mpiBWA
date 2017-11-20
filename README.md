@@ -16,7 +16,7 @@ Release 1.0 from 20/11/2017
 Changes in  LAZYCHUNCK branch:
 1) remove memory leaks
 2) update results section
-3) test with 600Gb (x2) fastq files and 100 jobs: ok.
+3) test with 600Gb (x2) fastq files and 100 jobs: ok. (20 mn to approximate chuncks offset) 
 4) reproducibility with constant number of jobs: ok.
  
 Notes:
