@@ -243,10 +243,11 @@ In this case take 6gb per job. This is approximately the total reference plus th
 
 Future work:
 ----------
+1) Test the reproducibility after randomization of the fastq.
 
-1) Manage the randomization of alternate contigs. To mimic original algorithm.
+2) Manage the randomization of alternate contigs. To mimic original algorithm.
 
-2) Manage the insert size statistics between jobs.
+3) Manage the insert size statistics between jobs.
 
 References:
 ---------
