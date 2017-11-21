@@ -11,6 +11,12 @@ If your are equiped with NFS and high latency network and want to go very fast b
 Release notes
 ------------
 
+Release 1.0 from 21/11/2017
+
+Changes in  LAZYCHUNCK branch:
+
+1) forget a end condition
+
 Release 1.0 from 20/11/2017
 
 Changes in  LAZYCHUNCK branch:
