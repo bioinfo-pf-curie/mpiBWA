@@ -15,45 +15,47 @@ Release notes
 
 Release 1.0 from 29/11/2017
 
-Add a new branch called Experimental.
-Warning: This is experimental work do not use in production.
+Add a new branch called Experimental. <br />
+Warning: This is experimental work do not use in production. But test it and send us reports.<br />
 
-Rationnal:
+Rationnal:<br />
 
-The master and FULLMPI branch are made for full reproducibility (independant to the number of jobs) and accuracy but they reach the Amdah'ls law point. 
-Indeed the locking file RMA implementation (the serialization when computing offsets) introduces a bottle neck we are not able to overcome with this technics. 
+The master and FULLMPI branch are made for full reproducibility (independant to the number of jobs) and accuracy but they reach the Amdah'ls law point. <br />
+Indeed the locking file RMA implementation (the serialization when computing offsets) introduces a bottle neck we are not able to overcome with this technics. <br />
  
-This is why we have implemented a new algorithm. Now a lot more master jobs are responsible for chuncking the data the way bwa-mem does. But instead of doing it linearly on the fastq now they do it independently and in parallel. With a little inter communication they adjust the chunks offets and size. This method removes the serialization bottle neck. 
+This is why we have implemented a new algorithm. Now a lot more master jobs are responsible for chuncking the data the way bwa-mem does. <br />
+But instead of doing it linearly on the fastq now they do it independently and in parallel. With a little inter communication they adjust the chunks offets and size. <br />
+This method removes the serialization bottle neck. <br />
 
-As in the master and FULLMPI we obtain the full reproducibility with a better efficiency and scalability. 
+As in the master and FULLMPI we obtain the full reproducibility with a better efficiency and scalability. <br />
 
-When testing this branch make sure the total number of jobs you take is (master jobs) * 8. 
-8 is the number of aligner threads used by bwa-mem. 
+When testing this branch make sure the total number of jobs you take is (master jobs) * 8. <br />
+8 is the number of aligner threads used by bwa-mem. <br />
 
-Remark: The initial buffer of each master jobs is limited to 2gb (due to mpi_read_at). 
-This version does not work on trimmed reads. 
+Remark: The initial buffer of each master jobs is limited to 2gb (due to mpi_read_at). <br />
+This version does not work on trimmed reads. <br />
 
-First results test on broadwell. 
+First results test on broadwell. <br />
 
-Sample: 
+Sample: <br />
 
-SRR2052 WGS from GIAB alignement done with 352*8 = 2816 cpu
-352 = (Forward Fastq size in gb) / 2g,  8 is thenumber of bwa-mem aligner jobs (8 per master jobs)
+SRR2052 WGS from GIAB alignement done with 352*8 = 2816 cpu<br />
+352 = (Forward Fastq size in gb) / 2g,  8 is thenumber of bwa-mem aligner jobs (8 per master jobs)<br />
 
-MPI parameters :
-mpi_run -n 352 -c 8
-or : 
-MSUB -n 352
-MSUB -c 8
+MPI parameters :<br />
+mpi_run -n 352 -c 8<br />
+or : <br />
+MSUB -n 352<br />
+MSUB -c 8<br />
 
-alignment time: 26 mn
-Time to compute chunks: 8s
+alignment time: 26 mn<br />
+Time to compute chunks: 8s<br />
 
-Next step:
+Next step:<br />
 
-1) remove buffer size limitation
-2) support trimmed reads
-3) need tests on low throughput infrastructures
+1) remove initial buffer size limitation<br />
+2) support trimmed reads<br />
+3) need tests on low throughput infrastructures<br />
 
 Release 1.0 from 21/11/2017
 
