@@ -27,8 +27,10 @@ This is why we have implemented a new algorithm. With the same idea in mind than
 This method removes the previous bottle neck. We obtain the full reproducibility with a better efficiency and scalability. 
 
 When testing this branch make sure the total number of jobs you take is (master jobs) * 8. 
-8 is the number of threads used by bwa-mem. We also see a limitation of the mpi_read_at fonction the buffer 
- is limited at 2g. This version does not work on trimmed reads. 
+8 is the number of aligner threads used by bwa-mem. We also see a limitation of the mpi_read_at fonction the buffer 
+ is limited at 2g. 
+
+Remark: This version does not work on trimmed reads. 
 
 First results test on broadwell 
 
