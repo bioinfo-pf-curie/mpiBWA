@@ -20,11 +20,11 @@ Warning: This is experimental work do not use in production. But test it and sen
 
 Rationnal:<br />
 
-The master and FULLMPI branch are made for full reproducibility (independant to the number of jobs) and accuracy but they reach the Amdah'ls law point. <br />
+The master and FULLMPI branch are made for full reproducibility (independant to the number of jobs) and accuracy but they reach the Amdah'ls law point. 
 Indeed the locking file RMA implementation (the serialization when computing offsets) introduces a bottle neck we are not able to overcome with this technics. <br />
  
-This is why we have implemented a new algorithm. Now a lot more master jobs are responsible for chuncking the data the way bwa-mem does. <br />
-But instead of doing it linearly on the fastq now they do it independently and in parallel. With a little inter communication they adjust the chunks offets and size. <br />
+This is why we have implemented a new algorithm. Now a lot more master jobs are responsible for chuncking the data the way bwa-mem does. 
+But instead of doing it linearly on the fastq now they do it independently and in parallel. With a little inter communication they adjust the chunks offets and size. 
 This method removes the serialization bottle neck. <br />
 
 As in the master and FULLMPI we obtain the full reproducibility with a better efficiency and scalability. <br />
