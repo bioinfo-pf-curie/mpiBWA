@@ -27,19 +27,22 @@ This is why we have implemented a new algorithm. Now a lot more master jobs are 
 And instead of doing it linearly on the fastq now they do it independently and in parallel. With a little inter communication they adjust the chunks offets and sizes. 
 This method removes the serialization bottle neck. <br />
 
-As in the master and FULLMPI we obtain the full reproducibility with a better efficiency and scalability. <br />
+As in the master and FULLMPI branches we obtain a full reproducibility and with a better efficiency and scalability. <br />
 
 When testing this branch make sure the total number of jobs you take is (master jobs) * 8. <br />
 8 is the number of aligner threads used by bwa-mem. <br />
+According to bwa-mem policy all chunks are 10e6 by the number of threads nucleotide bases big. <br />
 
-Remark: The initial buffer of each master jobs is limited to 2gb (due to mpi_read_at). <br />
+Remark: The initial buffer of each master jobs is limited to 2gb (due to mpi_read_at buffer size). <br />
 This version does not work on trimmed reads. <br />
 
 First results test on broadwell. <br />
 
 Sample: <br />
 
-SRR2052 WGS from GIAB alignement done with 352*8 = 2816 cpu<br />
+NA12878 Illumina 300X 2x150 WGS from GIAB chinese trio.
+
+The alignement is done with 352*8 = 2816 cpu<br />
 352 = (Forward Fastq size in gb) / 2g,  8 is thenumber of bwa-mem aligner jobs (8 per master jobs)<br />
 
 MPI parameters :<br />
