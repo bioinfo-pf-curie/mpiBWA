@@ -8,8 +8,49 @@ If your are equiped with Lustre and Low latency network use the FULLMPI branch o
   
 If your are equiped with NFS and high latency network and want to go very fast but less precise use the LAZYCHUNK branch.
 
+Add an experimental branch for higher scalability, full reproducibility and better accuracy.
+
 Release notes
 ------------
+
+Release 1.0 from 29/11/2017
+
+Add a new branch called Experimental.
+
+Rationnal:
+
+The master and FULLMPI branch are made for full reproducibility and accuracy but they reach the Amdah'ls law point. 
+Indeed the locking file RMA implementation introduce a bottle neck we are not able to overcome.
+ 
+This is why we have implemented a new algorithm. With the same idea in mind than from the previous version master jobs are responsible for chuncking the data the way bwa-mem does. But instead of doing it linearly on the fastq now they do it independently. We introduce communication for adjusting the offets.
+ 
+This method removes the previous bottle neck. We obtain the full reproducibility with a better efficiency and scalability. 
+
+When testing this branch make sure the total number of jobs you take is (master jobs) * 8. 
+8 is the number of threads used by bwa-mem. We also see a limitation of the mpi_read_at fonction the buffer 
+ is limited at 2g. This version does not work on trimmed reads. 
+
+First results test on broadwell 
+
+Sample: SRR2052 WGS from GIAB aligned with 352*8 = 2816 cpu
+
+352 = (Forward Fastq size in gb) / 2g
+8 number of aligner jobs (per master)
+
+MPI parameters :
+mpi_run -n 352 -c 8
+or : 
+MSUB -n 352
+MSUB -c 8
+
+alignment time: 26 mn
+Time to compute chunks: 8s
+
+Next step:
+
+1) remove buffer size limitation
+2) support trimmed reads
+3) need tests on low throughput infrastructures
 
 Release 1.0 from 21/11/2017
 
