@@ -38,9 +38,7 @@ First results test on broadwell.
 Sample: 
 
 SRR2052 WGS from GIAB alignement done with 352*8 = 2816 cpu
-
-=> 352 = (Forward Fastq size in gb) / 2g
-=> 8 number of bwa-mem aligner jobs (8 per master jobs)
+352 = (Forward Fastq size in gb) / 2g,  8 is thenumber of bwa-mem aligner jobs (8 per master jobs)
 
 MPI parameters :
 mpi_run -n 352 -c 8
