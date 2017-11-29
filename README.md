@@ -54,6 +54,8 @@ MSUB -c 8<br />
 alignment time: 26 mn<br />
 Time to compute chunks: 8s<br />
 
+Reproducibility: the pipeline has been tested tested with 5632 and 2816 cpu results are the same. <br />
+
 Next step:<br />
 
 1) remove initial buffer size limitation<br />
