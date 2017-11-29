@@ -16,15 +16,16 @@ Release notes
 Release 1.0 from 29/11/2017
 
 Add a new branch called Experimental.
+Warning: This is experimental work do not use in production.
 
 Rationnal:
 
-The master and FULLMPI branch are made for full reproducibility and accuracy but they reach the Amdah'ls law point. 
-Indeed the locking file RMA implementation introduce a bottle neck we are not able to overcome.
+The master and FULLMPI branch are made for full reproducibility (independant to the number of jobs) and accuracy but they reach the Amdah'ls law point. 
+Indeed the locking file RMA implementation (the serialization when computing offsets) introduces a bottle neck we are not able to overcome with this technics. 
  
-This is why we have implemented a new algorithm. With the same idea in mind than from the previous version master jobs are responsible for chuncking the data the way bwa-mem does. But instead of doing it linearly on the fastq now they do it independently. We introduce communication for adjusting the offets.
- 
-This method removes the previous bottle neck. We obtain the full reproducibility with a better efficiency and scalability. 
+This is why we have implemented a new algorithm. Now a lot more master jobs are responsible for chuncking the data the way bwa-mem does. But instead of doing it linearly on the fastq now they do it independently and in parallel. With a little inter communication they adjust the chunks offets and size. This method removes the serialization bottle neck. 
+
+As in the master and FULLMPI we obtain the full reproducibility with a better efficiency and scalability. 
 
 When testing this branch make sure the total number of jobs you take is (master jobs) * 8. 
 8 is the number of aligner threads used by bwa-mem. 
@@ -34,10 +35,12 @@ This version does not work on trimmed reads.
 
 First results test on broadwell. 
 
-Sample: SRR2052 WGS from GIAB aligned with 352*8 = 2816 cpu
+Sample: 
 
-352 = (Forward Fastq size in gb) / 2g
-8 number of aligner jobs (per master)
+SRR2052 WGS from GIAB alignement done with 352*8 = 2816 cpu
+
+=> 352 = (Forward Fastq size in gb) / 2g
+=> 8 number of bwa-mem aligner jobs (8 per master jobs)
 
 MPI parameters :
 mpi_run -n 352 -c 8
