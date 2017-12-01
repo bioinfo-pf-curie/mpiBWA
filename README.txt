@@ -13,6 +13,11 @@ Add an experimental branch for higher scalability, full reproducibility and bett
 Release notes
 ------------
 
+Release 1.0 from 01/12/2017
+
+Changes in the branch Experimental. <br />
+Fix the mpi_read_at buffer limit size. Now we load the buffer in chunk of 1gb. <br />
+
 Release 1.0 from 29/11/2017
 
 Add a new branch called Experimental.
