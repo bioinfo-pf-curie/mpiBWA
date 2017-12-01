@@ -42,7 +42,7 @@ Sample: <br />
 NA12878 Illumina 300X 2x150 WGS from GIAB chinese trio.
 
 The alignement is done with 352*8 = 2816 cpu<br />
-352 = (Forward Fastq size in gb) / 2g,  8 is thenumber of bwa-mem aligner jobs (8 per master jobs)<br />
+352  are master jobs and  8 is the number of bwa-mem aligner jobs (8 per master jobs)<br />
 
 MPI parameters :<br />
 mpi_run -n 352 -c 8<br />
