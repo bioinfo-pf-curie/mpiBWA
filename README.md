@@ -33,7 +33,6 @@ When testing this branch make sure the total number of jobs you take is (master 
 8 is the number of aligner threads used by bwa-mem. <br />
 According to bwa-mem policy all chunks are 10e6 by the number of threads nucleotide bases big. <br />
 
-Remark: The initial buffer of each master jobs is limited to 2gb (due to mpi_read_at buffer size). <br />
 This version does not work on trimmed reads. <br />
 
 First results test on broadwell. <br />
@@ -58,9 +57,8 @@ Reproducibility: the pipeline has been tested tested with 5632 and 2816 cpu resu
 
 Next step:<br />
 
-1) remove initial buffer size limitation<br />
-2) support trimmed reads<br />
-3) need tests on low throughput infrastructures<br />
+1) support trimmed reads<br />
+2) need tests on low throughput infrastructures<br />
 
 Release 1.0 from 21/11/2017
 
