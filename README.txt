@@ -1,18 +1,14 @@
-Your are in the master branch of the the mpiBWA project.
 
-This version is dedicated to fit a large variety of cluster.
-
-If you are equiped with low latency network and network file system (NFS) use this branch.
-
-If your are equiped with Lustre and Low latency network use the FULLMPI branch of the project.
-  
-If your are equiped with NFS and high latency network and want to go very fast but less precise use the LAZYCHUNK branch.
+You are in the Experimental branch of the mpiBWA project
+In this branch we implement new algorithm for chunking the data before sending them to bwa-mem.
+We want to be fast, scalable, accurate and reproducible whatever the number of jobs you chose.
 
 Add an experimental branch for higher scalability, full reproducibility and better accuracy.
 
 Release notes
 ------------
 
+<<<<<<< HEAD
 Release 1.0 from 01/12/2017
 
 Changes in the branch Experimental. <br />
@@ -101,56 +97,39 @@ this way the virtual memory stay low.
 Release 1.0 from 30/06/2017
 
 Major changes:
+=======
+28/11/2017
+>>>>>>> 884482b956169fabe0e8696021fc0092c403d86f
 
-1) new algorithm. 
+First release
 
-We mimic original BWA algorithm when spliting chunk of reads.
+We have implemented a new algorithm.
+In this algorithm you have master jobs and aligner jobs.
+Master jobs are responsible for computing offset and chunk sizes.
+This way all the chuncks have the same number of bases. 
+Then master jobs send chunks to bwa-mem and are aligned.
+Finally master jobs write ni the result sam file.
 
-In this version 2 workers are responsible for computing offsets chuncks. 
-Then offset workers sends the offsets to aligning workers.
+the total number of jobs muste be: (number of master) * 8 
+8 is the number of threads used by bwa-mem.
 
-To change the number of offset workers modify the line 65 (we will pass it in parameters in the next release).
-Adapt the number of offset workers according to the number of aligners.
-We have tested 2 offset workers for 80 aligners with a NFS and low ethernet with a good effciency.
- 
-This version has a low adherence with MPI in order to be compatible with NFS and low ethernet connectors.
-Tested with openMPI 2.1.1.
+First result test on broadwell of TGCC
 
+Condition: Due to mpi_read_at buffer limit of 2g. 
+You should limit the initial buffer read to 2gb per master jobs.
+Futur release will remove this condition. 
 
-Release 1.0 from 13/06/2017
+Tested on the SRR2052 WGS with 352*8 cpu 
+alignment time: 26 mn
+Time to compute chunks: 8s
+Scalability : ok
+Reproducibility : ok 
+Command line :mpi_run -n 352 -c 8
+or : MSUB -n 352
+MSUB -c 8
 
-Update version of bwa 7.15
+This version does not support trimmed read yet.
 
-Release 1.0 from 30/05/2017
-
-To overcome lock contention problem we use a RMA MCS lock inspired from Latham R. et al. (2007). 
-
-
-Release 1.0 from 17/05/2017
-
-To enhance reproducibility and accuracy we have implemented a new method for read's chunk evaluation. 
-The reads chunk sizes are now identical compare to serial BWA-MEM for both trimmed reads or not.
-
-But the algorithm suffers from scalability. The algorithm scales up to 300 cpu (test on Cobalt TGCC) with same speed up than previous version. 
-Above that number we encounter lock contention. We are working on a solution now. 
-Go back to february 2017 version for more scalability. 
- 
-Release 1.0 from 20/01/2017
-
-No need to copy the reference genome in /tmp before the mapping. This is done automatically by MPI. 
-To change the target directory set $TMPDIR to the new location.
-
-Release 1.0 from 07/11/2016
-
-1) Support for trimmed reads. Works with an even number of jobs. Tested with sample data up to 10 jobs.
-Need more test for scalability, load balancing, and evaluation of the chunks sizes.
-
-Introduction
-------------
-
-This program optimizes access files and parallelizes the jobs alignment with BWA-MEM alignment v0.7.12.
-The input are fasta files of pair reads sequenced with Illumina technology (see sample files). 
-Batch of 100M pair bases are loaded and aligned assuring the result is identical to classic BWA-MEM. 
 
 Requirements
 ------------
@@ -160,8 +139,8 @@ You need a C compiler as required for classic BWA program.
 You need to install a version of MPI.
 
 You need a mpi compiler too. to check your mpi installation tell in a command window whereis mpirun, normally it is installed in /usr/bin/mpirun.
-This program runs on supercomputer architecture and supports also NFS file system. 
-A classic 1Gb or 10Gb network is sufficient.
+
+You need a low latency network and a parallel file system to use this branch
 
 Your reads should be paired or single.
 
@@ -179,10 +158,10 @@ This problem stems from the randomization of multi-hits reads. When running with
 How to integrate further version
 --------------------------------
 
-This version of mpiBWA has been build with 0.7.12 BWA version.
-To integrate the 0.7.13 or 0.7.14:
+This version of mpiBWA has been build with 0.7.15 BWA version.
+To integrate the 0.7.+:
 
-1) git clone the 0.7.14 of BWA.
+1) git clone the 0.7.+ of BWA.
 
 2) in the folder of bwa copy-pass the following function from mpiBWA:
 
@@ -268,12 +247,9 @@ mpirun -n $TOTAL_PROC $pBWA_BIN_DIR/pbwa7 mem -t 1 -o $FILE_TO_WRITE $BWA_REF_TM
 Results
 -------
 
-See the results here:
+Here results wo obtain from test realized with TGCC (Très Grand Centre de Calcul - Bruyères le Chatel - France).
 
-http://devlog.cnrs.fr/jdev2017/posters
-
-in the section HPC@NGS
-
+![img](Results_TGCC_Broadwell.jpg)
 
 Remarks
 -------
@@ -297,11 +273,10 @@ In this case take 6gb per job. This is approximately the total reference plus th
 
 Future work:
 ----------
-1) Test the reproducibility after randomization of the fastq.
 
-2) Manage the randomization of alternate contigs. To mimic original algorithm.
+1) Manage the randomization of alternate contigs. To mimic original algorithm.
 
-3) Manage the insert size statistics between jobs.
+2) Manage the insert size statistics between jobs.
 
 References:
 ---------
@@ -312,7 +287,7 @@ Li H. and Durbin R. (2010) Fast and accurate long-read alignment with Burrows-Wh
 
 Li H. (2013) Aligning sequence reads, clone sequences and assembly contigs with BWA-MEM. arXiv:1303.3997v1 [q-bio.GN]
 
-Latham R. et al. (2007)  Implementing MPI-IO Atomic Mode and Shared File Pointers Using MPI One-Sided Communication Authors 
+Latham R. et al. (2007)  Implementing MPI-IO Atomic Mode and Shared File Pointers Using MPI One-Sided Communication Authors
 
 -------
 
