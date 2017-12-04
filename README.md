@@ -13,14 +13,23 @@ Add an experimental branch for higher scalability, full reproducibility and bett
 Release notes
 ------------
 
+Release 1.0 from 04/11/2017
+
+Changes in Experimental
+
+1) remove memory leaks
+2) Don't use this branch with NFS file system back end. 
+
 Release 1.0 from 29/11/2017
+
+!! Breaking the law !!
 
 Add a new branch called Experimental. <br />
 Warning: This is experimental work do not use in production. But test it and send us reports.<br />
 
 Rationnal:<br />
 
-The master and FULLMPI branches are made for full reproducibility (independant to the number of jobs) and accuracy but they reach the Amdah'ls law point. 
+The master and FULLMPI branches are made for full reproducibility (independant to the number of jobs) and accuracy but we reach the Amdah'ls law. 
 Indeed the locking file RMA implementation (the serialization when computing offsets) introduces a bottle neck we are not able to overpass with RMA technics. <br />
  
 This is why we have implemented a new algorithm. Now a lot more master jobs are responsible for chuncking the data the way bwa does and present it to bwa-mem aligner. 

@@ -13,9 +13,18 @@ Add an experimental branch for higher scalability, full reproducibility and bett
 Release notes
 ------------
 
+Release 1.0 from 04/11/2017
+
+Changes in Experimental
+
+1) remove memory leaks
+2) Don't use this branch with NFS file system back end. 
+
 Release 1.0 from 29/11/2017
 
-Add a new branch called Experimental.
+!! Breaking the law !!
+
+Add a new branch called Experimental. <br />
 
 Rationnal:
 
