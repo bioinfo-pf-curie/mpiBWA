@@ -19,8 +19,7 @@ Changes in Experimental
 
 1) remove memory leaks
 2) Don't use this branch with NFS file system back end. 
-We only use MPI IO in this branch. Replace it with Posix idf needed.
-3) 
+We only use MPI IO in this branch. Replace it with Posix if needed.
 
 Release 1.0 from 29/11/2017
 
