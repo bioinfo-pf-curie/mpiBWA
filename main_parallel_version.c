@@ -143,8 +143,7 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "Program: MPI version of BWA MEM\n\n"
 			"Version: v%s\n\n"
 			"Contact 1: Frederic Jarlier (frederic.jarlier@curie.fr)\n\n"
-			"Contact 2: Nicolas Joly (njoly@pasteur.fr)\n\n"
-			"usage : mpirun -n TOTAL_PROC %s mem -t 1 -o RESULTS REFERENCE FASTQ_R1 FASTQ_R2\n\n"
+			"usage : mpirun -n TOTAL_PROC %s mem -t 8 -o RESULTS REFERENCE FASTQ_R1 FASTQ_R2\n\n"
 			"Requirements : After the creation of reference file with BWA you need to create a referenced\n"
 			"	   map file genome with pidx like this  pidx ref.fasta generate a ref.fasta.map.\n"
 			"	   The .map file is a copy of memory mapped reference used for shared memory purpose.\n",
