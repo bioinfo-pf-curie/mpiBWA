@@ -19,6 +19,8 @@ Changes in Experimental
 
 1) remove memory leaks
 2) Don't use this branch with NFS file system back end. 
+We only use MPI IO in this branch. Replace it with Posix idf needed.
+3) 
 
 Release 1.0 from 29/11/2017
 
@@ -59,8 +61,12 @@ or : <br />
 MSUB -n 352<br />
 MSUB -c 8<br />
 
+with 2816
+
 alignment time: 26 mn<br />
 Time to compute chunks: 8s<br />
+
+with 5
 
 Reproducibility: the pipeline has been tested tested with 5632 and 2816 cpu results are the same. <br />
 
