@@ -44,6 +44,12 @@ For instance with a 688Gb forward fastq file you can chose 352 workers it makes 
 worker and with 176 worker it makes 4Gb per cpu.  <br />
 Above 4Gb per workers the memory pressure could be high.  <br />
 
+Never use the mpiBWA version with 1 worker, in this case prefer the original BWA MEM algorithm. <br />
+
+4) Next moves are 
+
+	a) manage the trimmed reads. <br />
+	b) reduce memory load during the first step of the algorithm with a sliding buffers.  <br />
 
 Release 1.0 from 04/11/2017
 
@@ -224,6 +230,8 @@ Known issues:
 
 Primary hits are reproduced between the serial version and the parallel but you can see differences in mapping position for alternate contigs. 
 This problem stems from the randomization of multi-hits reads. When running with the same number of MPI jobs alternative positions are reproduced but when the number of jobs varies the positions can switch for secondary alignments.
+
+For 100% reproducibility use the Experimental branch.
 
 How to integrate further version
 --------------------------------

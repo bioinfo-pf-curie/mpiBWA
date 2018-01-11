@@ -13,37 +13,43 @@ Add an experimental branch for higher scalability, full reproducibility and bett
 Release notes
 ------------
 
-Release 1.0 from 11/01/2018
+Release 1.0 from 11/01/2018    
 
-1) 100% reproducibility between mpiBWA and BWA MEM (8 threads).
+Update and changes in Experimental branch   
 
-We compare BWA MEM with 8 threads and mpiBWA with various number of workers.
-First we sort the SAM file by name and then weuse JVar kit to compare positions, flags, and cigars.
+1) 100% reproducibility between mpiBWA and BWA MEM (8 threads).   
 
-2) How the algorithm works for the Experimental branch. 
+We compare BWA MEM with 8 threads and mpiBWA with various number of workers.   
+First we sort the SAM file by name and then we use JVar kit to compare positions, flags, and cigars.   
 
-Terminology: In the following explanation a worker is a group of jobs who are responsible
-for reading, chopping the fastq and writing results. During the alignment each worker 
-launch 8 threads to mimic the results of original BWA MEM. This is why the total number of CPU needed for the job
-is workers * 8. 
+2) How the algorithm works for the Experimental branch?    
 
-The algorithm is divided in two steps.
+Terminology: In the following explanation a worker is a group of jobs who are responsible   
+for reading, chopping the fastq and writing results. During the alignment each worker    
+launch 8 threads to mimic the results of original BWA MEM. This is why the total number of CPU needed for the job   
+is workers * 8.    
 
-In the first step each job loads a part of the fastq file and compute the offset of each read.
-Then each worker compute offset chunks of fastq with 10 mega bases. 
+The algorithm is divided in two steps.   
 
-In the second step each worker start the alignment on 8 threads. 
-When the alignment is finished workers are responsible for writing results with shared file pointers. 
+In the first step each job loads a part of the fastq file and compute the offset of each read.   
+Then each worker computes offset chunks of fastq with 10 mega bases.    
 
-3) How to you chose the number of workers
+In the second step each worker starts the alignment on 8 threads.    
+When the alignment is finished workers are responsible for writing results with shared file pointers.    
 
-It is important to take the number of workers according to the memory size a CPU can manage.
-For instance with a 688Gb forward fastq file you can chose 352 workers it makes 2gb per 
-worker and with 176 worker it makes 4 Gb per cpu. 
-Above 4Gb per workers the memory pressure could be high. 
+3) How do you chose the number of workers?   
 
- 
+It is important to take the number of workers according to the memory size a CPU can manage.   
+For instance with a 688Gb forward fastq file you can chose 352 workers it makes 2gb per    
+worker and with 176 worker it makes 4Gb per cpu.    
+Above 4Gb per workers the memory pressure could be high.    
 
+Never use the mpiBWA version with 1 worker, in this case prefer the original BWA MEM algorithm.   
+
+4) Next moves are 
+
+	a) manage the trimmed reads.   
+	b) reduce memory load during the first step of the algorithm with a sliding buffers.    
 
 Release 1.0 from 04/11/2017
 
@@ -57,56 +63,56 @@ Release 1.0 from 29/11/2017
 
 !! Breaking the law !!
 
-Add a new branch called Experimental. <br />
-Warning: This is experimental work do not use in production. But test it and send us reports.<br />
+Add a new branch called Experimental.   
+Warning: This is experimental work do not use in production. But test it and send us reports.  
 
-Rationnal:<br />
+Rationnal:  
 
 The master and FULLMPI branches are made for full reproducibility (independant to the number of jobs) and accuracy but we reach the Amdah'ls law. 
-Indeed the locking file RMA implementation (the serialization when computing offsets) introduces a bottle neck we are not able to overpass with RMA technics. <br />
+Indeed the locking file RMA implementation (the serialization when computing offsets) introduces a bottle neck we are not able to overpass with RMA technics.   
  
 This is why we have implemented a new algorithm. Now a lot more master jobs are responsible for chuncking the data the way bwa does and present it to bwa-mem aligner. 
 And instead of doing it linearly on the fastq now they do it independently and in parallel. With a little inter communication they adjust the chunks offets and sizes. 
-This method removes the serialization bottle neck. <br />
+This method removes the serialization bottle neck.   
 
-As in the master and FULLMPI branches we obtain a full reproducibility and with a better efficiency and scalability. <br />
+As in the master and FULLMPI branches we obtain a full reproducibility and with a better efficiency and scalability.   
 
-When testing this branch make sure the total number of jobs you take is (master jobs) * 8. <br />
-8 is the number of aligner threads used by bwa-mem. <br />
-According to bwa-mem policy all chunks are 10e6 by the number of threads nucleotide bases big. <br />
+When testing this branch make sure the total number of jobs you take is (master jobs) * 8.   
+8 is the number of aligner threads used by bwa-mem.   
+According to bwa-mem policy all chunks are 10e6 by the number of threads nucleotide bases big.   
 
-This version does not work on trimmed reads. <br />
+This version does not work on trimmed reads.   
 
-First results test on broadwell. <br />
+First results test on broadwell.   
 
-Sample: <br />
+Sample:   
 
 NA12878 Illumina 300X 2x150 WGS from GIAB chinese trio.
 
 688 / 352 = 2g (per CPU)
 
-The alignement is done with 352*8 = 2816 cpu<br />
-352  are master jobs and  8 is the number of bwa-mem aligner jobs (8 per master jobs)<br />
+The alignement is done with 352*8 = 2816 cpu  
+352  are master jobs and  8 is the number of bwa-mem aligner jobs (8 per master jobs)  
 
-MPI parameters :<br />
-mpi_run -n 352 -c 8<br />
-or : <br />
-MSUB -n 352<br />
-MSUB -c 8<br />
+MPI parameters :  
+mpi_run -n 352 -c 8  
+or :   
+MSUB -n 352  
+MSUB -c 8  
 
 with 2816
 
-alignment time: 26 mn<br />
-Time to compute chunks: 8s<br />
+alignment time: 26 mn  
+Time to compute chunks: 8s  
 
 with 5
 
-Reproducibility: the pipeline has been tested tested with 5632 and 2816 cpu results are the same. <br />
+Reproducibility: the pipeline has been tested tested with 5632 and 2816 cpu results are the same.   
 
-Next step:<br />
+Next step:  
 
-1) support trimmed reads<br />
-2) need tests on low throughput infrastructures<br />
+1) support trimmed reads  
+2) need tests on low throughput infrastructures  
 
 Release 1.0 from 21/11/2017
 
@@ -224,6 +230,8 @@ Known issues:
 
 Primary hits are reproduced between the serial version and the parallel but you can see differences in mapping position for alternate contigs. 
 This problem stems from the randomization of multi-hits reads. When running with the same number of MPI jobs alternative positions are reproduced but when the number of jobs varies the positions can switch for secondary alignments.
+
+For 100% reproducibility use the Experimental branch.
 
 How to integrate further version
 --------------------------------
