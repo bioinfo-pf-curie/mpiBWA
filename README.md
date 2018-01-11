@@ -13,9 +13,41 @@ Add an experimental branch for higher scalability, full reproducibility and bett
 Release notes
 ------------
 
+Release 1.0 from 11/01/2018  <br />
+
+Update and changes in Experimental branch <br />
+
+1) 100% reproducibility between mpiBWA and BWA MEM (8 threads). <br />
+
+We compare BWA MEM with 8 threads and mpiBWA with various number of workers. <br />
+First we sort the SAM file by name and then we use JVar kit to compare positions, flags, and cigars. <br />
+
+2) How the algorithm works for the Experimental branch?  <br />
+
+Terminology: In the following explanation a worker is a group of jobs who are responsible <br />
+for reading, chopping the fastq and writing results. During the alignment each worker  <br />
+launch 8 threads to mimic the results of original BWA MEM. This is why the total number of CPU needed for the job <br />
+is workers * 8.  <br />
+
+The algorithm is divided in two steps. <br />
+
+In the first step each job loads a part of the fastq file and compute the offset of each read. <br />
+Then each worker compute offset chunks of fastq with 10 mega bases.  <br />
+
+In the second step each worker start the alignment on 8 threads.  <br />
+When the alignment is finished workers are responsible for writing results with shared file pointers.  <br />
+
+3) How do you chose the number of workers? <br />
+
+It is important to take the number of workers according to the memory size a CPU can manage. <br />
+For instance with a 688Gb forward fastq file you can chose 352 workers it makes 2gb per  <br />
+worker and with 176 worker it makes 4 Gb per cpu.  <br />
+Above 4Gb per workers the memory pressure could be high.  <br />
+
+
 Release 1.0 from 04/11/2017
 
-Changes in Experimental
+Changes in Experimental branch
 
 1) remove memory leaks
 2) Don't use this branch with NFS file system back end. 
@@ -50,6 +82,8 @@ First results test on broadwell. <br />
 Sample: <br />
 
 NA12878 Illumina 300X 2x150 WGS from GIAB chinese trio.
+
+688 / 352 = 2g (per CPU)
 
 The alignement is done with 352*8 = 2816 cpu<br />
 352  are master jobs and  8 is the number of bwa-mem aligner jobs (8 per master jobs)<br />
