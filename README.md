@@ -32,16 +32,16 @@ is workers * 8.  <br />
 The algorithm is divided in two steps. <br />
 
 In the first step each job loads a part of the fastq file and compute the offset of each read. <br />
-Then each worker compute offset chunks of fastq with 10 mega bases.  <br />
+Then each worker computes offset chunks of fastq with 10 mega bases.  <br />
 
-In the second step each worker start the alignment on 8 threads.  <br />
+In the second step each worker starts the alignment on 8 threads.  <br />
 When the alignment is finished workers are responsible for writing results with shared file pointers.  <br />
 
 3) How do you chose the number of workers? <br />
 
 It is important to take the number of workers according to the memory size a CPU can manage. <br />
 For instance with a 688Gb forward fastq file you can chose 352 workers it makes 2gb per  <br />
-worker and with 176 worker it makes 4 Gb per cpu.  <br />
+worker and with 176 worker it makes 4Gb per cpu.  <br />
 Above 4Gb per workers the memory pressure could be high.  <br />
 
 
