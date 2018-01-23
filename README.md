@@ -13,6 +13,24 @@ Add an experimental branch for higher scalability, full reproducibility and bett
 Release notes
 ------------
 
+Release 1.0 from 23/01/2018  <br />
+
+Update and changes in Experimental branch <br />
+
+1) Optimization of the first step<br />
+
+When computing offsets read buffer of 1GB are loaded consecutively and parsing. <br />
+There is now no limit in the number of workers. <br />
+
+2) Remove a memory leak in realloc <br />
+
+3) Merge pointer displacement when filling the structure before sending to bwa mem <br />
+
+Next steps are: <br />
+1) support trimmed reads <br />
+2) optimizing IO by masking writing and mapping <br />
+3) improve efficiency <br />
+
 Release 1.0 from 11/01/2018  <br />
 
 Update and changes in Experimental branch <br />
