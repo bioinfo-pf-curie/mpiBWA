@@ -8,7 +8,15 @@ Add an experimental branch for higher scalability, full reproducibility and bett
 Release notes
 ------------
 
-<<<<<<< HEAD
+Release 1.0 from 23/12/2017
+
+changes in Experimental branch <br />
+
+1) 100% reproducibility with the pipeline control (bwa mem -t 8) 
+2) remove memory limits now offset are computed on 1gb buffer 
+3) remove some memory leaks
+4) optimization of code 
+
 Release 1.0 from 01/12/2017
 
 Changes in the branch Experimental. <br />
