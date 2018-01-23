@@ -9,6 +9,14 @@ Release notes
 ------------
 
 
+Release 1.0 from 23/12/2017
+
+changes in Experimental branch <br />
+
+1) 100% reproducibility with the pipeline control (bwa mem -t 8) <br />
+2) remove memory limits now offset are computed on 1gb buffer <br />
+3) remove some memory leaks <br />
+4) optimization of code <br />
 
 Release 1.0 from 04/12/2017
 
@@ -16,7 +24,6 @@ Changes in the branch Experimental.
 
 1) Fix a memory leak.
 
-<<<<<<< HEAD
 Release 1.0 from 01/12/2017
 
 Changes in the branch Experimental. <br />
