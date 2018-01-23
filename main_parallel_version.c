@@ -50,8 +50,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #  include "malloc_wrap.h"
 #endif
 
-//due to mpi_read_at limit buffer 2gb
+//due to mpi_read_at limit buffer 1gb
 #define DEFAULT_INBUF_SIZE (1024*1024*1024)
+//#define DEFAULT_INBUF_SIZE 1024
 
 /* We require 64bit offsets */
 #ifndef MPI_OFFSET
@@ -64,6 +65,24 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define xfprintf(...) /**/
 #endif
 
+
+#define STRIPING_FACTOR "6"
+//#define STRIPING_UNIT "4194304"   // 4 MB
+//#define STRIPING_UNIT "268435456"   // 256 MB
+//#define STRIPING_UNIT "536870912"   // 500 MB
+#define STRIPING_UNIT "1073741824"  // 1GB
+//#define STRIPING_UNIT "1610612736"  // 1.5GB
+//#define STRIPING_UNIT "2147483648"  // 2GB
+//#define STRIPING_UNIT "2684354560"  // 2.5GB
+//#define STRIPING_UNIT "3221225472"  // 3GB
+//#define STRIPING_UNIT "3758096384"  // 3.5GB
+
+
+#define NB_PROC  "16" //numer of threads for writing
+#define CB_NODES "2" //numer of server for writing
+#define CB_BLOCK_SIZE  "268435456" /* 256 MBytes - should match FS block size */
+#define CB_BUFFER_SIZE  "3758096384" /* multiple of the block size by the number of proc*/
+#define DATA_SIEVING_READ "enable"
 
 
 void init_goff(size_t *goff, MPI_File mpi_filed, size_t fsize,int numproc,int rank){
@@ -384,6 +403,33 @@ int main(int argc, char *argv[]) {
 	res = MPI_Comm_rank(MPI_COMM_WORLD, &rank_num);
 	assert(res == MPI_SUCCESS);
 
+	//MPI_Info finfo;
+	//MPI_Info_create(&finfo);
+	/*
+	 * In this part you shall adjust the striping factor and unit according
+	 * to the underlying filesystem.
+	 * Harmless for other file system.
+	 *
+	 */
+	//MPI_Info_set(finfo,"striping_factor", STRIPING_FACTOR);
+	//MPI_Info_set(finfo,"striping_unit", STRIPING_UNIT); //2G striping
+	//MPI_Info_set(finfo,"ind_rd_buffer_size", STRIPING_UNIT); //2gb buffer
+	//MPI_Info_set(finfo,"romio_ds_read",DATA_SIEVING_READ);
+
+	/*
+	 * for collective reading and writing
+	 * should be adapted too and tested according to the file system
+	 * Harmless for other file system.
+	 */
+	//MPI_Info_set(finfo,"nb_proc", NB_PROC);
+	//MPI_Info_set(finfo,"cb_nodes", CB_NODES);
+	//MPI_Info_set(finfo,"cb_block_size", CB_BLOCK_SIZE);
+	//MPI_Info_set(finfo,"cb_buffer_size", CB_BUFFER_SIZE);
+	//MPI_Info_set(finfo, "collective_buffering", "true");
+	//MPI_Info_set(finfo,"romio_cb_write","enable");
+	//MPI_Info_set(finfo,"romio_cb_read","enable");
+
+
 	/* Check that output file (-o) is not null ... */
 	if (file_out == NULL) {
 		fprintf(stderr, "missing mandatory output file (-o)\n");
@@ -415,9 +461,6 @@ int main(int argc, char *argv[]) {
 	/* Work around build warning in non timing case */
 	aft = 0; aft++;
 	bef = 0; bef++;
-
-
-
 	/*
 	 * Rank 0 estimate the size of a read
 	 *
@@ -457,8 +500,10 @@ int main(int argc, char *argv[]) {
 	MPI_File mpi_fd_in1, mpi_fd_in2;
 	bef = MPI_Wtime();
 
-	MPI_File_open(MPI_COMM_WORLD, file_r1,  MPI_MODE_RDONLY , MPI_INFO_NULL, &mpi_fd_in1);
-	MPI_File_open(MPI_COMM_WORLD, file_r1,  MPI_MODE_RDONLY , MPI_INFO_NULL, &mpi_fd_in2);
+	res = MPI_File_open(MPI_COMM_WORLD, file_r1,  MPI_MODE_RDONLY , MPI_INFO_NULL, &mpi_fd_in1);
+	assert(res == MPI_SUCCESS);
+	res = MPI_File_open(MPI_COMM_WORLD, file_r1,  MPI_MODE_RDONLY , MPI_INFO_NULL, &mpi_fd_in2);
+	assert(res == MPI_SUCCESS);
 
 	/*
 	 * first we parse the buffer and see
@@ -478,12 +523,11 @@ int main(int argc, char *argv[]) {
 	goff[0]=0;
 	for(i = 1 ; i < proc_num; i++){goff[i] = lsize*i;}
 	goff[proc_num] = stat_r1.st_size;
-
-
 	char *buffer_r0 = malloc( tmp_sz + 1);
 	buffer_r0[tmp_sz] = '\0';
 
-	MPI_File_read_at(mpi_fd_in1, (MPI_Offset)goff[rank_num], buffer_r0, tmp_sz, MPI_CHAR, &status);
+	res = MPI_File_read_at(mpi_fd_in1, (MPI_Offset)goff[rank_num], buffer_r0, tmp_sz, MPI_CHAR, &status);
+	assert(res == MPI_SUCCESS);	
 	p = buffer_r0;
 	e = buffer_r0 + tmp_sz;
 
@@ -498,12 +542,14 @@ int main(int argc, char *argv[]) {
 	}
 	assert(*p == '@');
 	//we update begining offsets of windows in order to start at the begining of a read
-	goff[rank_num] += p - buffer_r0;
-	//now we exchange the goff buffer between all proc
+	goff[rank_num] += p - buffer_r0;	
 	free(buffer_r0);
-	MPI_File_close(&mpi_fd_in1);
+	res = MPI_File_close(&mpi_fd_in1);
+	assert(res == MPI_SUCCESS);
+	//now we exchange the goff buffer between all proc
+	size_t goff_inter = goff[rank_num]; //avoid memcpy overlap
 	//rank 0 gather the vector
-	res = MPI_Allgather(&goff[rank_num], 1, MPI_LONG_LONG_INT, goff , 1, MPI_LONG_LONG_INT, MPI_COMM_WORLD);
+	res = MPI_Allgather(&goff_inter, 1, MPI_LONG_LONG_INT, goff , 1, MPI_LONG_LONG_INT, MPI_COMM_WORLD);
 	assert(res == MPI_SUCCESS);
 
 	//we compute the new size according to the shift
@@ -513,117 +559,164 @@ int main(int argc, char *argv[]) {
 	MPI_Barrier(MPI_COMM_WORLD);
 	j=0;
 	size_t off_in_file = goff[ind]; //Current offset in file sam
-
-	buffer_r1 = malloc(siz2read + 1);
-	assert( buffer_r1 != NULL );
-	buffer_r1[siz2read] = 0;
-
+	
 	size_t total_siz_read = 0;
 	size_t read_buffer_sz = 0;
 	size_t offset_read = 0;
-
-	char *b = buffer_r1;
+	
 	size_t offset_buffer_r1 = 0;
 	size_t offset_tmp  = 0;
+	size_t count1;
+
+	MPI_Datatype arraytype;
+	MPI_Datatype arraytype0;	
+	MPI_Datatype arraytype_r1;
+	MPI_Datatype arraytype_r2;
 
 	if ( siz2read < DEFAULT_INBUF_SIZE ) read_buffer_sz = siz2read;
 	else read_buffer_sz = DEFAULT_INBUF_SIZE;
 
-	bef = MPI_Wtime();
-
-	while (1){
-		res = MPI_File_read_at(mpi_fd_in2, (MPI_Offset)off_in_file, b + offset_buffer_r1, read_buffer_sz, MPI_CHAR, MPI_STATUS_IGNORE);
-		assert(res == MPI_SUCCESS);
-		if (read_buffer_sz == 0) break;
-		//we update buffer pointer
-		offset_buffer_r1 += read_buffer_sz;
-		off_in_file		 += read_buffer_sz;
-
-		if (offset_buffer_r1 == siz2read) break;
-
-		if ((siz2read - offset_buffer_r1) < DEFAULT_INBUF_SIZE)
-			read_buffer_sz = siz2read - offset_buffer_r1;
-		else read_buffer_sz = DEFAULT_INBUF_SIZE;
-
-	}
-
-	aft = MPI_Wtime();
-		fprintf(stderr, "%s: rank %d time spend reading entire buffer = (%.02f) \n", __func__, rank_num, aft - bef);
-
-	assert(strlen(buffer_r1) == siz2read);
-	assert(*buffer_r1 == '@');
-	p = buffer_r1 ;
-	e = buffer_r1 + siz2read;
-	off_in_file = goff[ind];
-	//we count the number of lines
-	m = 0;
-	char *t = p;
-	int lines = 0;
-	while (t < e){
-		if (*t == '\n') lines++;
-		t++;
-	}
-	size_t local_num_reads = lines/4;
-
-	fprintf(stderr, "rank %d ::: local_num_reads = %zu \n", rank_num, local_num_reads );
-	//we malloc a vector to hold offsets of the read
-	//local_read_offset contains the ofset of the read
-	//in the file
-
-	size_t *local_read_offsets = calloc(local_num_reads + 1, sizeof(size_t));
-	size_t *local_read_size = calloc(local_num_reads, sizeof(size_t));
+	size_t local_num_reads = 0;
+	size_t total_num_reads = 0;
+	size_t *local_read_offsets = calloc(1 , sizeof(size_t));
+	int *local_read_size    = calloc(1, sizeof(int));
 	assert( local_read_offsets != NULL);
 	assert( local_read_size != NULL);
 
-	lines = 0;
 
-	int w = 0;
-	for (w = 0; w < local_num_reads; w++){
-		local_read_size[w] = blen;
-	}
-
-	local_read_offsets[0] = off_in_file;
-	n = 1;
-
+	bef = MPI_Wtime();
+	char *b, *r, *t;
+	size_t offset_end_buff;
+	size_t pos_in_vect_offset = 0;
+	size_t lines = 0;
+	size_t total_parsing = 0;
+	size_t new_offset = 0;
+	size_t new_off_in_file =0;
 	size_t g=0;
-	char *u = p;
-	while (u < e && n < local_num_reads){
-		if (*u == '\n') lines++;
-		if (lines == 4) {
-			local_read_offsets[n] = local_read_offsets[0] + g +1; //+1 for \n caracters
-			n++;
-			lines = 0;
+	size_t w=0;
+	size_t total_read = 0;
+	size_t total_lines = 0;
+	while (1){
+
+		buffer_r1 = malloc(read_buffer_sz + 1);
+		assert( buffer_r1 != NULL );
+		buffer_r1[read_buffer_sz] = 0;		
+		
+		// FOR TEST //
+		// MPI_Type_contiguous(read_buffer_sz, MPI_CHAR, &arraytype0);
+		// MPI_Type_commit(&arraytype0);
+		// MPI_File_set_view(mpi_fd_in2, (MPI_Offset)off_in_file, MPI_CHAR, MPI_CHAR, "native", MPI_INFO_NULL ) ; 
+		// res = MPI_File_read(mpi_fd_in2, b , 1, arraytype0, &status);
+
+		res = MPI_File_read_at(mpi_fd_in2, (MPI_Offset)off_in_file, buffer_r1, read_buffer_sz, MPI_CHAR, MPI_STATUS_IGNORE);
+		assert(res == MPI_SUCCESS);
+		assert(*buffer_r1 == '@');	
+		//we search the last read 
+		b = buffer_r1;
+		r  = b + read_buffer_sz;
+
+		if ( read_buffer_sz == DEFAULT_INBUF_SIZE){			
+			//go to last read			
+			while (r-- != b){if (*r == '\n' && *(r+1) == '+') {r--; break;}}					
+			while (r-- != b){if (*r == '\n') break;}
+			while (r-- != b){if (*r == '@') break;			}			
+			r--; //stop at \n
+			offset_end_buff = (r - b);
 		}
-		u++;
-		g++;
+		else
+			offset_end_buff = (r - b);
+
+		
+		//we count the number of lines
+		t = b ;
+		e = buffer_r1 + offset_end_buff;
+		m = 0;
+		lines = 0;		
+		while (t++ < e){if (*t == '\n') lines++;}
+
+		local_num_reads =  lines/4;
+		total_lines += lines;		
+		total_num_reads += local_num_reads;
+			
+		local_read_size  	= (int *)realloc(local_read_size, sizeof(int) * (total_num_reads + 1));
+		local_read_offsets	= (size_t *)realloc(local_read_offsets, sizeof(size_t) * (total_num_reads + 1));
+
+		assert( local_read_offsets != NULL);
+		assert( local_read_size != NULL);
+		
+		local_read_size[total_num_reads] = 0;
+		local_read_offsets[total_num_reads] = 0;
+		
+		//for the first first read
+		local_read_offsets[pos_in_vect_offset] = off_in_file;
+		local_read_size[pos_in_vect_offset]    = blen;				
+		pos_in_vect_offset++;
+		g = 0;
+		t = buffer_r1;
+		size_t w = 0;
+		//we move to the next line because we test *(t-1)
+		lines = 0;
+		
+		while (t < e ){
+			if (*t == '\n') lines++;
+			if (lines == 4) {
+				local_read_size[pos_in_vect_offset] = blen;
+				local_read_offsets[pos_in_vect_offset] = off_in_file + g + 1; //+1 for \n caracters
+				pos_in_vect_offset++;				
+				w++; lines = 0;//t+=blen;g+=blen; 
+			}			
+			t++;g++;
+		}
+	
+		assert(g == offset_end_buff);
+		total_parsing 	+= offset_end_buff; 				
+		
+		if (total_parsing == siz2read) {free(buffer_r1);break;}
+
+		if ((siz2read - total_parsing) < DEFAULT_INBUF_SIZE)
+			read_buffer_sz = siz2read - total_parsing;			
+		else read_buffer_sz = DEFAULT_INBUF_SIZE;
+					
+		off_in_file  += offset_end_buff + 1;
+	
+		free(buffer_r1);				
 	}
+	fprintf(stderr, "rank %d : in wait\n", rank_num);
+	MPI_Barrier(MPI_COMM_WORLD);
+	aft = MPI_Wtime();
+	fprintf(stderr, "%s: rank %d num reads parsed: %zu ::: time spend reading and parsing entire buffer = (%.02f) \n", __func__, rank_num, total_num_reads, aft - bef);
+	lines = 0;	
+	if (goff) free(goff);
+	
 
-	local_read_offsets[local_num_reads] = goff[rank_num + 1]; //+1 help get the size of last read
-
-	free(goff);
-	MPI_File_close(&mpi_fd_in2);
-	free(buffer_r1);
-	//the roots in NEW_COMM compute the total number of reads
-	size_t total_num_reads = 0;
-	res = MPI_Reduce(&local_num_reads, &total_num_reads, 1,MPI_LONG_LONG_INT, MPI_SUM, 0,MPI_COMM_WORLD);
-	assert ( res == MPI_SUCCESS);
-	res = MPI_Bcast(&total_num_reads, 1, MPI_LONG_LONG_INT, 0, MPI_COMM_WORLD);
-	assert ( res == MPI_SUCCESS);
+	MPI_File_close(&mpi_fd_in2);	
+	size_t grand_total_num_reads = 0;
+	res = MPI_Reduce(&total_num_reads, &grand_total_num_reads, 1,MPI_LONG_LONG_INT, MPI_SUM, 0,MPI_COMM_WORLD);
+	assert ( res == MPI_SUCCESS);	
+	res = MPI_Bcast(&grand_total_num_reads, 1, MPI_LONG_LONG_INT, 0, MPI_COMM_WORLD);
+	assert ( res == MPI_SUCCESS);	
 
 	size_t num_reads_by_proc[proc_num];
-	res = MPI_Allgather(&local_num_reads, 1, MPI_LONG_LONG_INT, num_reads_by_proc, 1, MPI_LONG_LONG_INT, MPI_COMM_WORLD);
+	res = MPI_Allgather(&total_num_reads, 1, MPI_LONG_LONG_INT, num_reads_by_proc, 1, MPI_LONG_LONG_INT, MPI_COMM_WORLD);
 	//we dispatch the previous result
-
+	
 	if ( rank_num == 0 || rank_num ==1 )
-		fprintf(stderr, "rank %d ::: total_num_reads = %zu \n", rank_num, total_num_reads);
+		fprintf(stderr, "rank %d ::: total_num_reads = %zu \n", rank_num, grand_total_num_reads);
 
 	/*
 	 * Now each rank compute buffers offset start and end.
 	 */
 
+	local_num_reads = total_num_reads;
 	//now we estimate the number of chunk per rank
 	size_t chunck_num = (local_num_reads * blen) / (( opt->chunk_size * opt->n_threads) / 2);
 	chunck_num += 2; //the last chunk hold the remain bases
+
+	size_t h=0;
+	for ( h = 0; h < total_num_reads; h++){
+		assert( local_read_size[h] == blen );
+		assert( local_read_offsets[h] >= 0 );
+	}
 
 	/*
 	 * We compute number of chunks for forward reads
@@ -633,7 +726,7 @@ int main(int argc, char *argv[]) {
 
 	size_t bases_previous_chunk      = 0;
 	size_t offset_previous_chunk 	 = 0;
-	size_t size_previous_chunk 		 = 0;
+	size_t size_previous_chunk 	 = 0;
 
 	if (rank_num > 0){
 
@@ -669,17 +762,16 @@ int main(int argc, char *argv[]) {
 	 */
 
 	// we allocate vector for chunks offset
-	size_t *begin_offset_chunk 	= malloc(chunck_num *sizeof(size_t));
-	size_t *chunk_size 		 	= malloc(chunck_num *sizeof(size_t));
+	size_t *begin_offset_chunk 	= calloc(chunck_num, sizeof(size_t));
+	size_t *chunk_size 		= calloc(chunck_num, sizeof(size_t));
+	size_t *reads_in_chunk 		= calloc(chunck_num, sizeof(size_t));
 
 	assert( begin_offset_chunk != NULL );
 	assert( chunk_size != NULL );
+	assert( reads_in_chunk != NULL );
+	
 	size_t u1=0;
-	for (u1 = 0; u1 < chunck_num; u1++){
-		begin_offset_chunk[u1] = 0;
-		chunk_size[u1] = 0;
-	}
-
+	
 	size_t counter_bases  	 = 0;
 	size_t bytes_in_chunk 	 = 0;
 
@@ -702,12 +794,13 @@ int main(int argc, char *argv[]) {
 			if ( counter_bases > maxsiz){
 				//then we have the number of beses wanted
 				begin_offset_chunk[index_in_chunk] = begin_offset;
-				chunk_size[index_in_chunk] = bytes_in_chunk;
-				chunk_count +=1;
-				index_in_chunk +=1;
+				chunk_size[index_in_chunk] 	   = bytes_in_chunk;
+				reads_in_chunk[index_in_chunk]	   = counter_bases / blen; 
+				chunk_count 			   +=1;
+				index_in_chunk 			   +=1;
 				//we reset counter of bases
-				counter_bases  = 0;
-				bytes_in_chunk = 0;
+				counter_bases  			   = 0;
+				bytes_in_chunk 			   = 0;
 			}
 		}
 	}
@@ -728,12 +821,13 @@ int main(int argc, char *argv[]) {
 			if ( counter_bases > maxsiz){
 				//then we have the number of bases wanted
 				begin_offset_chunk[index_in_chunk] = begin_offset;
-				chunk_size[index_in_chunk] = bytes_in_chunk;
-				chunk_count +=1;
-				index_in_chunk +=1;
+				chunk_size[index_in_chunk] 	   = bytes_in_chunk;
+				reads_in_chunk[index_in_chunk]	   = counter_bases / blen; 
+				chunk_count 			   +=1;
+				index_in_chunk 			   +=1;
 				//we reset counter of bases
-				counter_bases  = 0;
-				bytes_in_chunk = 0;
+				counter_bases  			   = 0;
+				bytes_in_chunk 			   = 0;
 			}
 		}
 	}
@@ -742,11 +836,12 @@ int main(int argc, char *argv[]) {
 		// we complete the last chunk
 		// with the last reads
 
-		begin_offset_chunk[index_in_chunk] = begin_offset;
-		chunk_size[index_in_chunk] = bytes_in_chunk;
+		begin_offset_chunk[index_in_chunk] 	= begin_offset;
+		chunk_size[index_in_chunk] 		= bytes_in_chunk;
+		reads_in_chunk[index_in_chunk]		= counter_bases / blen;
 
-		index_in_chunk +=1;
-		chunk_count +=1;
+		index_in_chunk 	+=1;
+		chunk_count 	+=1;
 
 	}
 	if (rank_num < (proc_num -1)){
@@ -774,9 +869,6 @@ int main(int argc, char *argv[]) {
 				MPI_COMM_WORLD);
 	}
 
-	//fprintf(stderr, "%s: rank %d :::  chunk_count = %zu \n", __func__, rank_num, chunk_count);
-	//fprintf(stderr, "%s: rank %d :::  chunck_num = %zu \n", __func__, rank_num, chunck_num);
-
 	aft = MPI_Wtime();
 	fprintf(stderr, "%s: rank %d time spend evaluating chunks = (%.02f) \n", __func__, rank_num, aft - bef);
 
@@ -787,6 +879,10 @@ int main(int argc, char *argv[]) {
 	/*
 	 * Map reference genome indexes in shared memory (by host)
 	 */
+	
+	MPI_Info win_info;
+	MPI_Info_create(&win_info);
+	MPI_Info_set(win_info, "alloc_shared_non_contig", "true");
 
 	bef = MPI_Wtime();
 	res = MPI_File_open(MPI_COMM_WORLD, file_map, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh_map);
@@ -798,8 +894,9 @@ int main(int argc, char *argv[]) {
 	res = MPI_Comm_rank(comm_shr, &rank_shr);
 	assert(res == MPI_SUCCESS);
 	size_shr = (rank_shr == 0) ? size_map : 0;
-	res = MPI_Win_allocate_shared(size_shr, 0, MPI_INFO_NULL, comm_shr, &addr, &win_shr);
+	res = MPI_Win_allocate_shared(size_shr, 0, win_info, comm_shr, &addr, &win_shr);
 	assert(res == MPI_SUCCESS);
+	MPI_Info_free(&win_info);
 	res = MPI_Win_shared_query(win_shr, MPI_PROC_NULL, &size_shr, &res, &addr_map);
 	assert(res == MPI_SUCCESS);
 
@@ -822,7 +919,7 @@ int main(int argc, char *argv[]) {
 	res = MPI_File_close(&fh_map);
 	assert(res == MPI_SUCCESS);
 	aft = MPI_Wtime();
-	xfprintf(stderr, "%s: mapped indexes (%.02f)\n", __func__, aft - bef);
+	fprintf(stderr, "%s: mapped indexes (%.02f)\n", __func__, aft - bef);
 
 	/*
 	 * Create SAM header
@@ -896,6 +993,7 @@ int main(int argc, char *argv[]) {
 	// here we loop until there's nothing to read
 	// in the offset and size file
 	//char *p, *q, *e;
+	char *p1, *q1, *e1, *p2, *q2, *e2;
 	int line_number, line_number2;
 	size_t reads_r1, reads_r2, reads;
 	int64_t bases;
@@ -908,7 +1006,12 @@ int main(int argc, char *argv[]) {
 	double after_local_mapping	= 0;
 	size_t total_time_local_mapping  = 0;
 	size_t total_time_mapping = 0;
-
+	size_t total_time_reading_seq = 0;
+	size_t grand_total_time_reading_seq = 0;
+	size_t total_time_parsing = 0;
+	size_t grand_total_time_parsing = 0;
+	size_t total_time_writing = 0;
+	size_t grand_total_time_writing = 0;
 	before_local_mapping = MPI_Wtime();
 
 	//we loop the chunck_count
@@ -916,20 +1019,24 @@ int main(int argc, char *argv[]) {
 
 		offset_chunk = begin_offset_chunk[u1];
 		size_chunk   = chunk_size[u1];
-
 		assert(size_chunk != 0);
-
 		/*
 		 * Read sequence datas ...
 		 *
 		 */
-
 		bef = MPI_Wtime();
 
 		buffer_r1 = malloc(size_chunk+1);
 		assert(buffer_r1 != NULL);
 		buffer_r1[size_chunk] = 0;
-		res = MPI_File_read_at(fh_r2, offset_chunk, buffer_r1, size_chunk, MPI_CHAR, &status);
+		
+		// FOR TEST //
+		//MPI_Type_contiguous(size_chunk, MPI_CHAR, &arraytype_r1);
+		//MPI_Type_commit(&arraytype_r1);
+		//MPI_File_set_view(fh_r2, (MPI_Offset)offset_chunk, MPI_CHAR, MPI_CHAR, "native", finfo ) ; 
+		//res = MPI_File_read(fh_r2, buffer_r1, 1, arraytype_r1, &status);
+
+		res = MPI_File_read_at(fh_r2, offset_chunk, buffer_r1, size_chunk, MPI_CHAR, &status);		
 		assert(res == MPI_SUCCESS);
 		res = MPI_Get_count(&status, MPI_CHAR, &count);
 		assert(res == MPI_SUCCESS);
@@ -940,28 +1047,24 @@ int main(int argc, char *argv[]) {
 		assert(buffer_r2 != NULL);
 		buffer_r2[size_chunk]=0;
 
-		res = MPI_File_read_at(fh_r1, offset_chunk, buffer_r2, size_chunk, MPI_CHAR, &status);
+		// FOR TEST //
+		//MPI_Type_contiguous(size_chunk, MPI_CHAR, &arraytype_r2);
+		//MPI_Type_commit(&arraytype_r2);
+		//MPI_File_set_view(fh_r1, (MPI_Offset)offset_chunk, MPI_CHAR, MPI_CHAR, "native", finfo ) ; 
+		//res = MPI_File_read(fh_r1, buffer_r2, 1, arraytype_r2, &status);		
+
+		res = MPI_File_read_at(fh_r1, offset_chunk, buffer_r2, size_chunk, MPI_CHAR, &status);		
 		assert(res == MPI_SUCCESS);
 		res = MPI_Get_count(&status, MPI_CHAR, &count);
 		assert(res == MPI_SUCCESS);
 		assert(count == (int) size_chunk && *buffer_r2 == '@');
 
 		aft = MPI_Wtime();
-		//fprintf(stderr, "%s: read sequences (%.02f)\n", __func__, aft - bef);
+		fprintf(stderr, "%s: read sequences (%.02f)\n", __func__, aft - bef);
+		total_time_reading_seq += (aft - bef);
 
-		/* Count sequences ... */
 		bef = MPI_Wtime();
-		reads_r1 = reads_r2 = 0;
-		if (file_r1 != NULL) {
-			p =buffer_r1; e = buffer_r1 + size_chunk;
-			while (p < e) { reads_r1 += (*p++ == '\n') ? 1 : 0; }
-		}
-		if (file_r2 != NULL) {
-			p = buffer_r2; e = buffer_r2 + size_chunk;
-			while (p < e) { reads_r2 += (*p++ == '\n') ? 1 : 0; }
-		}
-		reads_r1 /= 4; reads_r2 /= 4;
-		assert(reads_r1 == reads_r2);
+		reads_r1 = reads_r2 = reads_in_chunk[u1];
 		reads = reads_r1 + reads_r2; bases = 0;
 		total_local_reads_aligned += reads/2;
 		assert(reads <= INT_MAX);
@@ -970,71 +1073,57 @@ int main(int argc, char *argv[]) {
 		/* Parse sequences ... */
 		seqs = malloc(reads * sizeof(*seqs));
 		assert(seqs != NULL);
-		if (file_r1 != NULL) {
-			p = q = buffer_r1; e = buffer_r1 + size_chunk; line_number = line_number2 = 0;
-			while (q < e) {
-				if (*q != '\n') { q++; continue; }
+		if (file_r1 != NULL && file_r2 !=NULL) {
+			p1 = q1 = buffer_r1; e1 = buffer_r1 + size_chunk; line_number = 0;
+			p2 = q2 = buffer_r2; e2 = buffer_r2 + size_chunk; 
+				
+			while (q1 < e1) {
+				if (*q1 != '\n') { q1++; q2++; continue; }
 				/* We have a full line ... process it */
-				*q = '\0'; n = files * (line_number / 4);
+				*q1 = '\0'; 
+				*q2 = '\0';
+				n = files * (line_number / 4);
+				
 				switch (line_number % 4) {
 				case 0: /* Line1: Name and Comment */
-					assert(*p == '@');
-					seqs[n].name = p + 1;
-					while (*p && !isspace((unsigned char)*p)) p++;
-					if (*(p-2) == '/' && isdigit((unsigned char)*(p-1))) *(p-2) = '\0';
-					if (*p) *p++ = '\0';
-					seqs[n].comment = (copy_comment != 0) ? p : NULL;
+					assert(*p1 == '@');
+					seqs[n].name   = p1 + 1;
+					seqs[n+1].name = p2 + 1;
+					
+					while (*p1 && !isspace((unsigned char)*p1)) {p1++;p2++;}
+					if (*(p1-2) == '/' && isdigit((unsigned char)*(p1-1))) {*(p1-2) = '\0'; *(p2-2) = '\0';}
+					if (*p1) {*p1++ = '\0'; *p2++ = '\0';}
+					seqs[n].comment = (copy_comment != 0) ? p1 : NULL;
 					seqs[n].sam = NULL;
+					seqs[n+1].comment = (copy_comment != 0) ? p2 : NULL;
+					seqs[n+1].sam = NULL;					
 					break;
 				case 1: /* Line2: Sequence */
-					seqs[n].seq = p;
-					seqs[n].l_seq = q - p;
+					seqs[n].seq = p1;
+					seqs[n].l_seq = q1 - p1;
+					seqs[n+1].seq = p2;
+					seqs[n+1].l_seq = q2 - p2;
+
 					bases += seqs[n].l_seq;
+					bases += seqs[n+1].l_seq;
 					break;
 				case 2: /* Line3: Ignored */
-					assert(*p == '+');
+					assert(*p1 == '+');
 					break;
 				case 3: /* Line4: Quality */
-					seqs[n].qual = p;
+					seqs[n].qual = p1;
+					seqs[n+1].qual = p2;
 					break; }
-				p = ++q; line_number++; }
+				p1 = ++q1; 
+				p2 = ++q2; 
+				line_number++; 
+			}
 			//fprintf(stderr, "rank %d ::: Parse %d lines \n",rank_num, line_number );
 		}
-		if (file_r2 != NULL) {
-			p = q = buffer_r2; e = buffer_r2 + size_chunk; line_number2 = 0;
-			while (q < e) {
-				if (*q != '\n') { q++; continue; }
-				/* We have a full line ... process it */
-				*q = '\0'; n = files * (line_number2 / 4) + 1;
-				switch (line_number2 % 4) {
-				case 0: /* Line1: Name and Comment */
-					assert(*p == '@');
-					seqs[n].name = p + 1;
-					while (*p && !isspace((unsigned char)*p)) p++;
-					if (*(p-2) == '/' && isdigit((unsigned char)*(p-1))) *(p-2) = '\0';
-					if (*p) *p++ = '\0';
-					seqs[n].comment = (copy_comment != 0) ? p : NULL;
-					seqs[n].sam = NULL;
-					break;
-				case 1: /* Line2: Sequence */
-					seqs[n].seq = p;
-					seqs[n].l_seq = q - p;
-					bases += seqs[n].l_seq;
-					break;
-				case 2: /* Line3: Ignored */
-					assert(*p == '+');
-					break;
-				case 3: /* Line4: Quality */
-					seqs[n].qual = p;
-					break; }
-				p = ++q; line_number2++; }
-			//fprintf(stderr, "rank %d ::: Parse %d lines \n",rank_num, line_number );
-		}
-
-		assert(line_number == line_number2);
-
+		
 		aft = MPI_Wtime();
 		fprintf(stderr, "%s: parsed sequences (%.02f)\n", __func__, aft - bef);
+		total_time_parsing += (aft - bef);
 		fprintf(stderr, "rank %d ::: [M::%s] read %zu sequences (%ld bp)...\n",rank_num , __func__, reads, (long)bases);
 		/* Datas computation ... */
 		bef = MPI_Wtime();
@@ -1069,7 +1158,8 @@ int main(int argc, char *argv[]) {
 		assert(count == (int)localsize);
 		free(buffer_out);
 		aft = MPI_Wtime();
-		xfprintf(stderr, "%s: wrote results (%.02f)\n", __func__, aft - bef);
+		fprintf(stderr, "%s: wrote results (%.02f)\n", __func__, aft - bef);
+		total_time_writing += (aft - bef);
 		free(buffer_r1);
 		free(buffer_r2);
 
@@ -1084,19 +1174,33 @@ int main(int argc, char *argv[]) {
 	res = MPI_Allreduce(&total_local_reads_aligned, &total_reads_check, 1,MPI_LONG_LONG_INT, MPI_SUM, MPI_COMM_WORLD);
 	assert ( res == MPI_SUCCESS);
 
+	res = MPI_Allreduce(&total_time_reading_seq, &grand_total_time_reading_seq, 1,MPI_LONG_LONG_INT, MPI_SUM, MPI_COMM_WORLD);
+	assert ( res == MPI_SUCCESS);
+
+	res = MPI_Allreduce(&total_time_parsing, &grand_total_time_parsing, 1,MPI_LONG_LONG_INT, MPI_SUM, MPI_COMM_WORLD);
+	assert ( res == MPI_SUCCESS);
+
+	res = MPI_Allreduce(&total_time_writing, &grand_total_time_writing, 1,MPI_LONG_LONG_INT, MPI_SUM, MPI_COMM_WORLD);
+	assert ( res == MPI_SUCCESS);
+	
+	fprintf(stderr, "rank %d :::: total_time_reading_seq = %zu \n", rank_num, grand_total_time_reading_seq);
+	fprintf(stderr, "rank %d :::: total_time_writing = %zu \n", rank_num, grand_total_time_writing);
+	fprintf(stderr, "rank %d :::: total_time_parsing = %zu \n", rank_num, grand_total_time_parsing);
 	fprintf(stderr, "rank %d :::: total_time_local_mapping = %zu \n", rank_num, total_time_local_mapping);
 	fprintf(stderr, "rank %d :::: total_time_mapping = %zu \n", rank_num, total_time_mapping);
 
 	fprintf(stderr, "rank %d :::: local_num_reads = %zu \n", rank_num, local_num_reads);
 	fprintf(stderr, "rank %d :::: total_reads_check = %zu \n", rank_num, total_reads_check);
 	fprintf(stderr, "rank %d :::: total_local_reads_aligned = %zu \n", rank_num, total_local_reads_aligned);
-	fprintf(stderr, "rank %d :::: total_num_reads = %zu \n", rank_num, total_num_reads);
+	fprintf(stderr, "rank %d :::: total_num_reads = %zu \n", rank_num, grand_total_num_reads);
 
-	assert( total_reads_check == total_num_reads );
+	assert( total_reads_check == grand_total_num_reads );
 
 	fprintf(stderr, "rank %d :::: finish mappings for reads \n", rank_num);
 	if (begin_offset_chunk != NULL) free(begin_offset_chunk);
 	if (chunk_size != NULL) free(chunk_size);
+	if (reads_in_chunk != NULL) free(reads_in_chunk);
+
 	if (opt != NULL) free(opt);
 
 	if (file_r2 != NULL) {
@@ -1118,7 +1222,7 @@ int main(int argc, char *argv[]) {
 	res = MPI_Finalize();
 	assert(res == MPI_SUCCESS);
 	aft = MPI_Wtime();
-	xfprintf(stderr, "%s: synched processes (%.02f)\n", __func__, aft - bef);
+	fprintf(stderr, "%s: finalized synched processes (%.02f)\n", __func__, aft - bef);
 
 	return 0;
 }
