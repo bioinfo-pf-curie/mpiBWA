@@ -13,13 +13,18 @@ Add an experimental branch for higher scalability, full reproducibility and bett
 Release notes
 ------------
 
+Release 1.0 from 21/03/2018  <br />
+
+Update and changes in Experimental branch <br />
+
+1) Fix an inversion in file handle (line 1039, 1056). <br />
+
 Release 1.0 from 23/01/2018  <br />
 
 Update and changes in Experimental branch <br />
 
 1) Optimization of the first step<br />
-
-When computing offsets read buffer of 1GB are loaded consecutively and parsing. <br />
+Change buffering method when computing offset. <br />
 There is now no limit in the number of workers. <br />
 
 2) Remove a memory leak in realloc <br />
