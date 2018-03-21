@@ -1036,7 +1036,7 @@ int main(int argc, char *argv[]) {
 		//MPI_File_set_view(fh_r2, (MPI_Offset)offset_chunk, MPI_CHAR, MPI_CHAR, "native", finfo ) ; 
 		//res = MPI_File_read(fh_r2, buffer_r1, 1, arraytype_r1, &status);
 
-		res = MPI_File_read_at(fh_r2, offset_chunk, buffer_r1, size_chunk, MPI_CHAR, &status);		
+		res = MPI_File_read_at(fh_r1, offset_chunk, buffer_r1, size_chunk, MPI_CHAR, &status);		
 		assert(res == MPI_SUCCESS);
 		res = MPI_Get_count(&status, MPI_CHAR, &count);
 		assert(res == MPI_SUCCESS);
@@ -1053,7 +1053,7 @@ int main(int argc, char *argv[]) {
 		//MPI_File_set_view(fh_r1, (MPI_Offset)offset_chunk, MPI_CHAR, MPI_CHAR, "native", finfo ) ; 
 		//res = MPI_File_read(fh_r1, buffer_r2, 1, arraytype_r2, &status);		
 
-		res = MPI_File_read_at(fh_r1, offset_chunk, buffer_r2, size_chunk, MPI_CHAR, &status);		
+		res = MPI_File_read_at(fh_r2, offset_chunk, buffer_r2, size_chunk, MPI_CHAR, &status);		
 		assert(res == MPI_SUCCESS);
 		res = MPI_Get_count(&status, MPI_CHAR, &count);
 		assert(res == MPI_SUCCESS);
