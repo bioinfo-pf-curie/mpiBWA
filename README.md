@@ -8,6 +8,9 @@ Add an experimental branch for higher scalability, full reproducibility and bett
 Release notes
 ------------
 
+Release 1.0 from the 21/03/2018 <br />
+
+1) Fix an inversion in file handle (line 1039 and 1056) <br />
 
 Release 1.0 from 23/12/2017
 

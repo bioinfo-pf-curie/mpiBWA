@@ -8,6 +8,10 @@ Add an experimental branch for higher scalability, full reproducibility and bett
 Release notes
 ------------
 
+Release 1.0 from the 21/03/2018 
+
+1) Fix an inversion in file handle (line 1039 and 1056)
+
 Release 1.0 from 23/12/2017
 
 changes in Experimental branch <br />
@@ -20,7 +24,7 @@ changes in Experimental branch <br />
 Release 1.0 from 01/12/2017
 
 Changes in the branch Experimental. <br />
-Fix the mpi_read_at buffer limit size. Now we load the buffer in chunk of 1gb. <br />
+Fix the mpi_read_at buffer limit size. Now we load the an entire buffer by chunks of 1gb. <br />
 
 Release 1.0 from 29/11/2017
 
