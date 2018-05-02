@@ -1,17 +1,23 @@
-Your are in the master branch of the the mpiBWA project.
+Your are in the master branch of the mpiBWA project.
 
-This version is dedicated to fit a large variety of cluster.
+We recommand you to go to the Experimental branch. 
+The experimental branch has full reproducibility and a better scaling.
+This branch will become the master in futur.
 
-If you are equiped with low latency network and network file system (NFS) use this branch.
+Other branches (master, FULLMPI, LAZYCHUNK ) are history.
 
-If your are equiped with Lustre and Low latency network use the FULLMPI branch of the project.
-  
-If your are equiped with NFS and high latency network and want to go very fast but less precise use the LAZYCHUNK branch.
-
-Add an experimental branch for higher scalability, full reproducibility and better accuracy.
 
 Release notes
 ------------
+
+Release 1.0 from 02/04/2018  
+
+Update and changes in Experimental branch 
+
+1) Now mpiBWA support trimmed reads or reads of different length.
+2) Be aware of the flock on Lustre and Beegfs. The flock must be on otherwise could be problem with reproducibility.
+
+Thanks you Romain for your help.
 
 Release 1.0 from 21/03/2018 
 
