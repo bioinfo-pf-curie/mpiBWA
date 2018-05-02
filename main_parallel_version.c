@@ -310,7 +310,6 @@ void find_reads_size_and_offsets(size_t offset_in_file,
 			while (*t != '\n'){ t++; g++;} //the qual
 			lines3++;
 
-
 			(*local_read_offsets)[pos_in_vect]	= start_read_offset;
 			(*local_read_bytes)[pos_in_vect]	= (g - start_read_offset) + 1;
 			assert((*local_read_bytes)[pos_in_vect] != 0);
@@ -2601,6 +2600,13 @@ int main(int argc, char *argv[]) {
 	}// end else case files are trimmed
 
 
+	/*
+	*
+	*   Print some statistics
+	*
+	*/
+
+
 	after_local_mapping	 = MPI_Wtime();
 	total_time_local_mapping = after_local_mapping - before_local_mapping;
 
@@ -2624,8 +2630,6 @@ int main(int argc, char *argv[]) {
 	fprintf(stderr, "rank %d :::: total_time_parsing = %.02f  seconds \n", rank_num, grand_total_time_parsing);
 	fprintf(stderr, "rank %d :::: total_time_local_mapping = %.02f seconds \n", rank_num, total_time_local_mapping);
 	fprintf(stderr, "rank %d :::: total_time_mapping = %.02f seconds \n", rank_num, total_time_mapping);
-
-	
 	fprintf(stderr, "rank %d :::: total_reads_check for all ranks= %zu \n", rank_num, total_reads_check);
 	fprintf(stderr, "rank %d :::: total_local_reads_aligned = %zu \n", rank_num, total_local_reads_aligned);
 	
