@@ -8,73 +8,94 @@ Add an experimental branch for higher scalability, full reproducibility and bett
 Release notes
 ------------
 
-Release 1.0 from the 30/04/2018 
+Release 1.0 from the 28/06/2018
 
-Changes in Experimental branch
+1) Creation of a google group
+	https://groups.google.com/forum/#!forum/hpc-bioinformatics-pipeline
 
-1) Add support for trimmed reads. 
+2) For improvement on Lustre file system removed the “nosuid” mount option.
+
+Release 1.0 from the 30/04/2018 <br />
+
+Changes in Experimental branch <br />
+
+1) Add support for trimmed reads.  <br />
 2) Be aware of the flock mode on parallel file system (Lustre, beegfs): flock must be on.
-Otherwise reproducibility is not guaranteed.
- 
+Otherwise reproducibility is not guaranteed. <br />
 
-Release 1.0 from the 21/03/2018 
+Release 1.0 from the 21/03/2018 <br />
 
-1) Fix an inversion in file handle (line 1039 and 1056)
+1) Fix an inversion in file handle (line 1039 and 1056) <br />
 
 Release 1.0 from 23/12/2017
 
 changes in Experimental branch <br />
 
-1) 100% reproducibility with the pipeline control (bwa mem -t 8) 
-2) remove memory limits now offset are computed on 1gb buffer 
-3) remove some memory leaks
-4) optimization of code 
+1) 100% reproducibility with the pipeline control (bwa mem -t 8) <br />
+2) remove memory limits now offset are computed on 1gb buffer <br />
+3) remove some memory leaks <br />
+4) optimization of code <br />
+
+Release 1.0 from 04/12/2017
+
+Changes in the branch Experimental.
+
+1) Fix a memory leak.
 
 Release 1.0 from 01/12/2017
 
 Changes in the branch Experimental. <br />
-Fix the mpi_read_at buffer limit size. Now we load the an entire buffer by chunks of 1gb. <br />
+Fix the mpi_read_at buffer limit size.<br />
+
 
 Release 1.0 from 29/11/2017
 
-Add a new branch called Experimental.
+Add a new branch called Experimental. <br />
+Warning: This is experimental work do not use in production. But test it and send us reports.<br />
 
-Rationnal:
+Rationnal:<br />
 
-The master and FULLMPI branch are made for full reproducibility and accuracy but they reach the Amdah'ls law point. 
-Indeed the locking file RMA implementation introduce a bottle neck we are not able to overcome.
+The master and FULLMPI branches are made for full reproducibility (independant to the number of jobs) and accuracy but they reach the Amdah'ls law point. 
+Indeed the locking file RMA implementation (the serialization when computing offsets) introduces a bottle neck we are not able to overpass with RMA technics. <br />
  
-This is why we have implemented a new algorithm. With the same idea in mind than from the previous version master jobs are responsible for chuncking the data the way bwa-mem does. But instead of doing it linearly on the fastq now they do it independently. We introduce communication for adjusting the offets.
- 
-This method removes the previous bottle neck. We obtain the full reproducibility with a better efficiency and scalability. 
+This is why we have implemented a new algorithm. Now a lot more master jobs are responsible for chuncking the data the way bwa does and present it to bwa-mem aligner. 
+And instead of doing it linearly on the fastq now they do it independently and in parallel. With a little inter communication they adjust the chunks offets and sizes. 
+This method removes the serialization bottle neck. <br />
 
-When testing this branch make sure the total number of jobs you take is (master jobs) * 8. 
-8 is the number of aligner threads used by bwa-mem. 
+As in the master and FULLMPI branches we obtain a full reproducibility and with a better efficiency and scalability. <br />
 
-Remark: The initial buffer of each master jobs is limited to 2gb (due to mpi_read_at). 
-This version does not work on trimmed reads. 
+When testing this branch make sure the total number of jobs you take is (master jobs) * 8. <br />
+8 is the number of aligner threads used by bwa-mem. <br />
+According to bwa-mem policy all chunks are 10e6 by the number of threads nucleotide bases big. <br />
 
-First results test on broadwell. 
+Remark: The initial buffer of each master jobs is limited to 2gb (due to mpi_read_at buffer size). <br />
+This version does not work on trimmed reads. <br />
 
-Sample: SRR2052 WGS from GIAB aligned with 352*8 = 2816 cpu
+First results test on broadwell. <br />
 
-352 = (Forward Fastq size in gb) / 2g
-8 number of aligner jobs (per master)
+Sample: <br />
 
-MPI parameters :
-mpi_run -n 352 -c 8
-or : 
-MSUB -n 352
-MSUB -c 8
+NA12878 Illumina 300X 2x150 WGS from GIAB chinese trio.
 
-alignment time: 26 mn
-Time to compute chunks: 8s
+The alignement is done with 352*8 = 2816 cpu<br />
+352 = (Forward Fastq size in gb) / 2g,  8 is thenumber of bwa-mem aligner jobs (8 per master jobs)<br />
 
-Next step:
+MPI parameters :<br />
+mpi_run -n 352 -c 8<br />
+or : <br />
+MSUB -n 352<br />
+MSUB -c 8<br />
 
-1) remove buffer size limitation
-2) support trimmed reads
-3) need tests on low throughput infrastructures
+alignment time: 26 mn<br />
+Time to compute chunks: 8s<br />
+
+Reproducibility: the pipeline has been tested tested with 5632 and 2816 cpu results are the same. <br />
+
+Next step:<br />
+
+1) remove initial buffer size limitation<br />
+2) support trimmed reads<br />
+3) need tests on low throughput infrastructures<br />
 
 Release 1.0 from 21/11/2017
 
@@ -151,19 +172,28 @@ MSUB -c 8
 
 This version does not support trimmed read yet.
 
+Installation
+---------
+
+git clone https://github.com/fredjarlier/mpiBWA.git 
+git checkout Experimental
+git pull
+.export PATH=/PATH_TO/automake-1.15/bin:/PATH_TO/autoconf-2.69/bin:$PATH
+ ./configure CC=/PATH_TO/mpicc
+make && make intall
 
 Requirements
 ------------
 
 You need a C compiler as required for classic BWA program.
 
-You need to install a version of MPI.
+You need to install a version of openMPI. (see: https://www.open-mpi.org/)
 
 You need a mpi compiler too. to check your mpi installation tell in a command window whereis mpirun, normally it is installed in /usr/bin/mpirun.
 
 You need a low latency network and a parallel file system to use this branch
 
-Your reads should be paired or single.
+Your reads should be paired.
 
 Options
 ------
@@ -240,30 +270,18 @@ mpirun -n 2  pbwa7 mem -t 10...
 
 And so on.
 
-Alignment with a scheduler
-------------
+Example of command lines
+---------------------
 
-Example of bash to run the pbwa7 on Torque scheduler
+Example of bash to run the pbwa7 with openmpi 1.10.7
 
-SPLITTED_READS_DIR=../WholeGenomeSampleReads
-MAIL="mymail@toto.fr"
-PBS_OUTPUT=../OUTPUT
-PBS_ERROR=../ERROR
-pBWA_BIN_DIR=../mpiBWA
-BWA_REF_TMP=../hg19.fasta
-SAMPLENAME="MPIBWA"
-FILE_TO_ALIGN_R1=../myread_forward.fastq
-FILE_TO_ALIGN_R2=../myread_backward.fastq
-TOTAL_PROC=600
-OUTPUT_DIR=../RESULTS/
-FILE_TO_WRITE=../RESULTS/test.sam
+We launch 30 master jobs with 8 threads each it make a total of 240 jobs 
 
-//launch the jobs with torque and one job per core (-t 1)
-echo " mpirun -n $TOTAL_PROC $pBWA_BIN_DIR/pbwa7 mem -t 1 -o $FILE_TO_WRITE $BWA_REF_TMP $FILE_TO_ALIGN_R1 $FILE_TO_ALIGN_R2" | qsub -o $PBS_OUTPUT -e $PBS_ERROR -N ${SAMPLENAME} -q batch  -l nodes=40:ppn=15
-
-or launch the jobs with mpirun
-
-mpirun -n $TOTAL_PROC $pBWA_BIN_DIR/pbwa7 mem -t 1 -o $FILE_TO_WRITE $BWA_REF_TMP $FILE_TO_ALIGN_R1 $FILE_TO_ALIGN_R2
+ERROR=$PATH/error.txt
+SAM=$PATH/mysample.sam
+TASKS=30
+PPN=8
+mpirun -np $TASKS --map-by ppr:$PPN:socket:pe=$PE $PBWA mem -t 8 -o $SAM $REF $FASTQ1 $FASTQ2 &> $ERROR
 
 Results
 -------
@@ -289,15 +307,21 @@ Notes: The striping (like with Hadoop) is the way your data is distributed among
 4) Make sure you have the same version of MPI for compiling and running.
 
 5) From our experiences some scheduler do not interpret shared memory and jobs ends up stuck for overloading memory.
-In this case take 6gb per job. This is approximately the total reference plus the chunk size.
+In this case take less than 1gb per job per threads (if you take 8 threads). This is approximately the total reference plus the chunk size.
 
+Questions:
+--------
+
+We have created a google forum for questions.
+
+https://groups.google.com/forum/#!forum/hpc-bioinformatics-pipeline
+
+Feel free to ask any question
 
 Future work:
 ----------
 
-1) Manage the randomization of alternate contigs. To mimic original algorithm.
-
-2) Manage the insert size statistics between jobs.
+1) Overlap writing, reading and aligning.
 
 References:
 ---------

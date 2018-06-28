@@ -8,6 +8,13 @@ Add an experimental branch for higher scalability, full reproducibility and bett
 Release notes
 ------------
 
+Release 1.0 from the 28/06/2018
+
+1) Creation of a google group
+	https://groups.google.com/forum/#!forum/hpc-bioinformatics-pipeline
+
+2) For improvement on Lustre file system removed the “nosuid” mount option.
+
 Release 1.0 from the 30/04/2018 <br />
 
 Changes in Experimental branch <br />
@@ -165,19 +172,28 @@ MSUB -c 8
 
 This version does not support trimmed read yet.
 
+Installation
+---------
+
+git clone https://github.com/fredjarlier/mpiBWA.git 
+git checkout Experimental
+git pull
+.export PATH=/PATH_TO/automake-1.15/bin:/PATH_TO/autoconf-2.69/bin:$PATH
+ ./configure CC=/PATH_TO/mpicc
+make && make intall
 
 Requirements
 ------------
 
 You need a C compiler as required for classic BWA program.
 
-You need to install a version of MPI.
+You need to install a version of openMPI. (see: https://www.open-mpi.org/)
 
 You need a mpi compiler too. to check your mpi installation tell in a command window whereis mpirun, normally it is installed in /usr/bin/mpirun.
 
 You need a low latency network and a parallel file system to use this branch
 
-Your reads should be paired or single.
+Your reads should be paired.
 
 Options
 ------
@@ -254,30 +270,18 @@ mpirun -n 2  pbwa7 mem -t 10...
 
 And so on.
 
-Alignment with a scheduler
-------------
+Example of command lines
+---------------------
 
-Example of bash to run the pbwa7 on Torque scheduler
+Example of bash to run the pbwa7 with openmpi 1.10.7
 
-SPLITTED_READS_DIR=../WholeGenomeSampleReads
-MAIL="mymail@toto.fr"
-PBS_OUTPUT=../OUTPUT
-PBS_ERROR=../ERROR
-pBWA_BIN_DIR=../mpiBWA
-BWA_REF_TMP=../hg19.fasta
-SAMPLENAME="MPIBWA"
-FILE_TO_ALIGN_R1=../myread_forward.fastq
-FILE_TO_ALIGN_R2=../myread_backward.fastq
-TOTAL_PROC=600
-OUTPUT_DIR=../RESULTS/
-FILE_TO_WRITE=../RESULTS/test.sam
+We launch 30 master jobs with 8 threads each it make a total of 240 jobs 
 
-//launch the jobs with torque and one job per core (-t 1)
-echo " mpirun -n $TOTAL_PROC $pBWA_BIN_DIR/pbwa7 mem -t 1 -o $FILE_TO_WRITE $BWA_REF_TMP $FILE_TO_ALIGN_R1 $FILE_TO_ALIGN_R2" | qsub -o $PBS_OUTPUT -e $PBS_ERROR -N ${SAMPLENAME} -q batch  -l nodes=40:ppn=15
-
-or launch the jobs with mpirun
-
-mpirun -n $TOTAL_PROC $pBWA_BIN_DIR/pbwa7 mem -t 1 -o $FILE_TO_WRITE $BWA_REF_TMP $FILE_TO_ALIGN_R1 $FILE_TO_ALIGN_R2
+ERROR=$PATH/error.txt
+SAM=$PATH/mysample.sam
+TASKS=30
+PPN=8
+mpirun -np $TASKS --map-by ppr:$PPN:socket:pe=$PE $PBWA mem -t 8 -o $SAM $REF $FASTQ1 $FASTQ2 &> $ERROR
 
 Results
 -------
@@ -303,15 +307,21 @@ Notes: The striping (like with Hadoop) is the way your data is distributed among
 4) Make sure you have the same version of MPI for compiling and running.
 
 5) From our experiences some scheduler do not interpret shared memory and jobs ends up stuck for overloading memory.
-In this case take 6gb per job. This is approximately the total reference plus the chunk size.
+In this case take less than 1gb per job per threads (if you take 8 threads). This is approximately the total reference plus the chunk size.
 
+Questions:
+--------
+
+We have created a google forum for questions.
+
+https://groups.google.com/forum/#!forum/hpc-bioinformatics-pipeline
+
+Feel free to ask any question
 
 Future work:
 ----------
 
-1) Manage the randomization of alternate contigs. To mimic original algorithm.
-
-2) Manage the insert size statistics between jobs.
+1) Overlap writing, reading and aligning.
 
 References:
 ---------
