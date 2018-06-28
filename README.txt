@@ -1,142 +1,102 @@
 Your are in the master branch of the mpiBWA project.
 
-We recommand you to go to the Experimental branch. 
+We recommand you to go to the Experimental branch (git checkout Experimental + git pull). 
 The experimental branch has full reproducibility and a better scaling.
 This branch will become the master in futur.
 
 Other branches (master, FULLMPI, LAZYCHUNK ) are history.
 
-
 Release notes
 ------------
 
-Release 1.0 from 02/04/2018  
+Release 1.0 from the 28/06/2018
 
-Update and changes in Experimental branch 
+1) Creation of a google group
+	https://groups.google.com/forum/#!forum/hpc-bioinformatics-pipeline
 
-1) Now mpiBWA support trimmed reads or reads of different length.
-2) Be aware of the flock on Lustre and Beegfs. The flock must be on otherwise could be problem with reproducibility.
+2) For improvement on Lustre file system removed the “nosuid” mount option.
 
-Thanks you Romain for your help.
+Release 1.0 from the 30/04/2018 <br />
 
-Release 1.0 from 21/03/2018 
+Changes in Experimental branch <br />
 
-Update and changes in Experimental branch
+1) Add support for trimmed reads.  <br />
+2) Be aware of the flock mode on parallel file system (Lustre, beegfs): flock must be on.
+Otherwise reproducibility is not guaranteed. <br />
 
-1) Fix an inversion in file handle (line 1039, 1056).
+Release 1.0 from the 21/03/2018 <br />
 
-Release 1.0 from 23/01/2018
+1) Fix an inversion in file handle (line 1039 and 1056) <br />
 
-Update and changes in Experimental branch
+Release 1.0 from 23/12/2017
 
-1) Optimization of the first step
-Change buffering method when computing offset.
-There is now no limit in the number of workers.
+changes in Experimental branch <br />
 
-2) Remove a memory leak in realloc 
+1) 100% reproducibility with the pipeline control (bwa mem -t 8) <br />
+2) remove memory limits now offset are computed on 1gb buffer <br />
+3) remove some memory leaks <br />
+4) optimization of code <br />
 
-3) Merge pointer displacement when filling the structure before sending to bwa mem
+Release 1.0 from 04/12/2017
 
-Release 1.0 from 11/01/2018    
+Changes in the branch Experimental.
 
-Update and changes in Experimental branch   
+1) Fix a memory leak.
 
-1) 100% reproducibility between mpiBWA and BWA MEM (8 threads).   
+Release 1.0 from 01/12/2017
 
-We compare BWA MEM with 8 threads and mpiBWA with various number of workers.   
-First we sort the SAM file by name and then we use JVar kit to compare positions, flags, and cigars.   
+Changes in the branch Experimental. <br />
+Fix the mpi_read_at buffer limit size.<br />
 
-2) How the algorithm works for the Experimental branch?    
-
-Terminology: In the following explanation a worker is a group of jobs who are responsible   
-for reading, chopping the fastq and writing results. During the alignment each worker    
-launch 8 threads to mimic the results of original BWA MEM. This is why the total number of CPU needed for the job   
-is workers * 8.    
-
-The algorithm is divided in two steps.   
-
-In the first step each job loads a part of the fastq file and compute the offset of each read.   
-Then each worker computes offset chunks of fastq with 10 mega bases.    
-
-In the second step each worker starts the alignment on 8 threads.    
-When the alignment is finished workers are responsible for writing results with shared file pointers.    
-
-3) How do you chose the number of workers?   
-
-It is important to take the number of workers according to the memory size a CPU can manage.   
-For instance with a 688Gb forward fastq file you can chose 352 workers it makes 2gb per    
-worker and with 176 worker it makes 4Gb per cpu.    
-Above 4Gb per workers the memory pressure could be high.    
-
-Never use the mpiBWA version with 1 worker, in this case prefer the original BWA MEM algorithm.   
-
-4) Next moves are 
-
-	a) manage the trimmed reads.   
-	b) reduce memory load during the first step of the algorithm with a sliding buffers.    
-
-Release 1.0 from 04/11/2017
-
-Changes in Experimental branch
-
-1) remove memory leaks
-2) Don't use this branch with NFS file system back end. 
-We only use MPI IO in this branch. Replace it with Posix if needed.
 
 Release 1.0 from 29/11/2017
 
-!! Breaking the law !!
+Add a new branch called Experimental. <br />
+Warning: This is experimental work do not use in production. But test it and send us reports.<br />
 
-Add a new branch called Experimental.   
-Warning: This is experimental work do not use in production. But test it and send us reports.  
+Rationnal:<br />
 
-Rationnal:  
-
-The master and FULLMPI branches are made for full reproducibility (independant to the number of jobs) and accuracy but we reach the Amdah'ls law. 
-Indeed the locking file RMA implementation (the serialization when computing offsets) introduces a bottle neck we are not able to overpass with RMA technics.   
+The master and FULLMPI branches are made for full reproducibility (independant to the number of jobs) and accuracy but they reach the Amdah'ls law point. 
+Indeed the locking file RMA implementation (the serialization when computing offsets) introduces a bottle neck we are not able to overpass with RMA technics. <br />
  
 This is why we have implemented a new algorithm. Now a lot more master jobs are responsible for chuncking the data the way bwa does and present it to bwa-mem aligner. 
 And instead of doing it linearly on the fastq now they do it independently and in parallel. With a little inter communication they adjust the chunks offets and sizes. 
-This method removes the serialization bottle neck.   
+This method removes the serialization bottle neck. <br />
 
-As in the master and FULLMPI branches we obtain a full reproducibility and with a better efficiency and scalability.   
+As in the master and FULLMPI branches we obtain a full reproducibility and with a better efficiency and scalability. <br />
 
-When testing this branch make sure the total number of jobs you take is (master jobs) * 8.   
-8 is the number of aligner threads used by bwa-mem.   
-According to bwa-mem policy all chunks are 10e6 by the number of threads nucleotide bases big.   
+When testing this branch make sure the total number of jobs you take is (master jobs) * 8. <br />
+8 is the number of aligner threads used by bwa-mem. <br />
+According to bwa-mem policy all chunks are 10e6 by the number of threads nucleotide bases big. <br />
 
-This version does not work on trimmed reads.   
+Remark: The initial buffer of each master jobs is limited to 2gb (due to mpi_read_at buffer size). <br />
+This version does not work on trimmed reads. <br />
 
-First results test on broadwell.   
+First results test on broadwell. <br />
 
-Sample:   
+Sample: <br />
 
 NA12878 Illumina 300X 2x150 WGS from GIAB chinese trio.
 
-688 / 352 = 2g (per CPU)
+The alignement is done with 352*8 = 2816 cpu<br />
+352 = (Forward Fastq size in gb) / 2g,  8 is thenumber of bwa-mem aligner jobs (8 per master jobs)<br />
 
-The alignement is done with 352*8 = 2816 cpu  
-352  are master jobs and  8 is the number of bwa-mem aligner jobs (8 per master jobs)  
+MPI parameters :<br />
+mpi_run -n 352 -c 8<br />
+or : <br />
+MSUB -n 352<br />
+MSUB -c 8<br />
 
-MPI parameters :  
-mpi_run -n 352 -c 8  
-or :   
-MSUB -n 352  
-MSUB -c 8  
+alignment time: 26 mn<br />
+Time to compute chunks: 8s<br />
 
-with 2816
+Reproducibility: the pipeline has been tested tested with 5632 and 2816 cpu results are the same. <br />
 
-alignment time: 26 mn  
-Time to compute chunks: 8s  
+Next step:<br />
 
-with 5
-
-Reproducibility: the pipeline has been tested tested with 5632 and 2816 cpu results are the same.   
-
-Next step:  
-
-1) support trimmed reads  
-2) need tests on low throughput infrastructures  
+1) remove initial buffer size limitation<br />
+2) support trimmed reads<br />
+3) need tests on low throughput infrastructures<br />
 
 Release 1.0 from 21/11/2017
 
@@ -180,69 +140,61 @@ this way the virtual memory stay low.
 Release 1.0 from 30/06/2017
 
 Major changes:
+=======
+28/11/2017
+>>>>>>> 884482b956169fabe0e8696021fc0092c403d86f
 
-1) new algorithm. 
+First release
 
-We mimic original BWA algorithm when spliting chunk of reads.
+We have implemented a new algorithm.
+In this algorithm you have master jobs and aligner jobs.
+Master jobs are responsible for computing offset and chunk sizes.
+This way all the chuncks have the same number of bases. 
+Then master jobs send chunks to bwa-mem and are aligned.
+Finally master jobs write ni the result sam file.
 
-In this version 2 workers are responsible for computing offsets chuncks. 
-Then offset workers sends the offsets to aligning workers.
+the total number of jobs muste be: (number of master) * 8 
+8 is the number of threads used by bwa-mem.
 
-To change the number of offset workers modify the line 65 (we will pass it in parameters in the next release).
-Adapt the number of offset workers according to the number of aligners.
-We have tested 2 offset workers for 80 aligners with a NFS and low ethernet with a good effciency.
- 
-This version has a low adherence with MPI in order to be compatible with NFS and low ethernet connectors.
-Tested with openMPI 2.1.1.
+First result test on broadwell of TGCC
 
+Condition: Due to mpi_read_at buffer limit of 2g. 
+You should limit the initial buffer read to 2gb per master jobs.
+Futur release will remove this condition. 
 
-Release 1.0 from 13/06/2017
+Tested on the SRR2052 WGS with 352*8 cpu 
+alignment time: 26 mn
+Time to compute chunks: 8s
+Scalability : ok
+Reproducibility : ok 
+Command line :mpi_run -n 352 -c 8
+or : MSUB -n 352
+MSUB -c 8
 
-Update version of bwa 7.15
+This version does not support trimmed read yet.
 
-Release 1.0 from 30/05/2017
+Installation
+---------
 
-To overcome lock contention problem we use a RMA MCS lock inspired from Latham R. et al. (2007). 
-
-
-Release 1.0 from 17/05/2017
-
-To enhance reproducibility and accuracy we have implemented a new method for read's chunk evaluation. 
-The reads chunk sizes are now identical compare to serial BWA-MEM for both trimmed reads or not.
-
-But the algorithm suffers from scalability. The algorithm scales up to 300 cpu (test on Cobalt TGCC) with same speed up than previous version. 
-Above that number we encounter lock contention. We are working on a solution now. 
-Go back to february 2017 version for more scalability. 
- 
-Release 1.0 from 20/01/2017
-
-No need to copy the reference genome in /tmp before the mapping. This is done automatically by MPI. 
-To change the target directory set $TMPDIR to the new location.
-
-Release 1.0 from 07/11/2016
-
-1) Support for trimmed reads. Works with an even number of jobs. Tested with sample data up to 10 jobs.
-Need more test for scalability, load balancing, and evaluation of the chunks sizes.
-
-Introduction
-------------
-
-This program optimizes access files and parallelizes the jobs alignment with BWA-MEM alignment v0.7.12.
-The input are fasta files of pair reads sequenced with Illumina technology (see sample files). 
-Batch of 100M pair bases are loaded and aligned assuring the result is identical to classic BWA-MEM. 
+git clone https://github.com/fredjarlier/mpiBWA.git 
+git checkout Experimental
+git pull
+.export PATH=/PATH_TO/automake-1.15/bin:/PATH_TO/autoconf-2.69/bin:$PATH
+ ./configure CC=/PATH_TO/mpicc
+make && make intall
 
 Requirements
 ------------
 
 You need a C compiler as required for classic BWA program.
 
-You need to install a version of MPI.
+You need to install a version of openMPI. (see: https://www.open-mpi.org/)
 
 You need a mpi compiler too. to check your mpi installation tell in a command window whereis mpirun, normally it is installed in /usr/bin/mpirun.
-This program runs on supercomputer architecture and supports also NFS file system. 
-A classic 1Gb or 10Gb network is sufficient.
 
-Your reads should be paired or single.
+You need a low latency network and a parallel file system to use this branch
+
+Your reads should be paired.
 
 Options
 ------
@@ -255,15 +207,13 @@ Known issues:
 Primary hits are reproduced between the serial version and the parallel but you can see differences in mapping position for alternate contigs. 
 This problem stems from the randomization of multi-hits reads. When running with the same number of MPI jobs alternative positions are reproduced but when the number of jobs varies the positions can switch for secondary alignments.
 
-For 100% reproducibility use the Experimental branch.
-
 How to integrate further version
 --------------------------------
 
-This version of mpiBWA has been build with 0.7.12 BWA version.
-To integrate the 0.7.13 or 0.7.14:
+This version of mpiBWA has been build with 0.7.15 BWA version.
+To integrate the 0.7.+:
 
-1) git clone the 0.7.14 of BWA.
+1) git clone the 0.7.+ of BWA.
 
 2) in the folder of bwa copy-pass the following function from mpiBWA:
 
@@ -321,40 +271,25 @@ mpirun -n 2  pbwa7 mem -t 10...
 
 And so on.
 
-Alignment with a scheduler
-------------
+Example of command lines
+---------------------
 
-Example of bash to run the pbwa7 on Torque scheduler
+Example of bash to run the pbwa7 with openmpi 1.10.7
 
-SPLITTED_READS_DIR=../WholeGenomeSampleReads
-MAIL="mymail@toto.fr"
-PBS_OUTPUT=../OUTPUT
-PBS_ERROR=../ERROR
-pBWA_BIN_DIR=../mpiBWA
-BWA_REF_TMP=../hg19.fasta
-SAMPLENAME="MPIBWA"
-FILE_TO_ALIGN_R1=../myread_forward.fastq
-FILE_TO_ALIGN_R2=../myread_backward.fastq
-TOTAL_PROC=600
-OUTPUT_DIR=../RESULTS/
-FILE_TO_WRITE=../RESULTS/test.sam
+We launch 30 master jobs with 8 threads each it make a total of 240 jobs 
 
-//launch the jobs with torque and one job per core (-t 1)
-echo " mpirun -n $TOTAL_PROC $pBWA_BIN_DIR/pbwa7 mem -t 1 -o $FILE_TO_WRITE $BWA_REF_TMP $FILE_TO_ALIGN_R1 $FILE_TO_ALIGN_R2" | qsub -o $PBS_OUTPUT -e $PBS_ERROR -N ${SAMPLENAME} -q batch  -l nodes=40:ppn=15
-
-or launch the jobs with mpirun
-
-mpirun -n $TOTAL_PROC $pBWA_BIN_DIR/pbwa7 mem -t 1 -o $FILE_TO_WRITE $BWA_REF_TMP $FILE_TO_ALIGN_R1 $FILE_TO_ALIGN_R2
+ERROR=$PATH/error.txt
+SAM=$PATH/mysample.sam
+TASKS=30
+PPN=8
+mpirun -np $TASKS --map-by ppr:$PPN:socket:pe=$PE $PBWA mem -t 8 -o $SAM $REF $FASTQ1 $FASTQ2 &> $ERROR
 
 Results
 -------
 
-See the results here:
+Here results wo obtain from test realized with TGCC (Très Grand Centre de Calcul - Bruyères le Chatel - France).
 
-http://devlog.cnrs.fr/jdev2017/posters
-
-in the section HPC@NGS
-
+![img](Results_TGCC_Broadwell.jpg)
 
 Remarks
 -------
@@ -373,16 +308,21 @@ Notes: The striping (like with Hadoop) is the way your data is distributed among
 4) Make sure you have the same version of MPI for compiling and running.
 
 5) From our experiences some scheduler do not interpret shared memory and jobs ends up stuck for overloading memory.
-In this case take 6gb per job. This is approximately the total reference plus the chunk size.
+In this case take less than 1gb per job per threads (if you take 8 threads). This is approximately the total reference plus the chunk size.
 
+Questions:
+--------
+
+We have created a google forum for questions.
+
+https://groups.google.com/forum/#!forum/hpc-bioinformatics-pipeline
+
+Feel free to ask any question
 
 Future work:
 ----------
-1) Test the reproducibility after randomization of the fastq.
 
-2) Manage the randomization of alternate contigs. To mimic original algorithm.
-
-3) Manage the insert size statistics between jobs.
+1) Overlap writing, reading and aligning.
 
 References:
 ---------
@@ -393,7 +333,7 @@ Li H. and Durbin R. (2010) Fast and accurate long-read alignment with Burrows-Wh
 
 Li H. (2013) Aligning sequence reads, clone sequences and assembly contigs with BWA-MEM. arXiv:1303.3997v1 [q-bio.GN]
 
-Latham R. et al. (2007)  Implementing MPI-IO Atomic Mode and Shared File Pointers Using MPI One-Sided Communication Authors 
+Latham R. et al. (2007)  Implementing MPI-IO Atomic Mode and Shared File Pointers Using MPI One-Sided Communication Authors
 
 -------
 
