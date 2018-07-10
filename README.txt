@@ -7,13 +7,19 @@ Add an experimental branch for higher scalability, full reproducibility and bett
 
 Release notes
 ------------
+Release 1.0 from the 10/07/2018
 
-Release 1.0 from the 28/06/2018
+Changes in Experimental branch 
 
-1) Creation of a google group
-	https://groups.google.com/forum/#!forum/hpc-bioinformatics-pipeline
+1) Fix a bug during the mapping in shared memory of the reference genome
+This bug didn't appear with openMPI version but Intel compiler got it.
 
-2) For improvement on Lustre file system removed the “nosuid” mount option.
+2) Creation of a google group 
+	https://groups.google.com/forum/#!forum/hpc-bioinformatics-pipeline 
+
+3) To improve performances on Lustre file system removed the “suid” mount option (rw,nosuid,flock,lazystatfs) 
+With Beegfs set the "flock" to "on" for reproducibility.
+
 
 Release 1.0 from the 30/04/2018 <br />
 
