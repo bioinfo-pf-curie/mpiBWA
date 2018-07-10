@@ -12,7 +12,7 @@ Release 1.0 from the 10/07/2018
 Changes in Experimental branch 
 
 1) Fix a bug during the mapping in shared memory of the reference genome
-This bug didn't appear with openMPI version but Intel compiler got it.
+This bug didn't appear with openMPI version but Intel compiler complains.
 
 2) Creation of a google group 
 	https://groups.google.com/forum/#!forum/hpc-bioinformatics-pipeline 
