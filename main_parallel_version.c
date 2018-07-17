@@ -1829,7 +1829,7 @@ int main(int argc, char *argv[]) {
 		res = MPI_Comm_rank(comm_shr, &rank_shr);
 		assert(res == MPI_SUCCESS);
 		size_shr = (rank_shr == 0) ? size_map : 0;
-		res = MPI_Win_allocate_shared(size_shr, 0, win_info, comm_shr, &addr, &win_shr);
+		res = MPI_Win_allocate_shared(size_shr, sizeof(char), win_info, comm_shr, &addr, &win_shr);
 		assert(res == MPI_SUCCESS);
 		MPI_Info_free(&win_info);
 		res = MPI_Win_shared_query(win_shr, MPI_PROC_NULL, &size_shr, &res, &addr_map);
