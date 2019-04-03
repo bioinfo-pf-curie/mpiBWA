@@ -8,6 +8,12 @@ Add an experimental branch for higher scalability, full reproducibility and bett
 Release notes
 ------------
 
+Release 1.0 from the 3/04/2019<br />
+
+Changes in Experimental branch 
+
+1) Add support of single read trimmed or not
+
 Release 1.0 from the 10/07/2018<br />
 
 Changes in Experimental branch 
@@ -85,12 +91,11 @@ NA12878 Illumina 300X 2x150 WGS from GIAB chinese trio.
 
 The alignement is done with 352*8 = 2816 cpu<br />
 352 = (Forward Fastq size in gb) / 2g,  8 is thenumber of bwa-mem aligner jobs (8 per master jobs)<br />
-
 MPI parameters :<br />
 mpi_run -n 352 -c 8<br />
 or : <br />
-MSUB -n 352<br />
-MSUB -c 8<br />
+MSUB -n 352 <br />
+MSUB -c 8 <br />
 
 alignment time: 26 mn<br />
 Time to compute chunks: 8s<br />
@@ -146,8 +151,6 @@ Release 1.0 from 30/06/2017
 
 Major changes:
 =======
-28/11/2017
->>>>>>> 884482b956169fabe0e8696021fc0092c403d86f
 
 First release
 
@@ -176,17 +179,16 @@ Command line :mpi_run -n 352 -c 8
 or : MSUB -n 352
 MSUB -c 8
 
-This version does not support trimmed read yet.
 
 Installation
 ---------
 
-git clone https://github.com/fredjarlier/mpiBWA.git 
-git checkout Experimental
-git pull
-.export PATH=/PATH_TO/automake-1.15/bin:/PATH_TO/autoconf-2.69/bin:$PATH
- ./configure CC=/PATH_TO/mpicc
-make && make intall
+git clone https://github.com/fredjarlier/mpiBWA.git <br /> 
+git checkout Experimental <br />
+git pull <br />
+.export PATH=/PATH_TO/automake-1.15/bin:/PATH_TO/autoconf-2.69/bin:$PATH <br />
+ ./configure CC=/PATH_TO/mpicc <br />
+make && make intall <br />
 
 Requirements
 ------------
@@ -218,42 +220,47 @@ How to integrate further version
 This version of mpiBWA has been build with 0.7.15 BWA version.
 To integrate the 0.7.+:
 
-1) git clone the 0.7.+ of BWA.
+1) git clone the 0.7.+ of BWA. <br />
 
-2) in the folder of bwa copy-pass the following function from mpiBWA:
+2) in the folder of bwa copy-pass the following function from mpiBWA: <br />
 
-makefile
-main_parallel_version.c 
-pidx.c
+makefile <br />
+main_parallel_version.c <br /> 
+pidx.c <br />
 
-then make.
+then make. <br />
 
 Compilation 
 -----------
 
-You need automake 1.15 for the installation.
-You can install automake and autoconf in differents directories and export the path like this:
-export PATH=../automake-1.15/bin:../autoconf-2.69/bin:$PATH
+You need automake 1.15 for the installation. <br />
+You can install automake and autoconf in differents directories and export the path like this: <br />
+export PATH=../automake-1.15/bin:../autoconf-2.69/bin:$PATH <br />
 
-Download from git. In the folder mpiBWA type:
-./configure && make install && make
+Download from git. In the folder mpiBWA type: <br />
+./configure && make install && make <br />
 
-or for distribution:
-make dist
-tar xzf .tar.gz
-cd pbwa7-1.0
-./configure && make install && make
+or for distribution: <br />
+make dist <br />
+tar xzf .tar.gz <br />
+cd pbwa7-1.0 <br />
+./configure && make install && make <br />
 
-for passing mpi path:
-./configure CC=mpi_bin_path
-add --prefix in configure if you need 
+for passing mpi path: <br />
+./configure CC=mpi_bin_path <br />
+add --prefix in configure if you need <br /> 
 
-Results are 2 executables pidx and pbwa7.
+Results are 2 executables pidx and pbwa7. <br />
 
 Build a reference
 -----------------
 After the creation of the reference file with BWA, you need to build a mapped reference genome. 
-To do that: pidx my_ref.fa (where my_ref.fa has been build with BWA).
+To do that: <br />
+
+pidx my_ref.fa (where my_ref.fa has been build with BWA).
+
+<br />
+
 Pidx build a reference with the extension .map (my_ref.fa.map). 
 This reference will be mapped in share memory.
 
@@ -283,11 +290,11 @@ Example of bash to run the pbwa7 with openmpi 1.10.7
 
 We launch 30 master jobs with 8 threads each it make a total of 240 jobs 
 
-ERROR=$PATH/error.txt
-SAM=$PATH/mysample.sam
-TASKS=30
-PPN=8
-mpirun -np $TASKS --map-by ppr:$PPN:socket:pe=$PE $PBWA mem -t 8 -o $SAM $REF $FASTQ1 $FASTQ2 &> $ERROR
+ERROR=$PATH/error.txt <br />
+SAM=$PATH/mysample.sam <br />
+TASKS=30 <br />
+PPN=8 <br />
+mpirun -np $TASKS --map-by ppr:$PPN:socket:pe=$PE $PBWA mem -t 8 -o $SAM $REF $FASTQ1 $FASTQ2 &> $ERROR <br />
 
 Results
 -------
