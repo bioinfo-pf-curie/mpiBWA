@@ -224,11 +224,20 @@ To integrate the 0.7.+:
 
 2) in the folder of bwa copy-pass the following function from mpiBWA: <br />
 
-makefile <br />
+makefile.am <br />
+configure.ac <br />
+install-sh <br />
 main_parallel_version.c <br /> 
 pidx.c <br />
 
-then make. <br />
+then <br />
+
+aclocal <br />
+autoreconf <br />
+autoconf <br />
+./configure CC=my_compilateur <br />
+automake --add-missing <br />
+make. <br />
 
 Compilation 
 -----------
