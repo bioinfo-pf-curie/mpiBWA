@@ -233,10 +233,10 @@ pidx.c <br />
 then <br />
 
 aclocal <br />
+automake --add-missing <br />
 autoreconf <br />
 autoconf <br />
 ./configure CC=my_compilateur <br />
-automake --add-missing <br />
 make. <br />
 
 Compilation 
