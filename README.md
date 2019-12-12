@@ -8,6 +8,10 @@ Add an experimental branch for higher scalability, full reproducibility and bett
 Release notes
 ------------
 
+Release 1.0 from the 12/12/2019<br />
+
+1) remove MPI call after finalyze
+
 Release 1.0 from the 3/04/2019<br />
 
 Changes in Experimental branch 

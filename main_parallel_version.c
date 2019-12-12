@@ -3417,11 +3417,8 @@ int main(int argc, char *argv[]) {
 	res = MPI_File_close(&fh_out);
 	assert(res == MPI_SUCCESS);
 
-	bef = MPI_Wtime();
 	res = MPI_Finalize();
 	assert(res == MPI_SUCCESS);
-	aft = MPI_Wtime();
-	fprintf(stderr, "%s: finalized synched processes (%.02f)\n", __func__, aft - bef);
-
+	
 	return 0;
 }
