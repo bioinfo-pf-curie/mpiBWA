@@ -12,7 +12,7 @@ Release 1.0 from the 15/01/2020<br />
 
 1) Add a version of the main that align and split the result by chromosom of the header. <br />
 
-Rational:<br />
+Rational:
 
 The current version of mpiBWA creates one big SAM file. In some cases this SAM is big of several tera bytes. <br />
 This is difficult for the sorting to deal with files that big. The idea with this version is to create a SAM file by chromosom. <br />
@@ -20,11 +20,15 @@ Each chromosom's name come from the header line of the genome reference. This wa
 The extra overhead of the splitting is negligible compare with previous version.<br />
 Now we can sort individual chromosom in parallel. For instance the chr1 of 300X WGS is equivalent to a 23X. <br />
 
-Warning: this version is under construction. It has been tested in the case the fastq files are trimmed.
+Warning: 
+
+This version is under construction. It has been tested in the case the fastq files are trimmed.
 Another tests are conducted. The sorting program has not updated to deal with chromosom independantly.<br />
 This is under construction too.<br />
 
-How to use: in the Makefile.am replace the line <br />
+How to use: 
+
+In the Makefile.am replace the line <br />
 
 pbwa7_SOURCES = main_parallel_version.c <br />
 with <br />
