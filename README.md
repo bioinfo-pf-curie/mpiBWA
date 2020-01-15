@@ -11,7 +11,7 @@ Release notes
 Release 1.0 from the 15/01/2020<br />
 
 1) Add a version of the main that align and split the result by chromosom. <br />
-We create a SAM file by chromosom and a SAM for discordant reads and unmapped. <br /> 
+We create the output file with the header and SAM files by chromosom, a SAM for discordant reads and unmapped. <br /> 
 
 Rational:
 
