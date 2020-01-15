@@ -2374,7 +2374,10 @@ int main(int argc, char *argv[]) {
 		
 
 		create_sam_header_by_chr_file(file_map_by_chr, &indix, &count, hdr_line, rg_line, rank_num);
-
+		
+		//we create a file which contains only the header
+		//this file will be used by the sorting to get individual chromosom file
+		create_sam_header(file_out, &indix, &count, hdr_line, rg_line, rank_num);
 
                 for (s = 0; s < (indix.bns->n_seqs + 2); ++s){
                         res = MPI_File_open(MPI_COMM_WORLD, file_map_by_chr[s], MPI_MODE_CREATE|MPI_MODE_WRONLY|MPI_MODE_APPEND, MPI_INFO_NULL, &fh_out[s]);
@@ -2981,6 +2984,9 @@ int main(int argc, char *argv[]) {
 		 //TODO: Add line for BWA version
 		create_sam_header_by_chr_file(file_map_by_chr, &indix, &count, hdr_line, rg_line, rank_num);
 
+		//we create a file which contains only the header
+		//this file will be used by the sorting to get individual chromosom file
+		create_sam_header(file_out, &indix, &count, hdr_line, rg_line, rank_num);
 
 		for (s = 0; s < (indix.bns->n_seqs + 2); ++s){		
 			res = MPI_File_open(MPI_COMM_WORLD, file_map_by_chr[s], MPI_MODE_CREATE|MPI_MODE_WRONLY|MPI_MODE_APPEND, MPI_INFO_NULL, &fh_out[s]);
@@ -3545,6 +3551,10 @@ int main(int argc, char *argv[]) {
 	        }
 		create_sam_header_by_chr_file(file_map_by_chr, &indix, &count, hdr_line, rg_line, rank_num);
 		
+		//we create a file which contains only the header
+		//this file will be used by the sorting to get individual chromosom file
+		create_sam_header(file_out, &indix, &count, hdr_line, rg_line, rank_num);
+
 		///This is a testline to stop the program wherever I want
 		//if(0){ MPI_Barrier(MPI_COMM_WORLD); MPI_Finalize(); return 0;}
 
