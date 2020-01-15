@@ -279,7 +279,10 @@ make. <br />
 Compilation 
 -----------
 
-You need automake 1.15 for the installation. <br />
+This version ask for automake 1.15 during installation. <br />
+If you don't have 1.15 change in the configure.ac the line  <br />
+AM_INIT_AUTOMAKE([1.15 foreign -Wall]) with AM_INIT_AUTOMAKE([1.13 foreign -Wall])  <br />
+
 You can install automake and autoconf in differents directories and export the path like this: <br />
 export PATH=../automake-1.15/bin:../autoconf-2.69/bin:$PATH <br />
 
