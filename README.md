@@ -14,17 +14,15 @@ Release 1.0 from the 15/01/2020<br />
 
 Rational:<br />
 
-The current version of mpiBWA creates noe big sam file. In some cases this file is too big of several tera bytes. <br />
-This is difficult for the sorting program to deal with files that big. So the idea with this version is to create a sam file by chromosom. <br />
-Each chromosom name come from the header line of the genome reference. <br />
-
-This way the sam file to sort and markdup is much smaller so wee need less RAM and CPU. <br />
+The current version of mpiBWA creates one big SAM file. In some cases this SAM is big of several tera bytes. <br />
+This is difficult for the sorting to deal with files that big. The idea with this version is to create a SAM file by chromosom. <br />
+Each chromosom's name come from the header line of the genome reference. This way the sam file to sort and markdup is much smaller and we need less RAM and CPU. <br />
 The extra overhead of the splitting is negligible compare with previous version.<br />
+Now we can sort individual chromosom in parallel. For instance the chr1 of 300X WGS is equivalent to a 23X. <br />
 
-Now we can sort individual chromosom in parallel. <br />
-
-Warning: this version is in construction. It has been tested in the case the fastq files are trimmed.
-Another tests are conducted.<br />
+Warning: this version is under construction. It has been tested in the case the fastq files are trimmed.
+Another tests are conducted. The sorting program has not updated to deal with chromosom independantly.<br />
+This is under construction too.<br />
 
 How to use: in the Makefile.am replace the line <br />
 
