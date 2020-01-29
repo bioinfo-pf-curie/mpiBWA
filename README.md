@@ -36,7 +36,7 @@ Reproducibility: the pipeline has been tested tested with 5632 and 2816 cpu resu
 Installation
 ---------
  
-[see INSTALL] (./INSTALL.md)
+see INSTALL.md
 
 
 Requirements
@@ -71,7 +71,7 @@ pidx.c <br />
 
 then <br />
 
-[see INSTALL] (./INSTALL.md)
+see INSTALL.md
 
 Compilation 
 -----------
