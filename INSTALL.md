@@ -1,8 +1,8 @@
 Installation
 ---------
 
-git clone https://github.com/fredjarlier/mpiBWA.git <br />
-git checkout devel  <br />
+git clone https://github.com/bioinfo-pf-curie/mpiBWA.git <br />
+git checkout master  <br />
 git pull <br />
 export PATH=/PATH_TO/automake-1.15/bin:/PATH_TO/autoconf-2.69/bin:$PATH <br />
 aclocal <br />
