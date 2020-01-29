@@ -2,49 +2,10 @@
 You are in the Devel branch of the mpiBWA project
 In this branch we implement and test new algorithms for the master branch.
 
+Work in progress: <br /> 
 
-Rationnal:<br />
+Implementation of the alignment by chromosom. Now during the alignment we create a file by chromosome. 
 
-The master and FULLMPI branches are made for full reproducibility (independant to the number of jobs) and accuracy but they reach the Amdah'ls law point. 
-Indeed the locking file RMA implementation (the serialization when computing offsets) introduces a bottle neck we are not able to overpass with RMA technics. <br />
- 
-This is why we have implemented a new algorithm. Now a lot more master jobs are responsible for chuncking the data the way bwa does and present it to bwa-mem aligner. 
-And instead of doing it linearly on the fastq now they do it independently and in parallel. With a little inter communication they adjust the chunks offets and sizes. 
-This method removes the serialization bottle neck. <br />
-
-As in the master and FULLMPI branches we obtain a full reproducibility and with a better efficiency and scalability. <br />
-
-When testing this branch make sure the total number of jobs you take is (master jobs) * 8. <br />
-8 is the number of aligner threads used by bwa-mem. <br />
-According to bwa-mem policy all chunks are 10e6 by the number of threads nucleotide bases big. <br />
-
-Remark: The initial buffer of each master jobs is limited to 2gb (due to mpi_read_at buffer size). <br />
-This version does not work on trimmed reads. <br />
-
-First results test on broadwell. <br />
-
-Sample: <br />
-
-NA12878 Illumina 300X 2x150 WGS from GIAB chinese trio.
-
-The alignement is done with 352*8 = 2816 cpu<br />
-352 = (Forward Fastq size in gb) / 2g,  8 is thenumber of bwa-mem aligner jobs (8 per master jobs)<br />
-MPI parameters :<br />
-mpi_run -n 352 -c 8<br />
-or : <br />
-MSUB -n 352 <br />
-MSUB -c 8 <br />
-
-alignment time: 26 mn<br />
-Time to compute chunks: 8s<br />
-
-Reproducibility: the pipeline has been tested tested with 5632 and 2816 cpu results are the same. <br />
-
-Next step:<br />
-
-1) remove initial buffer size limitation<br />
-2) support trimmed reads<br />
-3) need tests on low throughput infrastructures<br />
 
 Installation
 ---------
