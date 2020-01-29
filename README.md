@@ -96,7 +96,7 @@ for passing mpi path: <br />
 ./configure CC=mpi_bin_path <br />
 add --prefix in configure if you need <br /> 
 
-Results are 2 executables pidx and pbwa7. <br />
+Results are 2 executables mpiBWAIdx and mpiBWA. <br />
 
 Build a reference
 -----------------
