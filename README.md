@@ -8,37 +8,22 @@ Work in progress:
 Implementation of the alignment by chromosom. Now during the alignment we create a file by chromosome. <br />
 This feature is implemented in : main_parallel_version_split_by_chr.c <br />
 
-Installation
----------
-
-git clone https://github.com/fredjarlier/mpiBWA.git <br /> 
-git pull <br />
-.export PATH=/PATH_TO/automake-1.15/bin:/PATH_TO/autoconf-2.69/bin:$PATH <br />
- ./configure CC=/PATH_TO/mpicc <br />
-make && make intall <br />
-
 Requirements
 ------------
 
-You need a C compiler as required for classic BWA program.
-You need to install a version of openMPI. (see: https://www.open-mpi.org/)
-You need a mpi compiler too. to check your mpi installation tell in a command window whereis mpirun, normally it is installed in /usr/bin/mpirun.
-You need a low latency network and a parallel file system to use this branch
-Your reads should be paired.
+You need a C compiler as required for classic BWA program. <br />
+You need to install a version of openMPI. (see: https://www.open-mpi.org/) <br />
+You need a mpi compiler too. to check your mpi installation tell in a command window whereis mpirun, normally it is installed in /usr/bin/mpirun. <br />
+You need a low latency network and a parallel file system to use this branch. <br />
+Your reads can be single, paired trimmed or not. <br />
 
 Options
 ------
 
 All the BWA-MEM options are available in this version, of course according to the bwa release wrapped. 
 
-Known issues:
--------------
-
-Primary hits are reproduced between the serial version and the parallel but you can see differences in mapping position for alternate contigs. 
-This problem stems from the randomization of multi-hits reads. When running with the same number of MPI jobs alternative positions are reproduced but when the number of jobs varies the positions can switch for secondary alignments.
-
-How to integrate further version
---------------------------------
+How to integrate further version of BWA
+------------------------------------------------
 
 This version of mpiBWA has been build with 0.7.15 BWA version.
 To integrate the 0.7.+:
