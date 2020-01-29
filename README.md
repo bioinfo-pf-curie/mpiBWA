@@ -1,9 +1,7 @@
 
-You are in the Master branch of the mpiBWA project
-In this branch we implement new algorithm for chunking the data before sending them to bwa-mem.
-We want to be fast, scalable, accurate and reproducible whatever the number of jobs you chose.
+You are in the Devel branch of the mpiBWA project
+In this branch we implement and test new algorithms for the master branch.
 
-Add an experimental branch for higher scalability, full reproducibility and better accuracy.
 
 Release notes
 ------------
