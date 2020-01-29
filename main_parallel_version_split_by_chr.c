@@ -918,22 +918,22 @@ void find_chunks_info_single_end(
 	char *buffer_r1 = malloc(100);
 	char *p1, *q1, *name1;	
 	int i,bef,aft;
-	int read_nb=0;   					// have to use a buffer value instead of the iterator directly in case there are more reads handled by the process than there are in a chunk.
+	int read_nb=0;   				// have to use a buffer value instead of the iterator directly in case there are more reads handled by the process than there are in a chunk.
 	int nb_reads_to_send			= 0;
 	int nb_reads_to_recv			= 0;
 	int reads_type_to_send			= 0; 	// use to know if we shall send forward (0) or backward (1)
 	int reads_type_to_recv			= 0; 	// use to know if we shall recieve forward (0) or backward (1)
-	int *sizes_to_send				= NULL;
-	int *sizes_to_recv				= NULL;
-	int *p_sizes  					= NULL; //reserved pointer
-	int count 						= 0;
-	int res 						= 0;
-	size_t *p_bytes  				= NULL; //reserved pointer
-	size_t u1						= 0;
+	int *sizes_to_send			= NULL;
+	int *sizes_to_recv			= NULL;
+	int *p_sizes  				= NULL; //reserved pointer
+	int count 				= 0;
+	int res 				= 0;
+	size_t *p_bytes  			= NULL; //reserved pointer
+	size_t u1				= 0;
 	size_t local_read_min			= 0;
 	size_t *bytes_to_send			= NULL;
 	size_t *bytes_to_recv			= NULL;
-	size_t *p_offset 				= NULL; //reserved pointer
+	size_t *p_offset 			= NULL; //reserved pointer
 	size_t reads_recieved			= 0;
 	size_t *offsets_to_send			= NULL;
 	size_t *offsets_to_recv			= NULL;
@@ -943,7 +943,7 @@ void find_chunks_info_single_end(
 	size_t begin_offset 			= 0;
 	size_t bases_previous_chunk 	= 0;
 	size_t offset_previous_chunk 	= 0;
-	size_t size_previous_chunk 	 	= 0;
+	size_t size_previous_chunk 	= 0;
 	size_t x=0,y=0; 					// iterators of the number of reads in each file
 	size_t read1=0,read2=0;
 	size_t size_chunk = 100;
@@ -1082,16 +1082,16 @@ void find_chunks_info_single_end(
 				//the current chunk is full
 				//then we have the number of bases wanted
 				begin_offset_chunk[index_in_chunk] 		= begin_offset;
-				chunk_size[index_in_chunk] 	   			= bytes_in_chunk;
+				chunk_size[index_in_chunk]   			= bytes_in_chunk;
 				reads_in_chunk[index_in_chunk]	   		= read1;
 				*chunk_count 			   += 1;
 				index_in_chunk 			   += 1;
 				//we reset counter of bases
 				counter_bases  		= 0;
 				bytes_in_chunk		= 0;
-				read_nb				= 0;
-				read1				= 0;
-				read2				= 0;
+				read_nb			= 0;
+				read1			= 0;
+				read2			= 0;
 			}
 		} //end for loop on local_read_min
 	}//end if rank_num == 0
@@ -1138,7 +1138,7 @@ void find_chunks_info_single_end(
 					p_offset	= local_read_offsets;
 					p_sizes		= local_read_size;
 					p_bytes		= local_read_bytes;
-					x 			= 0; //only pos in forward buff are reset
+					x 		= 0; //only pos in forward buff are reset
 			} //end condition switch
 
 			//we for offsets multiple of maxsize
@@ -1157,7 +1157,7 @@ void find_chunks_info_single_end(
 				//the current chunk is full
 				//then we have the number of bases wanted
 				begin_offset_chunk[index_in_chunk] 		= begin_offset;
-				chunk_size[index_in_chunk] 	   			= bytes_in_chunk;
+				chunk_size[index_in_chunk]    			= bytes_in_chunk;
 				
 				reads_in_chunk[index_in_chunk]	   		= read1;
 				*chunk_count		+= 1;
@@ -1165,8 +1165,8 @@ void find_chunks_info_single_end(
 				//we reset counter of bases
 				counter_bases  		= 0;
 				bytes_in_chunk 		= 0;
-				read_nb				= 0;
-				read1				= 0;
+				read_nb			= 0;
+				read1			= 0;
 				
 			}
 		} 	// end for loop
@@ -1181,7 +1181,7 @@ void find_chunks_info_single_end(
 		// we complete the last chunk
 		// with the last reads
 		begin_offset_chunk[index_in_chunk] 		= begin_offset;
-		chunk_size[index_in_chunk] 				= bytes_in_chunk;
+		chunk_size[index_in_chunk] 			= bytes_in_chunk;
 		
 		// the total num reads in the file is : grand_total_num_reads
 		// grand total - sum from 0 to index in chunk -1 = num reads in that chunk
@@ -1375,33 +1375,33 @@ void create_sam_header(char *file_out, bwaidx_t *indix, int *count, char *hdr_li
 		assert(res == MPI_SUCCESS);
 		/* Add reference sequence lines */
 		for (s = 0; s < (*indix).bns->n_seqs; ++s) {
-		len = asprintf(&buff, "@SQ\tSN:%s\tLN:%d\n", (*indix).bns->anns[s].name, (*indix).bns->anns[s].len);
-		res = MPI_File_write(fh_out, buff, len, MPI_CHAR, &status);
-		assert(res == MPI_SUCCESS);
-		res = MPI_Get_count(&status, MPI_CHAR, count);
-		assert(res == MPI_SUCCESS);
-		assert(*count == len);
-		free(buff);
+			len = asprintf(&buff, "@SQ\tSN:%s\tLN:%d\n", (*indix).bns->anns[s].name, (*indix).bns->anns[s].len);
+			res = MPI_File_write(fh_out, buff, len, MPI_CHAR, &status);
+			assert(res == MPI_SUCCESS);
+			res = MPI_Get_count(&status, MPI_CHAR, count);
+			assert(res == MPI_SUCCESS);
+			assert(*count == len);
+			free(buff);
 		}
 		/* Add header lines */
 		if (hdr_line != NULL) {
-		len = asprintf(&buff, "%s\n", hdr_line);
-		res = MPI_File_write(fh_out, buff, len, MPI_CHAR, &status);
-		assert(res == MPI_SUCCESS);
-		res = MPI_Get_count(&status, MPI_CHAR, count);
-		assert(res == MPI_SUCCESS);
-		assert(*count == len);
-		free(buff);
+			len = asprintf(&buff, "%s\n", hdr_line);
+			res = MPI_File_write(fh_out, buff, len, MPI_CHAR, &status);
+			assert(res == MPI_SUCCESS);
+			res = MPI_Get_count(&status, MPI_CHAR, count);
+			assert(res == MPI_SUCCESS);
+			assert(*count == len);
+			free(buff);
 		}
 		/* Add read group line */
 		if (rg_line != NULL) {
-		len = asprintf(&buff, "%s\n", rg_line);
-		res = MPI_File_write(fh_out, buff, len, MPI_CHAR, &status);
-		assert(res == MPI_SUCCESS);
-		res = MPI_Get_count(&status, MPI_CHAR, count);
-		assert(res == MPI_SUCCESS);
-		assert(*count == len);
-		free(buff);
+			len = asprintf(&buff, "%s\n", rg_line);
+			res = MPI_File_write(fh_out, buff, len, MPI_CHAR, &status);
+			assert(res == MPI_SUCCESS);
+			res = MPI_Get_count(&status, MPI_CHAR, count);
+			assert(res == MPI_SUCCESS);
+			assert(*count == len);
+			free(buff);
 		}
 		res = MPI_File_close(&fh_out);
 		assert(res == MPI_SUCCESS);
@@ -1413,8 +1413,95 @@ void create_sam_header(char *file_out, bwaidx_t *indix, int *count, char *hdr_li
 	xfprintf(stderr, "%s: synched processes (%.02f)\n", __func__, aft - bef);
 }
 
+void create_sam_header_by_chr_file(char *file_out[], bwaidx_t *indix, int *count, char *hdr_line, char *rg_line, int rank_num)
+{
+
+        //MPI resources
+        MPI_File fh_out[(*indix).bns->n_seqs];
+        MPI_Status status;
+        //non MPI related resources
+        int bef,aft;
+        int res;
+        //the rank 0 takes care of that task
+        if (rank_num == 0) {
+             int s, len;
+             char *buff;
+
+	     // Remove files if already exists 	
+             for (s = 0; s < (*indix).bns->n_seqs; ++s) {		
+             	res = MPI_File_delete(file_out[s], MPI_INFO_NULL);
+             	assert(res == MPI_SUCCESS || res == MPI_ERR_NO_SUCH_FILE || res == MPI_ERR_IO);
+             	res = MPI_File_open(MPI_COMM_SELF, file_out[s], MPI_MODE_CREATE|MPI_MODE_WRONLY, MPI_INFO_NULL, &fh_out[s]);
+             	assert(res == MPI_SUCCESS);
+	     }
+
+             // Add reference sequence lines 
+             for (s = 0; s < (*indix).bns->n_seqs; ++s) {
+             	len = asprintf(&buff, "@SQ\tSN:%s\tLN:%d\n", (*indix).bns->anns[s].name, (*indix).bns->anns[s].len);
+                res = MPI_File_write(fh_out[s], buff, len, MPI_CHAR, &status);
+                assert(res == MPI_SUCCESS);
+                res = MPI_Get_count(&status, MPI_CHAR, count);
+                assert(res == MPI_SUCCESS);
+                assert(*count == len);
+                free(buff);
+              }
+	      // Add header lines 
+ 	      if (hdr_line != NULL) {
+                        len = asprintf(&buff, "%s\n", hdr_line);
+                        res = MPI_File_write(fh_out[s], buff, len, MPI_CHAR, &status);
+                        assert(res == MPI_SUCCESS);
+                        res = MPI_Get_count(&status, MPI_CHAR, count);
+                        assert(res == MPI_SUCCESS);
+                        assert(*count == len);
+                        free(buff);
+               }
+       	       if (rg_line != NULL) {
+                        len = asprintf(&buff, "%s\n", rg_line);
+                        res = MPI_File_write(fh_out[s], buff, len, MPI_CHAR, &status);
+                        assert(res == MPI_SUCCESS);
+                        res = MPI_Get_count(&status, MPI_CHAR, count);
+                        assert(res == MPI_SUCCESS);
+                        assert(*count == len);
+                        free(buff);
+			res = MPI_File_close(&fh_out[s]);
+	                assert(res == MPI_SUCCESS);
+                }
+        }
+
+        bef = MPI_Wtime();
+        res = MPI_Barrier(MPI_COMM_WORLD);
+        assert(res == MPI_SUCCESS);
+        aft = MPI_Wtime();
+        xfprintf(stderr, "%s: synched processes (%.02f)\n", __func__, aft - bef);
+}
 
 
+
+
+static int getChr(char *str, char *chrNames[], int nbchr, char *tmp_chr) {
+    int i = 0, found = 0, size;
+    char *str1 = str, *str2;
+
+    str2 = str1 + 1;
+
+    for (; *str2 != '\t'; str2++);
+
+    size = strlen(str1) - strlen(str2);
+    assert(size != 0);
+
+    for (i = 0; i < size; i++) {
+        tmp_chr[i] = str1[i + 1];
+    }
+
+    tmp_chr[size - 1] = '\0';
+    assert(strlen(tmp_chr) != 0);
+    
+    for (i = 0, found = 0; i < nbchr && !found; i++) {
+        found = !strcmp(tmp_chr, chrNames[i]);
+    }
+
+    return i - 1;
+}
 
 int main(int argc, char *argv[]) {
 	
@@ -1427,7 +1514,7 @@ int main(int argc, char *argv[]) {
 	char *buffer_out;
 	char *file_ref = NULL;
 	char *rg_line = NULL, *hdr_line = NULL;
-	char file_map[PATH_MAX], file_tmp[PATH_MAX];
+	char file_map[PATH_MAX], file_map_chr[PATH_MAX] ,file_tmp[PATH_MAX];
 	char *p, *q, *s, *e;
 	uint8_t *a, *addr, *addr_map;
 	int fd_in1, fd_in2;
@@ -1756,13 +1843,25 @@ int main(int argc, char *argv[]) {
 
 
 	/* Check that output file (-o) is not null ... */
+	
 	if (file_out == NULL) {
 		fprintf(stderr, "missing mandatory output file (-o)\n");
 		res = MPI_Finalize();
 		assert(res == MPI_SUCCESS);
 		exit(2);
 	}
-
+	
+	/* here we derive the output path to construct a file by chr*/
+	size_t f_out_sz = strlen(file_out);
+	size_t mi = f_out_sz;
+	char *k = file_out + f_out_sz;
+	while (*k-- != '/') mi--;
+	char *output_path = malloc (mi * sizeof(char));
+	output_path[mi] = 0;
+	char *h = output_path;
+	memmove(h, file_out, mi);
+        assert(output_path);
+	
 	/* Check R1 & R2 file sizes */
 	if (file_r1 != NULL && stat(file_r1, &stat_r1) == -1) {
 		fprintf(stderr, "%s: %s\n", file_r1, strerror(errno));
@@ -2089,7 +2188,7 @@ int main(int argc, char *argv[]) {
 
 		// we allocate vector for chunks offset
 		begin_offset_chunk 	= calloc(chunck_num, sizeof(size_t));
-		chunk_size 		    = calloc(chunck_num, sizeof(size_t));
+		chunk_size      	= calloc(chunck_num, sizeof(size_t));
 		reads_in_chunk 		= calloc(chunck_num, sizeof(size_t));
 
 		assert( begin_offset_chunk != NULL );
@@ -2247,60 +2346,49 @@ int main(int argc, char *argv[]) {
 		aft = MPI_Wtime();
 		fprintf(stderr, "%s: mapped indexes (%.02f)\n", __func__, aft - bef);
 
-		/*
-		 * Create SAM header
-		 * TODO: Add line for BWA version
-		 */
-		if (rank_num == 0) {
-			int s, len;
-			char *buff;
+		//we create a vector with chromosom names 
+		int s;
+		MPI_File *fh_out          = malloc( (indix.bns->n_seqs + 2) * sizeof(MPI_File));
+		char *files_out_sam_name[indix.bns->n_seqs + 2];
+		char *file_map_by_chr[(indix.bns->n_seqs + 2)];
 
-			res = MPI_File_delete(file_out, MPI_INFO_NULL);
-			assert(res == MPI_SUCCESS || res == MPI_ERR_NO_SUCH_FILE || res == MPI_ERR_IO);
-			res = MPI_File_open(MPI_COMM_SELF, file_out, MPI_MODE_CREATE|MPI_MODE_WRONLY, MPI_INFO_NULL, &fh_out);
-			assert(res == MPI_SUCCESS);
-			/* Add reference sequence lines */
-			for (s = 0; s < indix.bns->n_seqs; ++s) {
-			len = asprintf(&buff, "@SQ\tSN:%s\tLN:%d\n", indix.bns->anns[s].name, indix.bns->anns[s].len);
-			res = MPI_File_write(fh_out, buff, len, MPI_CHAR, &status);
-			assert(res == MPI_SUCCESS);
-			res = MPI_Get_count(&status, MPI_CHAR, &count);
-			assert(res == MPI_SUCCESS);
-			assert(count == len);
-			free(buff);
-			}
-			/* Add header lines */
-			if (hdr_line != NULL) {
-			len = asprintf(&buff, "%s\n", hdr_line);
-			res = MPI_File_write(fh_out, buff, len, MPI_CHAR, &status);
-			assert(res == MPI_SUCCESS);
-			res = MPI_Get_count(&status, MPI_CHAR, &count);
-			assert(res == MPI_SUCCESS);
-			assert(count == len);
-			free(buff);
-			}
-			/* Add read group line */
-			if (rg_line != NULL) {
-			len = asprintf(&buff, "%s\n", rg_line);
-			res = MPI_File_write(fh_out, buff, len, MPI_CHAR, &status);
-			assert(res == MPI_SUCCESS);
-			res = MPI_Get_count(&status, MPI_CHAR, &count);
-			assert(res == MPI_SUCCESS);
-			assert(count == len);
-			free(buff);
-			}
-			res = MPI_File_close(&fh_out);
-			assert(res == MPI_SUCCESS);
+		for (s = 0; s < indix.bns->n_seqs; ++s){
+			files_out_sam_name[s] = malloc( (strlen( indix.bns->anns[s].name) + 1 ) * sizeof(char));
+		        files_out_sam_name[s][strlen( indix.bns->anns[s].name)] = 0;
+		        char *p0 = files_out_sam_name[s];
+		        memmove(p0, indix.bns->anns[s].name, strlen( indix.bns->anns[s].name));
 		}
+		
+		char UNMAPPED[]   = "unmapped";
+		char DISCORDANT[] = "discordant";
+		files_out_sam_name[s++] = strdup(DISCORDANT);
+		files_out_sam_name[s++] = strdup(UNMAPPED);
+		int file_name_len = 0;
+		
+		for (s = 0; s < (indix.bns->n_seqs + 2); ++s){
+			/* Derived file names */
+		        file_name_len = strlen(output_path) + strlen(files_out_sam_name[s]) + 6;
+		        file_map_by_chr[s] = calloc( file_name_len, sizeof(char));		        
+		        sprintf(file_map_by_chr[s], "%s/%s.sam", output_path, files_out_sam_name[s]);
+		}
+		
+
+		create_sam_header_by_chr_file(file_map_by_chr, &indix, &count, hdr_line, rg_line, rank_num);
+		
+		//we create a file which contains only the header
+		//this file will be used by the sorting to get individual chromosom file
+		create_sam_header(file_out, &indix, &count, hdr_line, rg_line, rank_num);
+
+                for (s = 0; s < (indix.bns->n_seqs + 2); ++s){
+                        res = MPI_File_open(MPI_COMM_WORLD, file_map_by_chr[s], MPI_MODE_CREATE|MPI_MODE_WRONLY|MPI_MODE_APPEND, MPI_INFO_NULL, &fh_out[s]);
+                        assert(res == MPI_SUCCESS);
+                }
+
 		bef = MPI_Wtime();
 		res = MPI_Barrier(MPI_COMM_WORLD);
 		assert(res == MPI_SUCCESS);
 		aft = MPI_Wtime();
 		xfprintf(stderr, "%s: synched processes (%.02f)\n", __func__, aft - bef);
-
-
-		res = MPI_File_open(MPI_COMM_WORLD, file_out, MPI_MODE_WRONLY|MPI_MODE_APPEND, MPI_INFO_NULL, &fh_out);
-		assert(res == MPI_SUCCESS);
 
 		if (file_r1 != NULL) {
 			//fprintf(stderr, "rank %d ::: open file %s \n",rank_num, file_r1);
@@ -2314,11 +2402,12 @@ int main(int argc, char *argv[]) {
 		}
 
 		buffer_r1 = buffer_r2 = NULL; seqs = NULL;
-
-
+		//localsize_vec contain the size of the buffer to write in the sam file
+		int *chr_buff_size  = calloc ( (indix.bns->n_seqs + 2), sizeof(int) );
+		char *buffer_out_vec[indix.bns->n_seqs + 2];
+		
 		// here we loop until there's nothing to read
 		// in the offset and size file
-		
 		
 		before_local_mapping = MPI_Wtime();
 
@@ -2448,48 +2537,138 @@ int main(int argc, char *argv[]) {
 			//MPI_Barrier(MPI_COMM_WORLD);
 			/* Write results ... */
 			bef = MPI_Wtime();
-			localsize = 0;
+                        localsize = 0;
+                        int *sam_buff_dest  = calloc ( reads, sizeof(int) );
+                        char *current_line; //pointer to the sam line
+                        char *currentCarac;
+                        int chr, mchr;
+                        size_t coord, sam_line_size;
+                        unsigned char quality;
+                        int nbchr = indix.bns->n_seqs + 2;
+
+                        char *tmp_chr = malloc( 200 * sizeof(char));
+                        tmp_chr[0] = 0;
+
 			for (n = 0; n < reads; n++) {
-				/* Reuse .l_seq to store SAM line length to avoid multiple strlen() calls */
-				seqs[n].l_seq = strlen(seqs[n].sam);
-				localsize += seqs[n].l_seq; 
-			}
-			assert(localsize <= INT_MAX);
-			buffer_out = malloc(localsize);
-			assert(buffer_out != NULL);
-			p = buffer_out;
-			for (n = 0; n < reads; n++) {
-				memmove(p, seqs[n].sam, seqs[n].l_seq);
-				p += seqs[n].l_seq;
-				free(seqs[n].sam); 
-			}
-			free(seqs);
-			res = MPI_File_write_shared(fh_out, buffer_out, localsize, MPI_CHAR, &status);
-			assert(res == MPI_SUCCESS);
-			res = MPI_Get_count(&status, MPI_CHAR, &count);
-			assert(res == MPI_SUCCESS);
-			assert(count == (int)localsize);
-			free(buffer_out);
-			aft = MPI_Wtime();
-			fprintf(stderr, "%s: wrote results (%.02f)\n", __func__, aft - bef);
-			total_time_writing += (aft - bef);
-			free(buffer_r1);
-			free(buffer_r2);
+                                /* Reuse .l_seq to store SAM line length to avoid multiple strlen() calls */
+                                // Now we parse the sam line to extract taped chromosoms
+                                // and update the local size vector
+                                current_line  = seqs[n].sam;
+                                seqs[n].l_seq = strlen(seqs[n].sam);
+                                sam_line_size = strlen(seqs[n].sam);
+                                //GO TO FLAG
+                                currentCarac = strstr(current_line, "\t");
+                                //fprintf(stderr, "currentCarac = %s \n ",currentCarac)
+                                currentCarac++;
+                                //GO TO RNAME (Chr name)
+                                currentCarac = strstr(currentCarac + 1, "\t");
+                                if ( currentCarac[1] == '*') chr =  nbchr-2;
+                                else chr = getChr(currentCarac, files_out_sam_name, nbchr-2, tmp_chr);
+                                //GO TO COORD
+                                currentCarac = strstr(currentCarac + 1, "\t");
+				coord = strtoull(currentCarac, &currentCarac, 10);
+
+                                //TAKE MAPQ AND GO TO CIGAR
+                                quality = strtoull(currentCarac, &currentCarac, 10);
+                                //GO TO RNEXT
+                                currentCarac = strstr(currentCarac + 1, "\t");
+                                currentCarac++;
+                                if (currentCarac[0] == '=') {
+                                	mchr = chr;
+                                } else if ( currentCarac[0] == '*') {
+                                       mchr = nbchr - 2;
+                                } else {
+                                       mchr = getChr(currentCarac, files_out_sam_name, nbchr-2, tmp_chr);
+                                }
+                                
+				if ((chr < (nbchr - 2)) && (chr == mchr)){
+					//then we found concordant reads				
+				 	chr_buff_size[chr]    += sam_line_size;
+                                        sam_buff_dest[n]       = chr;
+                                }
+				else if ((chr == (nbchr - 2)) && ( mchr < (nbchr - 2))){
+                                        //we found discordant reads with one pair unmapped
+                                        chr_buff_size[nbchr - 2] += sam_line_size;
+                                        sam_buff_dest[n]          = nbchr - 1;
+                                }
+                                else if ((mchr == (nbchr - 2)) && ( chr < (nbchr - 2))){
+                                        //we found discordant reads with one pair unmapped
+                                        chr_buff_size[nbchr - 2] += sam_line_size;
+                                        sam_buff_dest[n]          = nbchr - 2;
+                                }
+				else{
+                                        //we found unmapped pairs reads
+                                        chr_buff_size[nbchr - 1] += sam_line_size;
+                                        sam_buff_dest[n]          = nbchr - 1;
+                                }
+                       	}
+			free(tmp_chr);
+			//now we fill up the buffer_out_vec
+			for (n = 0; n < (indix.bns->n_seqs + 2); n++) {
+
+                                assert(chr_buff_size[n] <= INT_MAX);
+
+                                if (chr_buff_size[n]){
+                                        buffer_out_vec[n] = calloc( chr_buff_size[n] + 1, sizeof(char));
+                                        assert(buffer_out_vec[n] != NULL);
+                                        buffer_out_vec[n][chr_buff_size[n]] = '\0';
+                                }
+                        }
+                        size_t *actual_size = calloc(reads, sizeof(size_t));
+                        char *p_temp2;
+                        for (n = 0; n < reads; n++) {
+
+                                p_temp2 = buffer_out_vec[sam_buff_dest[n]] + actual_size[sam_buff_dest[n]];
+                                memmove(p_temp2, seqs[n].sam, seqs[n].l_seq);
+                                actual_size[sam_buff_dest[n]] += seqs[n].l_seq;
+                                free(seqs[n].sam);
+                        }
+
+                        free(seqs);
+                        free(actual_size);
+                        for (n = 0; n < (indix.bns->n_seqs + 2); n++) {
+
+                                if (chr_buff_size[n]) {
+                                        res = MPI_File_write_shared(fh_out[n], buffer_out_vec[n], chr_buff_size[n], MPI_CHAR, &status);
+                                        assert(res == MPI_SUCCESS);
+                                        res = MPI_Get_count(&status, MPI_CHAR, &count);
+                                        assert(res == MPI_SUCCESS);
+                                        assert(count == (int)chr_buff_size[n]);
+                                        free(buffer_out_vec[n]);
+                                        chr_buff_size[n] = 0;
+                                }
+                        }
+
+                        aft = MPI_Wtime();
+                        fprintf(stderr, "rank: %d :: %s: wrote results (%.02f) \n", rank_num, __func__, aft - bef);
+                        total_time_writing += (aft - bef);
+                        free(buffer_r1);
+                        free(buffer_r2);
+                        fprintf(stderr, "rank: %d :: finish for chunck %zu \n", rank_num, u1);
 		} //end for (u1 = 0; u1 < chunk_count; u1++){
+	
+	//free data structures and close sam files 
+	for (n = 0; n < (indix.bns->n_seqs + 2); n++)  {
+		free(files_out_sam_name[n]);
+                free(file_map_by_chr[n]);
+                res = MPI_File_close(&fh_out[n]);
+                assert(res == MPI_SUCCESS);
+        }
+
 	} //end if (file_r2 != NULL && stat_r1.st_size == stat_r2.st_size)
 	
 	if (file_r1 != NULL && file_r2 != NULL && stat_r1.st_size != stat_r2.st_size) {
 	   
-	   /*
-		*	We are in the case the reads are paired and trimmed
-		*/
+	   	/*
+		 *	We are in the case the reads are paired and trimmed
+		 */
 
 		aft = 0; aft++;
 		bef = 0; bef++;
 
 		//global offset contains the starting offset in the fastq for each process
 		//TODO?: use only one vector for all the global offsets iot reduce communications
-		size_t *goff 		= NULL;
+		size_t *goff 	= NULL;
 		size_t *goff2 	= NULL;
 		goff 	= malloc((proc_num + 1) * sizeof(size_t));
 		goff2 	= malloc((proc_num + 1) * sizeof(size_t));
@@ -2519,38 +2698,38 @@ int main(int argc, char *argv[]) {
 		///resources needed to find the offsets and size of each read.	
 		size_t grand_total_num_reads 	= 0; 
 		size_t grand_total_num_reads_2	= 0;
-		size_t local_num_reads 			= 0;
-		size_t local_num_reads_2			= 0;
-		size_t total_num_reads 			= 0;
-		size_t total_num_reads_2			= 0;
+		size_t local_num_reads 		= 0;
+		size_t local_num_reads_2	= 0;
+		size_t total_num_reads 		= 0;
+		size_t total_num_reads_2	= 0;
 
 		//Here I decided to keep separated vectors because otherwise with all the reallocs they would be too big and take too much contiguous memory space
-		int *local_read_size    		= calloc(1, sizeof(int));
-		int *local_read_size_2    		= calloc(1, sizeof(int));
+		int *local_read_size    	= calloc(1, sizeof(int));
+		int *local_read_size_2    	= calloc(1, sizeof(int));
 		size_t *local_read_bytes    	= calloc(1, sizeof(size_t));
 		size_t *local_read_bytes_2    	= calloc(1, sizeof(size_t));
 		size_t *local_read_offsets 	= calloc(1, sizeof(size_t));
 		size_t *local_read_offsets_2 	= calloc(1, sizeof(size_t));
 
-		assert( local_read_offsets 		!= NULL);
-		assert( local_read_size 		!= NULL);
-		assert( local_read_bytes 		!= NULL);
+		assert( local_read_offsets 	!= NULL);
+		assert( local_read_size 	!= NULL);
+		assert( local_read_bytes 	!= NULL);
 		assert( local_read_offsets_2 	!= NULL);
-		assert( local_read_size_2 		!= NULL);
+		assert( local_read_size_2 	!= NULL);
 		assert( local_read_bytes_2 	!= NULL);
 	
 		///find offsets and sizes for the first file
 		bef = MPI_Wtime();
-		find_reads_size_and_offsets(goff[ind],
-									siz2read,
-									file_r1,
-									&local_num_reads,
-									&total_num_reads,
-									&local_read_offsets,
-									&local_read_size,
-									&local_read_bytes,
-									proc_num,
-									rank_num);
+		find_reads_size_and_offsets(	goff[ind],
+				 		siz2read,
+						file_r1,
+						&local_num_reads,
+						&total_num_reads,
+						&local_read_offsets,
+						&local_read_size,
+						&local_read_bytes,
+						proc_num,
+						rank_num);
 
 
 		aft = MPI_Wtime();
@@ -2573,16 +2752,16 @@ int main(int argc, char *argv[]) {
 
 		bef = MPI_Wtime();
 		///find offsets and sizes for second file + time the process
-		find_reads_size_and_offsets(goff2[ind],
-									siz2read_2,
-									file_r2,
-									&local_num_reads_2,
-									&total_num_reads_2,
-									&local_read_offsets_2,
-									&local_read_size_2,
-									&local_read_bytes_2,
-									proc_num,
-									rank_num);
+		find_reads_size_and_offsets(	goff2[ind],
+						siz2read_2,
+						file_r2,
+						&local_num_reads_2,
+						&total_num_reads_2,
+						&local_read_offsets_2,
+						&local_read_size_2,
+						&local_read_bytes_2,
+						proc_num,
+						rank_num);
 		aft = MPI_Wtime();
 		fprintf(stderr, "%s: rank %d time spent evaluating chunks = (%.02f) \n", __func__, rank_num, aft - bef);
 	
@@ -2656,7 +2835,7 @@ int main(int argc, char *argv[]) {
 
 		// we allocate vector for chunks offset
 		size_t *begin_offset_chunk 	= calloc(chunck_num, sizeof(size_t));
-		size_t *chunk_size 			= calloc(chunck_num, sizeof(size_t));
+		size_t *chunk_size 		= calloc(chunck_num, sizeof(size_t));
 		size_t *reads_in_chunk 		= calloc(chunck_num, sizeof(size_t));
 
 		assert( begin_offset_chunk != NULL );
@@ -2686,27 +2865,27 @@ int main(int argc, char *argv[]) {
 
 		bef = MPI_Wtime();
 		find_chunks_info(begin_offset_chunk,
-						 begin_offset_chunk_2,
-						 chunk_size,
-						 chunk_size_2,
-						 reads_in_chunk,
-						 reads_in_chunk_2,
-						 local_read_size,
-						 local_read_size_2,
-						 local_read_bytes,
-						 local_read_bytes_2,
-						 local_read_offsets,
-						 local_read_offsets_2,
-						 rank_num,
-						 proc_num,
-						 local_num_reads,
-						 local_num_reads_2,
-						 grand_total_num_reads,
-						 grand_total_num_reads_2,
-						 maxsiz,
-						 &chunk_count,
-						 file_r1,
-						 file_r2);
+				 begin_offset_chunk_2,
+				 chunk_size,
+				 chunk_size_2,
+				 reads_in_chunk,
+				 reads_in_chunk_2,
+				 local_read_size,
+				 local_read_size_2,
+				 local_read_bytes,
+				 local_read_bytes_2,
+				 local_read_offsets,
+				 local_read_offsets_2,
+				 rank_num,
+				 proc_num,
+				 local_num_reads,
+				 local_num_reads_2,
+				 grand_total_num_reads,
+				 grand_total_num_reads_2,
+				 maxsiz,
+				 &chunk_count,
+				 file_r1,
+				 file_r2);
 
 		aft = MPI_Wtime();
 		fprintf(stderr, "%s ::: rank %d ::: evaluating offsets chuncks and sizes (%.02f) found %zu chuncks \n", __func__, rank_num, aft - bef, chunk_count);
@@ -2770,16 +2949,51 @@ int main(int argc, char *argv[]) {
 		aft = MPI_Wtime();
 		fprintf(stderr, "%s ::: rank %d ::: mapped indexes (%.02f)\n", __func__, rank_num, aft - bef);
 
-		///Create SAM header
-		//TODO: Add line for BWA version
+		///This is a testline to stop the program wherever I want
+		//if(0){ MPI_Barrier(MPI_COMM_WORLD); MPI_Finalize(); return 0;}
+
+
+		//we create a vector with chromosom names 
+		int s;
+		MPI_File *fh_out	= malloc( (indix.bns->n_seqs + 2) * sizeof(MPI_File));
+	        char *files_out_sam_name[indix.bns->n_seqs + 2];
+		char *file_map_by_chr[indix.bns->n_seqs + 2];
+	
+		for (s = 0; s < indix.bns->n_seqs; ++s){
+			
+			files_out_sam_name[s] = malloc( (strlen( indix.bns->anns[s].name) + 1 ) * sizeof(char));
+			files_out_sam_name[s][strlen( indix.bns->anns[s].name)] = 0; 
+			char *p0 = files_out_sam_name[s];			
+   			memmove(p0, indix.bns->anns[s].name, strlen( indix.bns->anns[s].name));
+		}
+
+		char UNMAPPED[]   = "unmapped"; 
+		char DISCORDANT[] = "discordant";
+		files_out_sam_name[s++] = strdup(DISCORDANT);
+    		files_out_sam_name[s++] = strdup(UNMAPPED);
+		//char *file_map_by_chr[(indix.bns->n_seqs + 2)];
+		size_t file_name_len = 0;
+		for (s = 0; s < (indix.bns->n_seqs + 2); ++s){
+			/* Derived file names */
+			file_name_len = strlen(output_path) + strlen(files_out_sam_name[s]) + 6;
+			file_map_by_chr[s] = calloc( file_name_len, sizeof(char));
+			sprintf(file_map_by_chr[s], "%s/%s.sam", output_path, files_out_sam_name[s]);
+		}		
+
+		 ///Create SAM header
+		 //TODO: Add line for BWA version
+		create_sam_header_by_chr_file(file_map_by_chr, &indix, &count, hdr_line, rg_line, rank_num);
+
+		//we create a file which contains only the header
+		//this file will be used by the sorting to get individual chromosom file
 		create_sam_header(file_out, &indix, &count, hdr_line, rg_line, rank_num);
 
-		///This is a testline to stop the program wherever I want
-		if(0){ MPI_Barrier(MPI_COMM_WORLD); MPI_Finalize(); return 0;}
+		for (s = 0; s < (indix.bns->n_seqs + 2); ++s){		
+			res = MPI_File_open(MPI_COMM_WORLD, file_map_by_chr[s], MPI_MODE_CREATE|MPI_MODE_WRONLY|MPI_MODE_APPEND, MPI_INFO_NULL, &fh_out[s]);
+			assert(res == MPI_SUCCESS);
+		}
 
-		res = MPI_File_open(MPI_COMM_WORLD, file_out, MPI_MODE_WRONLY|MPI_MODE_APPEND, MPI_INFO_NULL, &fh_out);
-		assert(res == MPI_SUCCESS);
-
+		//now we open fastq files backward and forward
 		if (file_r1 != NULL) {
 			//fprintf(stderr, "rank %d ::: open file %s \n",rank_num, file_r1);
 			res = MPI_File_open(MPI_COMM_WORLD, file_r1, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh_r1);
@@ -2796,6 +3010,11 @@ int main(int argc, char *argv[]) {
 
 		// here we loop until there's nothing to read
 		//we loop the chunck_count
+		
+		 //localsize_vec contain the size of the buffer to write in the sam file
+		int *chr_buff_size  = calloc ( (indix.bns->n_seqs + 2), sizeof(int) );
+		char *buffer_out_vec[indix.bns->n_seqs + 2];
+                                                                                           
 		size_t u1 = 0; 
 		for (u1 = 0; u1 < chunk_count; u1++){
 
@@ -2957,27 +3176,127 @@ int main(int argc, char *argv[]) {
 			/* Write results ... */
 			bef = MPI_Wtime();
 			localsize = 0;
+			int *sam_buff_dest  = calloc ( reads, sizeof(int) );
+			char *current_line; //pointer to the sam line
+			char *currentCarac;
+			int chr, mchr;
+			size_t coord, sam_line_size;
+			unsigned char quality;	
+			int nbchr = indix.bns->n_seqs + 2;
+
+			char *tmp_chr = malloc( 200 * sizeof(char));
+			tmp_chr[0] = 0;
+			
 			for (n = 0; n < reads; n++) {
 				/* Reuse .l_seq to store SAM line length to avoid multiple strlen() calls */
+				// Now we parse the sam line to extract taped chromosoms
+				// and update the local size vector
+									
+				current_line  = seqs[n].sam;
 				seqs[n].l_seq = strlen(seqs[n].sam);
-				localsize += seqs[n].l_seq; 
+				sam_line_size = strlen(seqs[n].sam); 
+				
+				//GO TO FLAG
+				currentCarac = strstr(current_line, "\t");
+				//fprintf(stderr, "currentCarac = %s \n ",currentCarac)
+				currentCarac++;
+				//GO TO RNAME (Chr name)
+				currentCarac = strstr(currentCarac + 1, "\t");
+ 				
+				if ( currentCarac[1] == '*') chr =  nbchr-2;
+				else chr = getChr(currentCarac, files_out_sam_name, nbchr-2, tmp_chr);
+				
+				//GO TO COORD
+				currentCarac = strstr(currentCarac + 1, "\t");				
+
+				//TAKE COORD AND GO TO MAPQ
+				coord = strtoull(currentCarac, &currentCarac, 10);				
+				
+				//TAKE MAPQ AND GO TO CIGAR
+				quality = strtoull(currentCarac, &currentCarac, 10);
+				
+				//GO TO RNEXT
+				currentCarac = strstr(currentCarac + 1, "\t");
+				currentCarac++;
+				
+				if (currentCarac[0] == '=') {
+            				mchr = chr;
+					
+        			} else if ( currentCarac[0] == '*') {
+            				mchr = nbchr - 2;
+					
+        			} else {
+					mchr = getChr(currentCarac, files_out_sam_name, nbchr-2, tmp_chr);
+				}
+			
+				if ((chr < (nbchr - 2)) && (chr == mchr)){
+                                        //then we found concordant reads
+                                         chr_buff_size[chr]    += sam_line_size;
+                                         sam_buff_dest[n]       = chr;
+                                }
+				else if ((chr < (nbchr - 2)) && ( mchr < (nbchr - 2))){
+
+                                        //we found discordant reads
+                                        chr_buff_size[nbchr - 2] += sam_line_size;
+                                        sam_buff_dest[n]          = nbchr - 2;
+
+                                }
+            			else if ((chr == (nbchr - 2)) && ( mchr < (nbchr - 2))){
+
+                                        //we found discordant reads with one pair unmapped
+					chr_buff_size[nbchr - 2] += sam_line_size;
+                                        sam_buff_dest[n]          = nbchr - 1;
+                                }
+				else if ((mchr == (nbchr - 2)) && ( chr < (nbchr - 2))){
+
+                                        //we found discordant reads with one pair unmapped
+                                        chr_buff_size[nbchr - 2] += sam_line_size;
+                                        sam_buff_dest[n]          = nbchr - 2;
+				}
+				else{
+                                        //we found unmapped pairs reads
+					chr_buff_size[nbchr - 1] += sam_line_size;
+                                        sam_buff_dest[n] 	  = nbchr - 1;
+				}                        
+			}        
+
+			free(tmp_chr);
+         		//now we fill up the buffer_out_vec
+			for (n = 0; n < (indix.bns->n_seqs + 2); n++) {
+
+				assert(chr_buff_size[n] <= INT_MAX);
+				
+				if (chr_buff_size[n]){
+					buffer_out_vec[n] = calloc( chr_buff_size[n] + 1, sizeof(char));
+					assert(buffer_out_vec[n] != NULL);
+					buffer_out_vec[n][chr_buff_size[n]] = '\0';
+				}
 			}
-			assert(localsize <= INT_MAX);
-			buffer_out = malloc(localsize);
-			assert(buffer_out != NULL);
-			p = buffer_out;
+                       	size_t *actual_size = calloc(reads, sizeof(size_t));
+			char *p_temp2;
 			for (n = 0; n < reads; n++) {
-				memmove(p, seqs[n].sam, seqs[n].l_seq);
-				p += seqs[n].l_seq;
+
+				p_temp2 = buffer_out_vec[sam_buff_dest[n]] + actual_size[sam_buff_dest[n]];
+				memmove(p_temp2, seqs[n].sam, seqs[n].l_seq);
+				actual_size[sam_buff_dest[n]] += seqs[n].l_seq;
 				free(seqs[n].sam); 
 			}
+			
 			free(seqs);
-			res = MPI_File_write_shared(fh_out, buffer_out, localsize, MPI_CHAR, &status);
-			assert(res == MPI_SUCCESS);
-			res = MPI_Get_count(&status, MPI_CHAR, &count);
-			assert(res == MPI_SUCCESS);
-			assert(count == (int)localsize);
-			free(buffer_out);
+			free(actual_size);
+			for (n = 0; n < (indix.bns->n_seqs + 2); n++) {
+				
+				if (chr_buff_size[n]) {
+					res = MPI_File_write_shared(fh_out[n], buffer_out_vec[n], chr_buff_size[n], MPI_CHAR, &status);
+					assert(res == MPI_SUCCESS);
+					res = MPI_Get_count(&status, MPI_CHAR, &count);
+					assert(res == MPI_SUCCESS);
+					assert(count == (int)chr_buff_size[n]);
+					free(buffer_out_vec[n]);
+					chr_buff_size[n] = 0;
+				}
+			}
+			
 			aft = MPI_Wtime();
 			fprintf(stderr, "rank: %d :: %s: wrote results (%.02f) \n", rank_num, __func__, aft - bef);
 			total_time_writing += (aft - bef);
@@ -2987,6 +3306,14 @@ int main(int argc, char *argv[]) {
 
 		} //end for loop on chunks
 
+		for (n = 0; n < (indix.bns->n_seqs + 2); n++)  {
+			free(files_out_sam_name[n]);
+			free(file_map_by_chr[n]);
+			res = MPI_File_close(&fh_out[n]);
+			assert(res == MPI_SUCCESS);
+		}
+		//if (buffer_out_vec) free(buffer_out_vec);
+		//if (chr_buff_size) free(chr_buff_size);
 	}// end else case files are trimmed
 
 	if (file_r1 != NULL && file_r2 == NULL){
@@ -3028,30 +3355,30 @@ int main(int argc, char *argv[]) {
 	
 		///resources needed to find the offsets and size of each read.	
 		size_t grand_total_num_reads 	= 0; 
-		size_t local_num_reads 			= 0;
-		size_t total_num_reads 			= 0;
+		size_t local_num_reads 		= 0;
+		size_t total_num_reads 		= 0;
 		
 		//Here I decided to keep separated vectors because otherwise with all the reallocs they would be too big and take too much contiguous memory space
-		int *local_read_size    		= calloc(1, sizeof(int));
+		int *local_read_size    	= calloc(1, sizeof(int));
 		size_t *local_read_bytes    	= calloc(1, sizeof(size_t));
-		size_t *local_read_offsets 		= calloc(1, sizeof(size_t));
+		size_t *local_read_offsets	= calloc(1, sizeof(size_t));
 		
-		assert( local_read_offsets 		!= NULL);
-		assert( local_read_size 		!= NULL);
-		assert( local_read_bytes 		!= NULL);
+		assert( local_read_offsets 	!= NULL);
+		assert( local_read_size 	!= NULL);
+		assert( local_read_bytes	!= NULL);
 		
 		///find offsets and sizes for the first file
 		bef = MPI_Wtime();
 		find_reads_size_and_offsets(goff[ind],
-									siz2read,
-									file_r1,
-									&local_num_reads,
-									&total_num_reads,
-									&local_read_offsets,
-									&local_read_size,
-									&local_read_bytes,
-									proc_num,
-									rank_num);
+					    siz2read,
+					    file_r1,
+					    &local_num_reads,
+					    &total_num_reads,
+					    &local_read_offsets,
+					    &local_read_size,
+					    &local_read_bytes,
+					    proc_num,
+					    rank_num);
 
 
 		aft = MPI_Wtime();
@@ -3123,7 +3450,7 @@ int main(int argc, char *argv[]) {
 
 		// we allocate vector for chunks offset
 		size_t *begin_offset_chunk 	= calloc(chunck_num, sizeof(size_t));
-		size_t *chunk_size 			= calloc(chunck_num, sizeof(size_t));
+		size_t *chunk_size 		= calloc(chunck_num, sizeof(size_t));
 		size_t *reads_in_chunk 		= calloc(chunck_num, sizeof(size_t));
 
 		assert( begin_offset_chunk != NULL );
@@ -3200,15 +3527,41 @@ int main(int argc, char *argv[]) {
 		aft = MPI_Wtime();
 		fprintf(stderr, "%s ::: rank %d ::: mapped indexes (%.02f)\n", __func__, rank_num, aft - bef);
 
-		///Create SAM header
-		//TODO: Add line for BWA version
+		//we create a vector with chromosom names 
+		int s;
+		MPI_File *fh_out          = malloc( (indix.bns->n_seqs + 2) * sizeof(MPI_File));
+		char *files_out_sam_name[indix.bns->n_seqs + 2];
+		char *file_map_by_chr[(indix.bns->n_seqs + 2)];
+		for (s = 0; s < indix.bns->n_seqs; ++s){
+			files_out_sam_name[s] = malloc( (strlen( indix.bns->anns[s].name) + 1 ) * sizeof(char));
+		        files_out_sam_name[s][strlen( indix.bns->anns[s].name)] = 0;
+		        char *p0 = files_out_sam_name[s];
+		        memmove(p0, indix.bns->anns[s].name, strlen( indix.bns->anns[s].name));
+		}
+		char UNMAPPED[]   = "unmapped";
+		char DISCORDANT[] = "discordant";
+		files_out_sam_name[s++] = strdup(DISCORDANT);
+		files_out_sam_name[s++] = strdup(UNMAPPED);
+		int file_name_len = 0;
+	        for (s = 0; s < (indix.bns->n_seqs + 2); ++s){
+	        	/* Derived file names */
+	        	file_name_len = strlen(output_path) + strlen(files_out_sam_name[s]) + 6;
+	        	file_map_by_chr[s] = calloc( file_name_len, sizeof(char));
+	        	sprintf(file_map_by_chr[s], "%s/%s.sam", output_path, files_out_sam_name[s]);
+	        }
+		create_sam_header_by_chr_file(file_map_by_chr, &indix, &count, hdr_line, rg_line, rank_num);
+		
+		//we create a file which contains only the header
+		//this file will be used by the sorting to get individual chromosom file
 		create_sam_header(file_out, &indix, &count, hdr_line, rg_line, rank_num);
 
 		///This is a testline to stop the program wherever I want
-		if(0){ MPI_Barrier(MPI_COMM_WORLD); MPI_Finalize(); return 0;}
+		//if(0){ MPI_Barrier(MPI_COMM_WORLD); MPI_Finalize(); return 0;}
 
-		res = MPI_File_open(MPI_COMM_WORLD, file_out, MPI_MODE_WRONLY|MPI_MODE_APPEND, MPI_INFO_NULL, &fh_out);
-		assert(res == MPI_SUCCESS);
+		for (s = 0; s < (indix.bns->n_seqs + 2); ++s){
+                        res = MPI_File_open(MPI_COMM_WORLD, file_map_by_chr[s], MPI_MODE_CREATE|MPI_MODE_WRONLY|MPI_MODE_APPEND, MPI_INFO_NULL, &fh_out[s]);
+                        assert(res == MPI_SUCCESS);
+                }
 
 		if (file_r1 != NULL) {
 			//fprintf(stderr, "rank %d ::: open file %s \n",rank_num, file_r1);
@@ -3217,6 +3570,10 @@ int main(int argc, char *argv[]) {
 		}
 		
 		buffer_r1 = NULL; seqs = NULL;
+		//localsize_vec contain the size of the buffer to write in the sam file
+		int *chr_buff_size  = calloc ( (indix.bns->n_seqs + 2), sizeof(int) );
+		char *buffer_out_vec[indix.bns->n_seqs + 2];
+
 		before_local_mapping = MPI_Wtime();
 
 		// here we loop until there's nothing to read
@@ -3322,44 +3679,130 @@ int main(int argc, char *argv[]) {
 			mem_process_seqs(opt, indix.bwt, indix.bns, indix.pac, 0, (int)reads, seqs, pes0);
 			aft = MPI_Wtime();
 			fprintf(stderr, "rank %d :: %s: computed mappings (%.02f)\n", rank_num, __func__, aft - bef);
-
+			
 			total_time_mapping += (aft - bef);
 
 			/* Write results ... */
 			bef = MPI_Wtime();
-			localsize = 0;
-			for (n = 0; n < reads; n++) {
+                        localsize = 0;
+                        int *sam_buff_dest  = calloc ( reads, sizeof(int) );
+                        char *current_line; //pointer to the sam line
+                        char *currentCarac;
+                        int chr, mchr;
+                        size_t coord, sam_line_size;
+                        unsigned char quality;
+                        int nbchr = indix.bns->n_seqs + 2;
+
+			char *tmp_chr = malloc( 200 * sizeof(char));
+                        tmp_chr[0] = 0;
+
+                        for (n = 0; n < reads; n++) {
 				/* Reuse .l_seq to store SAM line length to avoid multiple strlen() calls */
-				seqs[n].l_seq = strlen(seqs[n].sam);
-				localsize += seqs[n].l_seq; 
-			}
-			assert(localsize <= INT_MAX);
-			buffer_out = malloc(localsize);
-			assert(buffer_out != NULL);
-			p = buffer_out;
-			for (n = 0; n < reads; n++) {
-				memmove(p, seqs[n].sam, seqs[n].l_seq);
-				p += seqs[n].l_seq;
-				free(seqs[n].sam); 
-			}
-			free(seqs);
-			res = MPI_File_write_shared(fh_out, buffer_out, localsize, MPI_CHAR, &status);
-			assert(res == MPI_SUCCESS);
-			res = MPI_Get_count(&status, MPI_CHAR, &count);
-			assert(res == MPI_SUCCESS);
-			assert(count == (int)localsize);
-			free(buffer_out);
-			aft = MPI_Wtime();
-			fprintf(stderr, "rank: %d :: %s: wrote results (%.02f) \n", rank_num, __func__, aft - bef);
-			total_time_writing += (aft - bef);
-			free(buffer_r1);
-			free(buffer_r2);
-			fprintf(stderr, "rank: %d :: finish for chunck %zu \n", rank_num, u1);
+                                // Now we parse the sam line to extract taped chromosoms
+                                // and update the local size vector
+                                current_line  = seqs[n].sam;
+                                seqs[n].l_seq = strlen(seqs[n].sam);
+                                sam_line_size = strlen(seqs[n].sam);
+				//GO TO FLAG
+				currentCarac = strstr(current_line, "\t");                               
+				currentCarac++;
+				//GO TO RNAME (Chr name)
+				currentCarac = strstr(currentCarac + 1, "\t");
+                                if ( currentCarac[1] == '*') chr =  nbchr-2;
+                                else chr = getChr(currentCarac, files_out_sam_name, nbchr-2, tmp_chr);
+				//GO TO COORD
+				currentCarac = strstr(currentCarac + 1, "\t");
+                                coord = strtoull(currentCarac, &currentCarac, 10);
 
-		} //end for loop on chunks
+                                //TAKE MAPQ AND GO TO CIGAR
+                                quality = strtoull(currentCarac, &currentCarac, 10);
+                                //GO TO RNEXT
+				currentCarac = strstr(currentCarac + 1, "\t");
+                                currentCarac++;
+                                if (currentCarac[0] == '=') {
+                                        mchr = chr;
+                                } else if ( currentCarac[0] == '*') {
+                                       mchr = nbchr - 2;
+                                } else {
+                                       mchr = getChr(currentCarac, files_out_sam_name, nbchr-2, tmp_chr);
+                                }
+
+                                if ((chr < (nbchr - 2)) && (chr == mchr)){
+					//then we found concordant reads                                
+				        chr_buff_size[chr]    += sam_line_size;
+				        sam_buff_dest[n]       = chr;
+				}
+				else if ((chr == (nbchr - 2)) && ( mchr < (nbchr - 2))){
+                                        //we found discordant reads with one pair unmapped
+                                        chr_buff_size[nbchr - 2] += sam_line_size;
+                                        sam_buff_dest[n]          = nbchr - 1;
+                                }
+                                else if ((mchr == (nbchr - 2)) && ( chr < (nbchr - 2))){
+                                        //we found discordant reads with one pair unmapped
+                                        chr_buff_size[nbchr - 2] += sam_line_size;
+                                        sam_buff_dest[n]          = nbchr - 2;
+                                }
+                                else{
+                                        //we found unmapped pairs reads
+                                        chr_buff_size[nbchr - 1] += sam_line_size;
+                                        sam_buff_dest[n]          = nbchr - 1;
+                                }
+			}
+                        free(tmp_chr);                                                                                                                                        
+			//now we fill up the buffer_out_vec
+			for (n = 0; n < (indix.bns->n_seqs + 2); n++) {
+
+                                assert(chr_buff_size[n] <= INT_MAX);
+
+                                if (chr_buff_size[n]){
+                                        buffer_out_vec[n] = calloc( chr_buff_size[n] + 1, sizeof(char));
+                                        assert(buffer_out_vec[n] != NULL);
+                                        buffer_out_vec[n][chr_buff_size[n]] = '\0';
+                                }
+                        }
+                        size_t *actual_size = calloc(reads, sizeof(size_t));
+                        char *p_temp2;
+                        for (n = 0; n < reads; n++) {
+
+                                p_temp2 = buffer_out_vec[sam_buff_dest[n]] + actual_size[sam_buff_dest[n]];
+                                memmove(p_temp2, seqs[n].sam, seqs[n].l_seq);
+                                actual_size[sam_buff_dest[n]] += seqs[n].l_seq;
+                                free(seqs[n].sam);
+                        }
+
+                        free(seqs);
+                        free(actual_size);
+			for (n = 0; n < (indix.bns->n_seqs + 2); n++) {
+
+                                if (chr_buff_size[n]) {
+                                        res = MPI_File_write_shared(fh_out[n], buffer_out_vec[n], chr_buff_size[n], MPI_CHAR, &status);
+                                        assert(res == MPI_SUCCESS);
+                                        res = MPI_Get_count(&status, MPI_CHAR, &count);
+                                        assert(res == MPI_SUCCESS);
+                                        assert(count == (int)chr_buff_size[n]);
+                                        free(buffer_out_vec[n]);
+                                        chr_buff_size[n] = 0;
+                                }
+                        }
+
+                        aft = MPI_Wtime();
+                        fprintf(stderr, "rank: %d :: %s: wrote results (%.02f) \n", rank_num, __func__, aft - bef);
+                        total_time_writing += (aft - bef);
+                        free(buffer_r1);
+                        free(buffer_r2);
+                        fprintf(stderr, "rank: %d :: finish for chunck %zu \n", rank_num, u1);
+                } //end for (u1 = 0; u1 < chunk_count; u1++){
+	
+		//free data structures and close sam files		
+		for (n = 0; n < (indix.bns->n_seqs + 2); n++)  {
+                	free(files_out_sam_name[n]);
+                	free(file_map_by_chr[n]);
+               		res = MPI_File_close(&fh_out[n]);
+                	assert(res == MPI_SUCCESS);
+        	}
+
+
 	}
-
-
 
 	/*
 	*
@@ -3367,7 +3810,7 @@ int main(int argc, char *argv[]) {
 	*
 	*/
 
-
+	free(output_path);
 	after_local_mapping	 = MPI_Wtime();
 	total_time_local_mapping = after_local_mapping - before_local_mapping;
 
@@ -3413,9 +3856,9 @@ int main(int argc, char *argv[]) {
 
 	res = MPI_Win_free(&win_shr);
 	assert(res == MPI_SUCCESS);
-
-	res = MPI_File_close(&fh_out);
-	assert(res == MPI_SUCCESS);
+	
+	//res = MPI_File_close(&fh_out);
+	//assert(res == MPI_SUCCESS);
 
 	res = MPI_Finalize();
 	assert(res == MPI_SUCCESS);
