@@ -2,10 +2,11 @@
 You are in the Devel branch of the mpiBWA project
 In this branch we implement and test new algorithms for the master branch.
 
-Work in progress: <br /> 
+Work in progress:  
+---------------------
 
-Implementation of the alignment by chromosom. Now during the alignment we create a file by chromosome. 
-
+Implementation of the alignment by chromosom. Now during the alignment we create a file by chromosome. <br />
+This feature is implemented in : main_parallel_version_split_by_chr.c <br />
 
 Installation
 ---------
@@ -20,13 +21,9 @@ Requirements
 ------------
 
 You need a C compiler as required for classic BWA program.
-
 You need to install a version of openMPI. (see: https://www.open-mpi.org/)
-
 You need a mpi compiler too. to check your mpi installation tell in a command window whereis mpirun, normally it is installed in /usr/bin/mpirun.
-
 You need a low latency network and a parallel file system to use this branch
-
 Your reads should be paired.
 
 Options
