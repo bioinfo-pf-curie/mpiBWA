@@ -4,22 +4,14 @@ In this branch we implement new algorithm for chunking the data before sending t
 We want to be fast, scalable, accurate and reproducible whatever the number of jobs you chose.
 
 Rationnal:<br />
-
-The master and FULLMPI branches are made for full reproducibility (independant to the number of jobs) and accuracy but they reach the Amdah'ls law point. 
-Indeed the locking file RMA implementation (the serialization when computing offsets) introduces a bottle neck we are not able to overpass with RMA technics. <br />
  
-This is why we have implemented a new algorithm. Now a lot more master jobs are responsible for chuncking the data the way bwa does and present it to bwa-mem aligner. 
+We have implemented a new algorithm. A lot more master jobs are responsible for chuncking the data the way bwa does and present it to bwa-mem aligner. 
 And instead of doing it linearly on the fastq now they do it independently and in parallel. With a little inter communication they adjust the chunks offets and sizes. 
 This method removes the serialization bottle neck. <br />
-
-As in the master and FULLMPI branches we obtain a full reproducibility and with a better efficiency and scalability. <br />
 
 When testing this branch make sure the total number of jobs you take is (master jobs) * 8. <br />
 8 is the number of aligner threads used by bwa-mem. <br />
 According to bwa-mem policy all chunks are 10e6 by the number of threads nucleotide bases big. <br />
-
-Remark: The initial buffer of each master jobs is limited to 2gb (due to mpi_read_at buffer size). <br />
-This version does not work on trimmed reads. <br />
 
 First results test on broadwell. <br />
 
@@ -40,16 +32,10 @@ Time to compute chunks: 8s<br />
 
 Reproducibility: the pipeline has been tested tested with 5632 and 2816 cpu results are the same. <br />
 
-Next step:<br />
-
-1) remove initial buffer size limitation<br />
-2) support trimmed reads<br />
-3) need tests on low throughput infrastructures<br />
-
 
 Installation
 ---------
-
+ 
 git clone https://github.com/fredjarlier/mpiBWA.git <br /> 
 git pull <br />
 .export PATH=/PATH_TO/automake-1.15/bin:/PATH_TO/autoconf-2.69/bin:$PATH <br />
@@ -60,14 +46,10 @@ Requirements
 ------------
 
 You need a C compiler as required for classic BWA program.
-
 You need to install a version of openMPI. (see: https://www.open-mpi.org/)
-
 You need a mpi compiler too. to check your mpi installation tell in a command window whereis mpirun, normally it is installed in /usr/bin/mpirun.
-
 You need a low latency network and a parallel file system to use this branch
-
-Your reads should be paired.
+Your reads can be single, paired, trimmed or not.
 
 Options
 ------
