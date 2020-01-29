@@ -1,17 +1,59 @@
-Your are in the master branch of the mpiBWA project.
 
-We recommand you to go to the Experimental branch (git checkout Experimental + git pull). 
-The experimental branch has full reproducibility and a better scaling.
-This branch will become the master in futur.
+You are in the Master branch of the mpiBWA project
+In this branch we implement new algorithm for chunking the data before sending them to bwa-mem.
+We want to be fast, scalable, accurate and reproducible whatever the number of jobs you chose.
 
-Other branches (master, FULLMPI, LAZYCHUNK ) are history.
+Add an experimental branch for higher scalability, full reproducibility and better accuracy.
 
 Release notes
 ------------
 
+Release 1.0 from the 15/01/2020<br />
+
+1) Add a version of the main that align and split the result by chromosom. <br />
+We create the output file with the header and SAM files by chromosom, a SAM for discordant reads and unmapped. <br /> 
+
+Rational:
+
+The current version of mpiBWA creates one big SAM file. In some cases this SAM is big of several tera bytes. <br />
+This is difficult for the sorting to deal with files that big. The idea with this version is to create a SAM file by chromosom. <br />
+Each chromosom's name come from the header line of the genome reference. This way the sam file to sort and markdup is much smaller so we need less RAM and CPU by chromosom. <br />
+The extra overhead of the splitting is negligible compare with previous version.<br />
+Now we can sort individual chromosom in parallel, for instance the chr1 of 300X WGS is equivalent to a 30X. <br />
+
+Warning: 
+
+This version is under construction. It has been tested in the case the fastq files are trimmed.
+Another tests are conducted. The sorting program is not updated to deal with chromosom independantly.<br />
+This is under construction too.<br />
+
+How to use: 
+
+In the Makefile.am replace the line <br />
+
+pbwa7_SOURCES = main_parallel_version.c <br />
+with <br />
+pbwa7_SOURCES = main_parallel_version_split_by_chr.c <br />
+
+What's next:
+
+1) Shall we include secondary alignment
+2) Shall we include discordant reads in the chromosom it belongs 
+
+
+Release 1.0 from the 12/12/2019<br />
+
+1) remove MPI call after finalyze
+
+Release 1.0 from the 3/04/2019<br />
+
+Changes in Experimental branch 
+
+1) Add support of single read trimmed or not
+
 Release 1.0 from the 10/07/2018<br />
 
-Changes in Master branch 
+Changes in Experimental branch 
 
 1) Fix a bug during the mapping in shared memory of the reference genome
 This bug didn't appear with openMPI version but Intel compiler complains.
@@ -145,6 +187,7 @@ this way the virtual memory stay low.
 Release 1.0 from 30/06/2017
 
 Major changes:
+=======
 
 First release
 
@@ -173,7 +216,6 @@ Command line :mpi_run -n 352 -c 8
 or : MSUB -n 352
 MSUB -c 8
 
-This version does not support trimmed read yet.
 
 Installation
 ---------
