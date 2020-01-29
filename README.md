@@ -47,13 +47,13 @@ Release 1.0 from the 12/12/2019<br />
 
 Release 1.0 from the 3/04/2019<br />
 
-Changes in Experimental branch 
+Changes in Master branch 
 
 1) Add support of single read trimmed or not
 
 Release 1.0 from the 10/07/2018<br />
 
-Changes in Experimental branch 
+Changes in Master branch 
 
 1) Fix a bug during the mapping in shared memory of the reference genome
 This bug didn't appear with openMPI version but Intel compiler complains.
@@ -66,7 +66,7 @@ With Beegfs set the "flock" to "on" for reproducibility.<br />
 
 Release 1.0 from the 30/04/2018 <br />
 
-Changes in Experimental branch <br />
+Changes in Master branch <br />
 
 1) Add support for trimmed reads.  <br />
 2) Be aware of the flock mode on parallel file system (Lustre, beegfs): flock must be on.
@@ -78,7 +78,7 @@ Release 1.0 from the 21/03/2018 <br />
 
 Release 1.0 from 23/12/2017
 
-changes in Experimental branch <br />
+changes in Master branch <br />
 
 1) 100% reproducibility with the pipeline control (bwa mem -t 8) <br />
 2) remove memory limits now offset are computed on 1gb buffer <br />
@@ -87,13 +87,13 @@ changes in Experimental branch <br />
 
 Release 1.0 from 04/12/2017
 
-Changes in the branch Experimental.
+Changes in the branch Master.
 
 1) Fix a memory leak.
 
 Release 1.0 from 01/12/2017
 
-Changes in the branch Experimental. <br />
+Changes in the branch Master. <br />
 Fix the mpi_read_at buffer limit size.<br />
 
 
@@ -221,7 +221,6 @@ Installation
 ---------
 
 git clone https://github.com/fredjarlier/mpiBWA.git <br /> 
-git checkout Experimental <br />
 git pull <br />
 .export PATH=/PATH_TO/automake-1.15/bin:/PATH_TO/autoconf-2.69/bin:$PATH <br />
  ./configure CC=/PATH_TO/mpicc <br />
