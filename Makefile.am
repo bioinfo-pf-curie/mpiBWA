@@ -1,7 +1,7 @@
 
 AM_CPPFLAGS = -DUSE_MALLOC_WRAPPERS -DHAVE_PTHREAD
 
-bin_PROGRAMS = pbwa7 pidx
+bin_PROGRAMS = mpiBWA mpiBWAIdx
 noinst_LIBRARIES = libbwa.a
 noinst_HEADERS = $(HDR)
 
