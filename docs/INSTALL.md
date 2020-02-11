@@ -81,4 +81,35 @@ make dist
 
 
 
+## Integration further BWA-MEM release
+
+
+```
+# Clone the BWA repository
+git clone https://github.com/lh3/bwa
+
+# Clone the mpiBWA repository
+git clone https://github.com/bioinfo-pf-curie/mpiBWA.git
+# Checkout the branch of the version you want to install, for example:
+# git checkout version-1.0.0
+
+# Copy all the .c and .h from bwa repo into the src/ of mpibwa
+
+cp bwa/*.c bwa/*.h mpiBWA/src/
+
+# Now compile mpiBWA normally
+cd mpiBWA
+aclocal
+autoconf
+automake --add-missing
+# If not yet in your PATH, you can provide the PATH to `mpicc`
+# or your favourite MPI compiler at the configure stage
+# using the CC environment variable, for example:
+#./configure CC=/usr/lib64/mpich/bin/mpicc
+./configure --prefix=${HOME}/local/mpiBWA
+make
+make install
+
+```
+
 
