@@ -45,7 +45,7 @@ make install
 
 ## Build from a tar.gz archive
 
-Download  the source code archive of the version you want to install from [https://github.com/bioinfo-pf-curie/mpiSORT/releases](https://github.com/bioinfo-pf-curie/mpiSORT/releases).
+Download  the source code archive of the version you want to install from [https://github.com/bioinfo-pf-curie/mpiBWA/releases](https://github.com/bioinfo-pf-curie/mpiBWA/releases).
 
 ```
 tar xzf mpibwa-mpibwaidx-1.0.tar.gz

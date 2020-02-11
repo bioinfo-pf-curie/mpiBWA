@@ -40,7 +40,11 @@ such as [mpich](https://www.mpich.org/), [open-mpi](https://www.open-mpi.org/) o
 
 ## Usage
 
-After installation MAkefile creates 2 binaries: mpiBWA and mpiBWAIdx
+We have 2 version of mpiBWA. One version create a unique SAM file and the other sort the output by the chromosoms present in the header. 
+
+To switch of version rename in the `mpiBWA_SOURCES` in the file src/Makefile.am with `main_parallel_version_split_by_chr.c`
+
+After installation Makefile creates 2 binaries: mpiBWA and mpiBWAIdx
 
 `mpiBWAIdx` is responsible for creating a binary image of the reference genome. This image is subsequently loaded in shared memory by `mpiBWA`. Then every `mpiBWA` process on the computing node will share the same genome reference. mpiBWAIdx deos'nt need MPI to run. To create an image type:
 
@@ -63,7 +67,9 @@ The `-n` options passed to `mpirun` indicates the number of processes to run in 
 
 The total memory used during the alignment if approximately the size of the .map plus the size of the sam loaded by each bwa tasks. A BWA threads consume around 300 MB.
  
+### CPU 
 
+The number of CPU is related to the number of rank of the MPI jobs and to the number of threads you ask with BWA and with the -t option.
 
 
 
