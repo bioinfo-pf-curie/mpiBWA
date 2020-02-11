@@ -1,25 +1,18 @@
 /*
 This file is part of mpiBWA
 
-NGS aligner inspired by BWA
-
 The project was developped by Frederic Jarlier from Institut Curie and Nicolas Joly from Institut Pasteur
 
-Copyright (C) 2016-2017  Institut Curie / Institut Pasteur
+NGS aligner inspired by BWA-MEM 
 
+Copyright (C) 2016-2020  Institut Curie / Institut Pasteur
 
+You can use, modify and/ or redistribute the software under the terms of license (see the LICENSE file for more details).
+   
+The software is distributed in the hope that it will be useful, but "AS IS" WITHOUT ANY WARRANTY OF ANY KIND. Users are therefore encouraged to test the software's suitability as regards their requirements in conditions enabling the security of their systems and/or data. 
+   
+The fact that you are presently reading this means that you have had knowledge of the license and that you accept its terms.
 
-This program is free software: you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the Free
-Software Foundation, either version 3 of the License, or (at your option)
-any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #define _GNU_SOURCE
