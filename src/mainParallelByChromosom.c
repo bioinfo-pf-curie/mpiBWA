@@ -1541,6 +1541,12 @@ int main(int argc, char *argv[]) {
 	if (argc < 2) {
 		fprintf(stderr, "Program: MPI version of BWA MEM\n\n"
 			"Version: v%s\n\n"
+			"This file is part of mpiBWA
+			Copyright Institut Curie 2020
+			This software is a computer program whose purpose is to parallelize mpiBWA using MPI.
+			You can use, modify and/ or redistribute the software under the terms of license (see the LICENSE file for more details).
+			The software is distributed in the hope that it will be useful, but "AS IS" WITHOUT ANY WARRANTY OF ANY KIND. Users are therefore encouraged to test the software's suitability as regards their requirements in conditions enabling the security of their systems and/or data. 
+			The fact that you are presently reading this means that you have had knowledge of the license and that you accept its terms."	
 			"Contact 1: Frederic Jarlier (frederic.jarlier@curie.fr)\n\n"
 			"usage : mpirun -n TOTAL_PROC %s mem -t 8 -o RESULTS REFERENCE FASTQ_R1 FASTQ_R2\n\n"
 			"Requirements : After the creation of reference file with BWA you need to create a referenced\n"
