@@ -115,6 +115,17 @@ mpirun mem -t 8 -o ${HOME}/mpiBWAExample/example.sam ${MYREF} examples/HCC1187C_
 ```
 
 
+## Performances
+
+This parallel version of BWA MEM is meant to be 100% reproducible with original BWA MEM version. It means if you took the same number of threads in the serial version and in the MPI version you will obtain exactly the same results.
+
+Heres an example of the scalability tests we realize with the TGCC (Tr√s Grand Centre de Calcul - Bruy√res le Chatel - France)  
+
+![img](Results_TGCC_Broadwell.jpg)
+
+
+
+
 
 
 
