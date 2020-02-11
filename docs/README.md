@@ -71,6 +71,53 @@ The total memory used during the alignment if approximately the size of the .map
 
 The number of CPU is related to the number of rank of the MPI jobs and to the number of threads you ask with BWA and with the -t option.
 
+## Examples
+
+### Standard
+
+`mpirun` can be launched in a standard manner without using any job scheduling systems. For example:
+
+`mpirun -n 4 mpiBWA mem -t 8 -o ${HOME}/mpiBWAExample/example.sam ${MYREF} examples/HCC1187C_R1_10K.fastq examples/HCC1187C_R2_10K.fastq `
+
+If needed, a file with the server name in `-host` option can be provided to `mpirun`. We invite you to read the `mpirun` documentation for more details.
+
+
+### Slurm
+
+```shell
+#! /bin/bash
+#SBATCH -J MPIBWA_32_JOBS
+#SBATCH -N 2                            # Ask 2 nodes
+#SBATCH -n 4                            # Total number of cores
+#SBATCH -c 8                            # use 8 core per mpi job
+#SBATCH --tasks-per-node=2              # Ask 2 cores per node
+#SBATCH --mem-per-cpu=${MEM}            # See Memory ressources
+#SBATCH -t 01:00:00
+#SBATCH -o STDOUT_FILE.%j.o
+#SBATCH -e STDERR_FILE.%j.e
+
+mpirun mpiBWA mem -t 8 -o ${HOME}/mpiBWAExample/example.sam ${MYREF} examples/HCC1187C_R1_10K.fastq examples/HCC1187C_R2_10K.fastq
+
+```
+
+### PBS/Torque
+
+```shell
+#! /bin/bash
+#PBS -N MPIBWA_32_JOBS
+#PBS -l nodes=2:ppn=16:mem=${MEM}        # Ask 2 nodes and 16 jobs per node
+#PBS -l walltime=24:00:00
+#PBS -o STDOUT_FILE.%j.o
+#PBS -e STDERR_FILE.%j.e
+
+mpirun mem -t 8 -o ${HOME}/mpiBWAExample/example.sam ${MYREF} examples/HCC1187C_R1_10K.fastq examples/HCC1187C_R2_10K.fastq
+
+```
+
+
+
+
+
 
 
 

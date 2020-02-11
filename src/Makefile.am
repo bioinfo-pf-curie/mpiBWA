@@ -7,7 +7,7 @@ noinst_HEADERS = $(HDR)
 
 libbwa_a_SOURCES = $(SRC)
 
-mpiBWA_SOURCES = main_parallel_version.c
+mpiBWA_SOURCES = mainParallel.c
 mpiBWA_LDADD = libbwa.a
 mpiBWAIdx_SOURCES = pidx.c
 mpiBWAIdx_LDADD = libbwa.a
