@@ -119,9 +119,31 @@ mpirun mem -t 8 -o ${HOME}/mpiBWAExample/example.sam ${MYREF} examples/HCC1187C_
 
 This parallel version of BWA MEM is meant to be 100% reproducible with original BWA MEM version. It means if you took the same number of threads in the serial version and in the MPI version you will obtain exactly the same results.
 
-Heres an example of the scalability tests we realize with the TGCC (Tr√s Grand Centre de Calcul - Bruy√res le Chatel - France)  
+Heres an example of the scalability tests we realize with the TGCC (Tres Grand Centre de Calcul - Bruyeres le Chatel - France)  
 
 ![img](Results_TGCC_Broadwell.jpg)
+
+
+
+## Parallel Filesystem
+
+This software need a parallel file system for execution. The programm has been tested with Lustre and Beegfs.
+
+WARNING: Be aware of the flock mode on parallel file system (Lustre, Beegfs): flock must be on. Otherwise reproducibility is not guaranteed. 
+
+
+## Algorithm
+
+The algorithm is divided in 3 sections.
+
+In the first section MPI jobs are responsible for creating chunks of reads. Those chunks shall contain the same number of nucleotids.
+
+In the second section MPI jobs calls aligner jobs. This part invokes BWA MEM algorithm.
+
+In the third section MPI jobs write the alignment results in a SAM file or in individual chromosom SAM files.
+
+
+
 
 
 
