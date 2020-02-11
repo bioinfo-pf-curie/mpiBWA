@@ -115,7 +115,7 @@ mpirun mem -t 8 -o ${HOME}/mpiBWAExample/example.sam ${MYREF} examples/HCC1187C_
 ```
 
 
-## Performances
+## Performance
 
 This parallel version of BWA MEM is meant to be 100% reproducible with original BWA MEM version. It means if you took the same number of threads in the serial version and in the MPI version you will obtain exactly the same results.
 
@@ -125,11 +125,13 @@ Heres an example of the scalability tests we realize with the TGCC (Tres Grand C
 
 
 
-## Parallel Filesystem
+## Parallel filesystems
 
 This software need a parallel file system for execution. The programm has been tested with Lustre and Beegfs.
 
-WARNING: Be aware of the flock mode on parallel file system (Lustre, Beegfs): flock must be on. Otherwise reproducibility is not guaranteed. 
+WARNING: 
+
+Be aware of the flock mode on parallel file system (Lustre, Beegfs): flock must be on. Otherwise reproducibility is not guaranteed. 
 
 
 ## Algorithm
