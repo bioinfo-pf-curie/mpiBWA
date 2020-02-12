@@ -140,13 +140,21 @@ Be aware of the flock mode on parallel file system (Lustre, Beegfs): flock must 
 
 The algorithm is divided in 3 sections.
 
-In the first section MPI jobs are responsible for creating chunks of reads. Those chunks shall contain the same number of nucleotids.
+In the first section MPI jobs are responsible for creating chunks of reads. All those chunks contain the same number of nucleotids.
 
 In the second section MPI jobs calls aligner jobs. This part invokes BWA MEM algorithm.
 
-In the third section MPI jobs write the alignment results in a SAM file or in individual chromosom SAM files.
+In the third section MPI jobs write the alignment results in a SAM file or in individual chromosom SAM files. This part uses shared file pointers.
 
+## References
 
+This work is based on the original bwa aligner written by Li et al.
+
+Li H. and Durbin R. (2010) Fast and accurate long-read alignment with Burrows-Wheeler transform. Bioinformatics, 26, 589-595. [PMID: 20080505]
+
+Li H. (2013) Aligning sequence reads, clone sequences and assembly contigs with BWA-MEM. arXiv:1303.3997v1 [q-bio.GN]
+
+Latham R. et al. (2007) Implementing MPI-IO Atomic Mode and Shared File Pointers Using MPI One-Sided Communication
 
 
 
