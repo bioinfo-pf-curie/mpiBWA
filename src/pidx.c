@@ -34,20 +34,14 @@ int main(int argc, char **argv) {
 	bwaidx_t *idx;
 
 	if (argc != 2) {
-		fprintf(stderr, "
-		This file is part of mpiBWA
-
-		Copyright Institut Curie 2020
-
-		This software is a computer program whose purpose is to map the reference in memory and write it in a binary file.
-
-		You can use, modify and/ or redistribute the software under the terms of license (see the LICENSE file for more details).
-
-		The software is distributed in the hope that it will be useful, but AS IS WITHOUT ANY WARRANTY OF ANY KIND. Users are therefore encouraged to test the software's suitability as regards their requirements in conditions enabling the security of their systems and/or data. 
-
-		The fact that you are presently reading this means that you have had knowledge of the license and that you accept its terms.
-
-		usage: %s <index>\n", basename(*argv));
+		fprintf(stderr, "This file is part of mpiBWA\n"
+		"Copyright Institut Curie 2020\n"
+		"This software is a computer program whose purpose is to map the reference in memory and write it in a binary file.\n"
+		"You can use, modify and/ or redistribute the software under the terms of license (see the LICENSE file for more details).\n"
+		"The software is distributed in the hope that it will be useful, but AS IS WITHOUT ANY WARRANTY OF ANY KIND.\n" 
+		"Users are therefore encouraged to test the software's suitability as regards their requirements in conditions enabling the security of their systems and/or data.\n"
+		"The fact that you are presently reading this means that you have had knowledge of the license and that you accept its terms.\n"
+		"usage: %s <index>\n", basename(*argv));
 		
 		return 1; }
 
