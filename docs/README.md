@@ -79,7 +79,7 @@ The number of CPU is related to the number of rank of the MPI jobs and to the nu
 
 `mpirun` can be launched in a standard manner without using any job scheduling systems. For example:
 
-`mpirun -n 4 mpiBWA mem -t 8 -o ${HOME}/mpiBWAExample/example.sam ${MYREF} examples/HCC1187C_R1_10K.fastq examples/HCC1187C_R2_10K.fastq `
+`mpirun -n 4 mpiBWA mem -t 8 -o ${HOME}/mpiBWAExample/example.sam ${MYREF} examples/data/HCC1187C_R1_10K.fastq examples/data/HCC1187C_R2_10K.fastq `
 
 If needed, a file with the server name in `-host` option can be provided to `mpirun`. We invite you to read the `mpirun` documentation for more details.
 
@@ -98,7 +98,7 @@ If needed, a file with the server name in `-host` option can be provided to `mpi
 #SBATCH -o STDOUT_FILE.%j.o
 #SBATCH -e STDERR_FILE.%j.e
 
-mpirun mpiBWA mem -t 8 -o ${HOME}/mpiBWAExample/example.sam ${MYREF} examples/HCC1187C_R1_10K.fastq examples/HCC1187C_R2_10K.fastq
+mpirun mpiBWA mem -t 8 -o ${HOME}/mpiBWAExample/example.sam ${MYREF} examples/data/HCC1187C_R1_10K.fastq examples/data/HCC1187C_R2_10K.fastq
 
 ```
 
@@ -112,7 +112,7 @@ mpirun mpiBWA mem -t 8 -o ${HOME}/mpiBWAExample/example.sam ${MYREF} examples/HC
 #PBS -o STDOUT_FILE.%j.o
 #PBS -e STDERR_FILE.%j.e
 
-mpirun mem -t 8 -o ${HOME}/mpiBWAExample/example.sam ${MYREF} examples/HCC1187C_R1_10K.fastq examples/HCC1187C_R2_10K.fastq
+mpirun mem -t 8 -o ${HOME}/mpiBWAExample/example.sam ${MYREF} examples/data/HCC1187C_R1_10K.fastq examples/data/HCC1187C_R2_10K.fastq
 
 ```
 
