@@ -54,6 +54,8 @@ After installation Makefile creates 2 binaries: mpiBWA and mpiBWAIdx
 
 `mpirun -n 1 mpiBWA mem -t 8 -o $SAM_OUT $REFERENCE $FASTQ1 $FASTQ2` will launch 1 process MPI and 8 threads will be created by mpiBWA.
 
+Do not write the extension .map for the reference. If the file is `my_ref.fa.map` pass `my_ref.fa` to `mpiBWA`. 
+
 The `-n` options passed to `mpirun` indicates the number of processes to run in parallel (this is basically the number of cores that will be used). For for details on how to choose the number processes, see the [Informatic resources](#informatic-resources) section.
 
 `mpiBWA` requires four mandatory arguments:
