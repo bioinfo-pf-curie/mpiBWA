@@ -5,16 +5,16 @@
 
 * an implementation of the Message Passing Interface (MPI) standard such as [mpich](https://www.mpich.org/), [open-mpi](https://www.open-mpi.org/) or [Intel® MPI Library](https://software.intel.com/en-us/mpi-library)
 * [autoconf](https://www.gnu.org/software/autoconf/)
-* [automake 1.15](https://www.gnu.org/software/automake/)
+* [automake 1.13](https://www.gnu.org/software/automake/)
 * [make](https://www.gnu.org/software/make/)
 
 The MPI compiler but be available in your PATH or set with the CC environment variable.
 
-If you do not have automake 1.15 but a former version (such as 1.13), you can edit in the `configure.ac` file and change the line `AM_INIT_AUTOMAKE([1.15 foreign -Wall])` with `AM_INIT_AUTOMAKE([1.13 foreign -Wall])`.
+If you have automake 1.15  you can edit in the `configure.ac` file and change the line `AM_INIT_AUTOMAKE([1.13 foreign -Wall])` with `AM_INIT_AUTOMAKE([1.15 foreign -Wall])`.
 
 If `automake` and `autoconf` have been installed in custom directories, be sure their are available in your PATH:
 
-`export PATH=path_to_automake/automake-1.15/bin:path_to_autoconf/autoconf-2.69/bin:${PATH}`
+`export PATH=path_to_automake/automake-1.13/bin:path_to_autoconf/autoconf-2.69/bin:${PATH}`
 
 If needed, you can set your PATH according to your configuration directly in your `${HOME}/.bashrc` file.
 
