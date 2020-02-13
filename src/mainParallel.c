@@ -1439,7 +1439,7 @@ int main(int argc, char *argv[]) {
 	size_t localsize;
 	size_t n = 0;
 	off_t locoff, locsiz, *alloff, *curoff, maxsiz, totsiz, filsiz;
-	struct stat stat_r1, stat_r2;
+	struct stat stat_r1, stat_r2, stat_map;
 
 	MPI_Aint size_shr;
 	MPI_Comm comm_shr;
@@ -1760,6 +1760,14 @@ int main(int argc, char *argv[]) {
 	//MPI_Info_set(finfo,"romio_cb_write","enable");
 	//MPI_Info_set(finfo,"romio_cb_read","enable");
 
+
+	/* Check the map file is present otherwise send a message ... */
+        if (stat(file_map, stat_map) == -1) {
+                fprintf(stderr, "There is a problem with the map file %s: %s. It is not present or you have not generate it with mpiBWAIdx \n", file_map, strerror(errno));
+	        res = MPI_Finalize();
+                assert(res == MPI_SUCCESS);
+                exit(2);
+        }
 
 	/* Check that output file (-o) is not null ... */
 	if (file_out == NULL) {
