@@ -2,7 +2,7 @@
 AC_PREREQ([2.69])
 AC_INIT([mpiMPIBWA mpiBWAIdx], [1.0])
 AC_CONFIG_HEADERS([src/config.h])
-AM_INIT_AUTOMAKE([1.15 foreign -Wall])
+AM_INIT_AUTOMAKE([1.13 foreign -Wall])
 
 # Checks for programs.
 AC_PROG_CC([mpicc])
