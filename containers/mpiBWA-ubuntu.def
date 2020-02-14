@@ -1,0 +1,38 @@
+Bootstrap: docker
+From: ubuntu:18.04
+Stage: build
+
+%setup
+    mkdir -p ${SINGULARITY_ROOTFS}/opt
+
+%post
+    apt-get update
+    apt-get install -y git automake openmpi-common libopenmpi-dev make zlib1g-dev
+    git clone https://github.com/bioinfo-pf-curie/mpiBWA.git
+    cd mpiBWA
+    aclocal
+    autoconf
+    automake --add-missing
+    ./configure CC=/usr/bin/mpicc --prefix=/opt/mpiBWA
+    make
+    make install
+
+Bootstrap: docker
+From: ubuntu:18.04
+Stage: final
+
+%files from build
+    /opt/mpiBWA /opt/mpiBWA
+
+%post
+    apt-get update
+    apt-get install -y libopenmpi-dev
+    apt-get clean
+
+%environment
+    export LANG=C
+    export LC_ALL=C
+    export PATH=$PATH:/opt/mpiBWA/bin
+
+%runscript
+    exec mpiBWA "$@"

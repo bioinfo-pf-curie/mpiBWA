@@ -1,0 +1,36 @@
+Bootstrap: docker
+From: centos:8
+Stage: build
+
+%setup
+    mkdir -p ${SINGULARITY_ROOTFS}/opt
+
+%post
+    yum install -y which git coreutils-single automake mpich mpich-devel redhat-rpm-config make zlib-devel
+    git clone https://github.com/bioinfo-pf-curie/mpiBWA.git
+    cd mpiBWA
+    aclocal
+    autoconf
+    automake --add-missing
+    ./configure CC=/usr/lib64/mpich/bin/mpicc --prefix=/opt/mpiBWA
+    make
+    make install
+
+Bootstrap: docker
+From: centos:8
+Stage: final
+
+%files from build
+    /opt/mpiBWA /opt/mpiBWA
+
+%post
+    yum install -y mpich
+    yum clean all
+
+%environment
+    export LANG=C
+    export LC_ALL=C
+    export PATH=$PATH:/opt/mpiBWA/bin
+
+%runscript
+    exec mpiBWA "$@"
