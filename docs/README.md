@@ -65,6 +65,8 @@ The `-n` options passed to `mpirun` indicates the number of processes to run in 
 * [Input](#input): a reference genome in .map format, one or two fastq files trimmed or not 
 * [Output](#output): a sam file 
 
+If you decide to split by chromosom the output SAM file you give will contain the header, and for each chromosome of the header mpiBWA will yield a SAM file plus a discordant and a unmapped SAM files.
+
 ## Informatic resources
 
 ### Memory
