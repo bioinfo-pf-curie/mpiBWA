@@ -1553,7 +1553,7 @@ int main(int argc, char *argv[]) {
                         "Requirements : After the creation of reference file with BWA you need to create a referenced\n"
                         "          map file genome with pidx like this  pidx ref.fasta generate a ref.fasta.map.\n"
                         "          The .map file is a copy of memory mapped reference used for shared memory purpose.\n",
-			
+			VERSION, progname);	
 		return 1; }
 
 	/* Validate provided command (first argument) */
