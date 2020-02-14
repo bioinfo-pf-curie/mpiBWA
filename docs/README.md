@@ -40,9 +40,9 @@ such as [mpich](https://www.mpich.org/), [open-mpi](https://www.open-mpi.org/) o
 
 ## Usage
 
-We have 2 version of mpiBWA. One version create a unique SAM file and the other sort the output by the chromosoms present in the header. 
+We have 2 versions of mpiBWA. One version create a unique SAM file and the other sort the output by the chromosoms present in the header. 
 
-To switch of version rename in the `mpiBWA_SOURCES` in the file src/Makefile.am with `mainParallelByChromosom.c`
+To switch of version rename in the `mpiBWA_SOURCES` in the file src/Makefile.am with `mainParallelByChromosome.c`
 
 After installation Makefile creates 2 binaries: mpiBWA and mpiBWAIdx
 
