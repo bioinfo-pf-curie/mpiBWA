@@ -1365,9 +1365,14 @@ void create_sam_header(char *file_out, bwaidx_t *indix, int *count, char *hdr_li
 	if (rank_num == 0) {
 		int s, len;
 		char *buff;
+		struct stat stat_file_out;
 
-		res = MPI_File_delete(file_out, MPI_INFO_NULL);
-		assert(res == MPI_SUCCESS || res == MPI_ERR_NO_SUCH_FILE || res == MPI_ERR_IO);
+                //We test if the output sam exists
+                if ( stat(file_out, &stat_file_out)  != -1 ) {
+                	res = MPI_File_delete(file_out, MPI_INFO_NULL);
+                	assert(res == MPI_SUCCESS);
+                }
+
 		res = MPI_File_open(MPI_COMM_SELF, file_out, MPI_MODE_CREATE|MPI_MODE_WRONLY, MPI_INFO_NULL, &fh_out);
 		assert(res == MPI_SUCCESS);
 		/* Add reference sequence lines */
@@ -1423,12 +1428,16 @@ void create_sam_header_by_chr_file(char *file_out[], bwaidx_t *indix, int *count
         if (rank_num == 0) {
              int s, len;
              char *buff;
+	     struct stat stat_file_out;
 
-	     // Remove files if already exists 	
+	     // Remove sam files if already exists 	
              for (s = 0; s < (*indix).bns->n_seqs; ++s) {		
-             	res = MPI_File_delete(file_out[s], MPI_INFO_NULL);
-             	assert(res == MPI_SUCCESS || res == MPI_ERR_NO_SUCH_FILE || res == MPI_ERR_IO);
-             	res = MPI_File_open(MPI_COMM_SELF, file_out[s], MPI_MODE_CREATE|MPI_MODE_WRONLY, MPI_INFO_NULL, &fh_out[s]);
+             	
+		if ( stat(file_out[s], &stat_file_out)  != -1 ) {
+        		res = MPI_File_delete(file_out[s], MPI_INFO_NULL);
+                        assert(res == MPI_SUCCESS);
+                }
+		res = MPI_File_open(MPI_COMM_SELF, file_out[s], MPI_MODE_CREATE|MPI_MODE_WRONLY, MPI_INFO_NULL, &fh_out[s]);
              	assert(res == MPI_SUCCESS);
 	     }
 
@@ -1859,13 +1868,17 @@ int main(int argc, char *argv[]) {
 	size_t f_out_sz = strlen(file_out);
 	size_t mi = f_out_sz;
 	char *k = file_out + f_out_sz;
-	while (*k-- != '/') mi--;
-	char *output_path = malloc (mi * sizeof(char));
-	output_path[mi] = 0;
-	char *h = output_path;
-	memmove(h, file_out, mi);
-        assert(output_path);
-	
+	while ( (mi > 0) && (*k-- != '/')) mi--;
+        char output_path[FILENAME_MAX];
+
+	if ( mi == 0) getcwd( output_path, FILENAME_MAX );
+	else{ 
+		output_path[mi] = 0;
+		char *h = output_path;
+		memmove(h, file_out, mi);
+        	assert(output_path);
+	}
+
 	/* Check the map file is present otherwise send a message ... */
         if (stat(file_map, &stat_map) == -1) {
                 fprintf(stderr, "There is a problem with the map file %s: %s. It is not present or you have not generate it with mpiBWAIdx \n", file_map, strerror(errno));
@@ -3823,7 +3836,7 @@ int main(int argc, char *argv[]) {
 	*
 	*/
 
-	free(output_path);
+	//free(output_path);
 	after_local_mapping	 = MPI_Wtime();
 	total_time_local_mapping = after_local_mapping - before_local_mapping;
 
