@@ -1,7 +1,7 @@
 
 AM_CPPFLAGS = -DUSE_MALLOC_WRAPPERS -DHAVE_PTHREAD
 
-bin_PROGRAMS = mpiBWA mpiBWAIdx
+bin_PROGRAMS = mpiBWA mpiBWAByChr mpiBWAIdx
 noinst_LIBRARIES = libbwa.a
 noinst_HEADERS = $(HDR)
 
@@ -9,6 +9,8 @@ libbwa_a_SOURCES = $(SRC)
 
 mpiBWA_SOURCES = mainParallel.c
 mpiBWA_LDADD = libbwa.a
+mpiBWAByChr_SOURCES = mainParallelByChromosome.c
+mpiBWAByChr_LDADD = libbwa.a
 mpiBWAIdx_SOURCES = pidx.c
 mpiBWAIdx_LDADD = libbwa.a
 
