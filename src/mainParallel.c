@@ -1367,9 +1367,14 @@ void create_sam_header(char *file_out, bwaidx_t *indix, int *count, char *hdr_li
 	if (rank_num == 0) {
 		int s, len;
 		char *buff;
+		struct stat stat_file_out;
 
-		res = MPI_File_delete(file_out, MPI_INFO_NULL);
-		assert(res == MPI_SUCCESS || res == MPI_ERR_NO_SUCH_FILE || res == MPI_ERR_IO);
+		//We test if the output sam exists
+		if ( stat(file_out, &stat_file_out)  != -1 ) {
+		    res = MPI_File_delete(file_out, MPI_INFO_NULL);
+		    assert(res == MPI_SUCCESS);
+		}
+				
 		res = MPI_File_open(MPI_COMM_SELF, file_out, MPI_MODE_CREATE|MPI_MODE_WRONLY, MPI_INFO_NULL, &fh_out);
 		assert(res == MPI_SUCCESS);
 		/* Add reference sequence lines */
@@ -1439,7 +1444,7 @@ int main(int argc, char *argv[]) {
 	size_t localsize;
 	size_t n = 0;
 	off_t locoff, locsiz, *alloff, *curoff, maxsiz, totsiz, filsiz;
-	struct stat stat_r1, stat_r2, stat_map;
+	struct stat stat_r1, stat_r2, stat_map, stat_file_out;
 
 	MPI_Aint size_shr;
 	MPI_Comm comm_shr;
@@ -2268,9 +2273,13 @@ int main(int argc, char *argv[]) {
 		if (rank_num == 0) {
 			int s, len;
 			char *buff;
+			
+			//We test if the output sam exists
+			if ( stat(file_out, &stat_file_out)  != -1 ) {
+				res = MPI_File_delete(file_out, MPI_INFO_NULL);
+				assert(res == MPI_SUCCESS);
+			}
 
-			res = MPI_File_delete(file_out, MPI_INFO_NULL);
-			assert(res == MPI_SUCCESS || res == MPI_ERR_NO_SUCH_FILE || res == MPI_ERR_IO);
 			res = MPI_File_open(MPI_COMM_SELF, file_out, MPI_MODE_CREATE|MPI_MODE_WRONLY, MPI_INFO_NULL, &fh_out);
 			assert(res == MPI_SUCCESS);
 			/* Add reference sequence lines */
