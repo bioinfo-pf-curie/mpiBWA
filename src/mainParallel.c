@@ -1762,7 +1762,7 @@ int main(int argc, char *argv[]) {
 
 
 	/* Check the map file is present otherwise send a message ... */
-        if (stat(file_map, stat_map) == -1) {
+        if (stat(file_map, &stat_map) == -1) {
                 fprintf(stderr, "There is a problem with the map file %s: %s. It is not present or you have not generate it with mpiBWAIdx \n", file_map, strerror(errno));
 	        res = MPI_Finalize();
                 assert(res == MPI_SUCCESS);
