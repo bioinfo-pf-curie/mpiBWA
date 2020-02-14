@@ -1869,16 +1869,31 @@ int main(int argc, char *argv[]) {
 	size_t mi = f_out_sz;
 	char *k = file_out + f_out_sz;
 	while ( (mi > 0) && (*k-- != '/')) mi--;
-        char output_path[FILENAME_MAX];
+        //char output_path[FILENAME_MAX];
 
-	if ( mi == 0) getcwd( output_path, FILENAME_MAX );
-	else{ 
+	if (mi == 0){
+		fprintf(stderr, "We have a problem. the output file must be a path and a file name.Make sure it is a valid path. \n");
+                res = MPI_Finalize();
+                assert(res == MPI_SUCCESS);
+                exit(2);
+
+	}
+
+	char *output_path = malloc (mi * sizeof(char));
+	output_path[mi] = 0;
+        char *h = output_path;
+        memmove(h, file_out, mi);
+        assert(output_path);
+
+
+	//if ( mi == 0) getcwd( output_path, FILENAME_MAX );
+	/*else{ 
 		output_path[mi] = 0;
 		char *h = output_path;
 		memmove(h, file_out, mi);
         	assert(output_path);
 	}
-
+	*/
 	/* Check the map file is present otherwise send a message ... */
         if (stat(file_map, &stat_map) == -1) {
                 fprintf(stderr, "There is a problem with the map file %s: %s. It is not present or you have not generate it with mpiBWAIdx \n", file_map, strerror(errno));
@@ -3836,7 +3851,7 @@ int main(int argc, char *argv[]) {
 	*
 	*/
 
-	//free(output_path);
+	free(output_path);
 	after_local_mapping	 = MPI_Wtime();
 	total_time_local_mapping = after_local_mapping - before_local_mapping;
 
