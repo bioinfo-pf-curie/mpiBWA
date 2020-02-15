@@ -67,7 +67,7 @@ The [genome.sh](../examples/genome.sh) script provides an example to build the m
 
 `mpiBWA` is executed with the `mpirun` program, for example:
 
-`mpirun -n 2 mpiBWA mem -t 8 -o HCC1187C.sam hg19.small.fa examples/data/HCC1187C_R1_10K.fastq examples/data/HCC1187C_R2_10K.fastq`
+`mpirun -n 2 mpiBWA mem -t 8 -o ./HCC1187C.sam hg19.small.fa examples/data/HCC1187C_R1_10K.fastq examples/data/HCC1187C_R2_10K.fastq`
 
 This command launches 2 processes MPI and 8 threads will be created by mpiBWA.
 
@@ -80,7 +80,13 @@ The `-n` options passed to `mpirun` indicates the number of processes to run in 
 * [Input](#input): a reference genome in .map format, one or two fastq files trimmed or not
 * [Output](#output): a sam file
 
-If you decide to split by chromosome the output SAM file you give will contain the header, and for each chromosome of the header mpiBWA will yield a SAM file plus a discordant and a unmapped SAM files.
+If you decide to split by chromosome the output SAM file will contain the header, and for each chromosome of the header mpiBWA will yield a SAM file plus a discordant and a unmapped SAM files.
+
+`mpirun -n 2 mpiBWAByChr mem -t 8 -o ./HCC1187C.sam hg19.small.fa examples/data/HCC1187C_R1_10K.fastq examples/data/HCC1187C_R2_10K.fastq`
+
+* [Input](#input): a reference genome in .map format, one or two fastq files trimmed or not
+* [Output](#output): a sam file containing the header (HCC1187C.sam), chrN.sam with aligned reads to chrN, discordant.sam contains chimeric alignments, unmapped.sam contains untapped reads.    
+	
 
 ### Input
 
@@ -92,7 +98,7 @@ If you decide to split by chromosome the output SAM file you give will contain t
 
 ### Memory
 
-The total memory used during the alignment if approximately the size of the `.map` file plus the size of the sam loaded by each bwa tasks. A bwa thread takes around 300 MB of memory.
+The total memory used during the alignment if approximately the size of the `.map` file plus the size of the SAM chunks loaded by each bwa tasks. A bwa thread takes around 300 MB of memory.
  
 ### Cpu
 
