@@ -1472,7 +1472,7 @@ int main(int argc, char *argv[]) {
             "\tREFERENCE_GENOME: reference genome name (e.g. myReferenceGenome.fa).\n"
             "\t\tDo not provide the '.map' extension of the file genareted with 'mpiBWAIdx'\n"
             "\n\tFASTQ_R1: fastq file for R1\n"
-            "\n\tFASTQ_R2: fastq file for R2 is the data come from paired-end sequencing (optional)\n"
+            "\n\tFASTQ_R2: fastq file for R2 if the data come from paired-end sequencing (optional)\n"
             "\noutput: SAM_FILE\n"
             "\noptions: 'bwa mem' options can be passed from command line (e.g. mpiBWA mem -t 8 -k 18)\n"
             "\nFor more detailed documentation visit:\n"
