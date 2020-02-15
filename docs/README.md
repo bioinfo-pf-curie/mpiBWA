@@ -85,8 +85,9 @@ If you decide to split by chromosome the output SAM file will contain the header
 `mpirun -n 2 mpiBWAByChr mem -t 8 -o ./HCC1187C.sam hg19.small.fa examples/data/HCC1187C_R1_10K.fastq examples/data/HCC1187C_R2_10K.fastq`
 
 * [Input](#input): a reference genome in .map format, one or two fastq files trimmed or not
-* [Output](#output): a sam file containing the header (HCC1187C.sam), chrN.sam with aligned reads to chrN, discordant.sam contains chimeric alignments, unmapped.sam contains untapped reads.    
+* [Output](#output): a sam file containing the entire reference header (HCC1187C.sam). Individual chrN.sam files with aligned reads to chrN (ChrN are the chromosome name from the header). The file discordant.sam contains chimeric alignments, unmapped.sam contains untapped reads.    
 	
+The chrN.sam contain the header for the chrN but are not position sorted. They can be sorted independantly with mpiSORT.  
 
 ### Input
 
