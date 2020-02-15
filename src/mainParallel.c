@@ -1459,21 +1459,30 @@ int main(int argc, char *argv[]) {
 	bseq1_t *seqs;
 
 	if (argc < 2) {
-		fprintf(stderr, "Program: MPI version of BWA MEM\n\n"
-			"Version: v%s\n\n"
-			"This file is part of mpiBWA\n"
-	                "Copyright Institut Curie 2020\n"
-			"This software is a computer program whose purpose is to parallelize BWA-MEM using MPI.\n"
-			"You can use, modify and/ or redistribute the software under the terms of license (see the LICENSE file for more details).\n"
-			"The software is distributed in the hope that it will be useful, but AS IS WITHOUT ANY WARRANTY OF ANY KIND. \n"
-			"Users are therefore encouraged to test the software's suitability as regards their requirements in conditions enabling the security of their systems and/or data.\n" 
-			"The fact that you are presently reading this means that you have had knowledge of the license and that you accept its terms.\n"	
-			"Contact 1: Frederic Jarlier (frederic.jarlier@curie.fr)\n\n"
-			"usage : mpirun -n TOTAL_PROC %s mem -t 8 -o RESULTS REFERENCE FASTQ_R1 FASTQ_R2\n\n"
-			"Requirements : After the creation of reference file with BWA you need to create a referenced\n"
-			"	   map file genome with pidx like this  pidx ref.fasta generate a ref.fasta.map.\n"
-			"	   The .map file is a copy of memory mapped reference used for shared memory purpose.\n",
-			VERSION, progname);
+		fprintf(stderr, "program: %s is a MPI version of BWA MEM\n"
+			"version: %s\n"
+			"\nusage : mpirun -n TOTAL_PROC %s mem -t 8 -o SAM_FILE REFERENCE_GENOME FASTQ_R1 [FASTQ_R2]\n"
+            "\n\tTOTAL_PROC tells how many cores will be used by MPI to parallelize the computation.\n"
+			"\nrequirements : from the reference genome index file generated with the command 'bwa index'\n"
+            "\tyou need to create a reference genome map file with 'mpiBAWIdx' that comes along\n"
+            "\twith this program as follows:\n"
+            "\n\t\tmpiBWAIdx myReferenceGenome.fa\n\n"
+			"\tIt creates a .map file that will be used in shared memory as reference genome.\n"
+            "\ninput:\n"
+            "\tREFERENCE_GENOME: reference genome name (e.g. myReferenceGenome.fa).\n"
+            "\t\tDo not provide the '.map' extension of the file genareted with 'mpiBWAIdx'\n"
+            "\n\tFASTQ_R1: fastq file for R1\n"
+            "\n\tFASTQ_R2: fastq file for R2 is the data come from paired-end sequencing (optional)\n"
+            "\noutput: SAM_FILE\n"
+            "\noptions: 'bwa mem' options can be passed from command line (e.g. mpiBWA mem -t 8 -k 18)\n"
+            "\nFor more detailed documentation visit:\n"
+            "\thttps://github.com/bioinfo-pf-curie/mpiBWA\n"
+            "\nCopyright (C) 2020  Institut Curie <http://www.curie.fr> \n"
+            "\nThis program comes with ABSOLUTELY NO WARRANTY. \n"
+            "This is free software, and you are welcome to redistribute it \n"
+            "under the terms of the CeCILL License. \n"
+	    	"\ncontact: Frederic Jarlier (frederic.jarlier@curie.fr) \n",
+			progname, VERSION, progname);
 			return 1; }
 
 	/* Validate provided command (first argument) */
