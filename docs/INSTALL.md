@@ -28,7 +28,7 @@ If you have automake 1.15  you can edit in the `configure.ac` file and change th
 git clone https://github.com/bioinfo-pf-curie/mpiBWA.git
 cd mpiBWA
 # Checkout the branch of the version you want to install, for example:
-# git checkout version-1.0.0
+# git checkout version-1.0
 aclocal
 autoconf
 automake --add-missing
@@ -65,7 +65,7 @@ make install
 git clone https://github.com/bioinfo-pf-curie/mpiBWA.git
 cd mpiBWA
 # Checkout the branch of the version you want to package, for example:
-# git checkout version-1.0.0
+# git checkout version-1.0
 aclocal
 autoconf
 automake --add-missing
@@ -100,7 +100,7 @@ git clone https://github.com/lh3/bwa
 # Clone the mpiBWA repository
 git clone https://github.com/bioinfo-pf-curie/mpiBWA.git
 # Checkout the branch of the version you want to install, for example:
-# git checkout version-1.0.0
+# git checkout version-1.0
 
 # Copy all the .c and .h from bwa repo into the src/ of mpiBWA
 
