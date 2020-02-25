@@ -3595,11 +3595,9 @@ int main(int argc, char *argv[]) {
 		        memmove(p0, indix.bns->anns[s].name, strlen( indix.bns->anns[s].name));
 		}
 		char UNMAPPED[]   = "unmapped";
-		char DISCORDANT[] = "discordant";
-		files_out_sam_name[s++] = strdup(DISCORDANT);
 		files_out_sam_name[s++] = strdup(UNMAPPED);
 		int file_name_len = 0;
-	        for (s = 0; s < (indix.bns->n_seqs + 2); ++s){
+	        for (s = 0; s < (indix.bns->n_seqs + 1); ++s){
 	        	/* Derived file names */
 	        	file_name_len = strlen(output_path) + strlen(files_out_sam_name[s]) + 6;
 	        	file_map_by_chr[s] = calloc( file_name_len, sizeof(char));
@@ -3614,7 +3612,7 @@ int main(int argc, char *argv[]) {
 		///This is a testline to stop the program wherever I want
 		//if(0){ MPI_Barrier(MPI_COMM_WORLD); MPI_Finalize(); return 0;}
 
-		for (s = 0; s < (indix.bns->n_seqs + 2); ++s){
+		for (s = 0; s < (indix.bns->n_seqs + 1); ++s){
                         res = MPI_File_open(MPI_COMM_WORLD, file_map_by_chr[s], MPI_MODE_CREATE|MPI_MODE_WRONLY|MPI_MODE_APPEND, MPI_INFO_NULL, &fh_out[s]);
                         assert(res == MPI_SUCCESS);
                 }
@@ -3627,8 +3625,8 @@ int main(int argc, char *argv[]) {
 		
 		buffer_r1 = NULL; seqs = NULL;
 		//localsize_vec contain the size of the buffer to write in the sam file
-		int *chr_buff_size  = calloc ( (indix.bns->n_seqs + 2), sizeof(int) );
-		char *buffer_out_vec[indix.bns->n_seqs + 2];
+		int *chr_buff_size  = calloc ( (indix.bns->n_seqs + 1), sizeof(int) );
+		char *buffer_out_vec[indix.bns->n_seqs + 1];
 
 		before_local_mapping = MPI_Wtime();
 
@@ -3747,7 +3745,7 @@ int main(int argc, char *argv[]) {
                         int chr, mchr;
                         size_t coord, sam_line_size;
                         unsigned char quality;
-                        int nbchr = indix.bns->n_seqs + 2;
+                        int nbchr = indix.bns->n_seqs + 1;
 
 			char *tmp_chr = malloc( 200 * sizeof(char));
                         tmp_chr[0] = 0;
@@ -3764,39 +3762,18 @@ int main(int argc, char *argv[]) {
 				currentCarac++;
 				//GO TO RNAME (Chr name)
 				currentCarac = strstr(currentCarac + 1, "\t");
-                                if ( currentCarac[1] == '*') chr =  nbchr-2;
-                                else chr = getChr(currentCarac, files_out_sam_name, nbchr-2, tmp_chr);
-				//GO TO COORD
-				currentCarac = strstr(currentCarac + 1, "\t");
-                                coord = strtoull(currentCarac, &currentCarac, 10);
+                                if ( currentCarac[1] == '*') chr =  nbchr-1;
+                                else chr = getChr(currentCarac, files_out_sam_name, nbchr-1, tmp_chr);
 
-                                //TAKE MAPQ AND GO TO CIGAR
-                                quality = strtoull(currentCarac, &currentCarac, 10);
-                                //GO TO RNEXT
-				currentCarac = strstr(currentCarac + 1, "\t");
-                                currentCarac++;
-                                if (currentCarac[0] == '=') {
-                                        mchr = chr;
-                                } else if ( currentCarac[0] == '*') {
-                                       mchr = nbchr - 2;
-                                } else {
-                                       mchr = getChr(currentCarac, files_out_sam_name, nbchr-2, tmp_chr);
-                                }
-
-                                if ((chr < (nbchr - 2)) && (chr == mchr)){
+                                if ((chr < (nbchr - 1))){
 					//then we found concordant reads                                
 				        chr_buff_size[chr]    += sam_line_size;
 				        sam_buff_dest[n]       = chr;
 				}
-				else if ((chr == (nbchr - 2)) && ( mchr < (nbchr - 2))){
+				else if ((chr == (nbchr - 1))){
                                         //we found discordant reads with one pair unmapped
-                                        chr_buff_size[nbchr - 2] += sam_line_size;
+                                        chr_buff_size[nbchr - 1] += sam_line_size;
                                         sam_buff_dest[n]          = nbchr - 1;
-                                }
-                                else if ((mchr == (nbchr - 2)) && ( chr < (nbchr - 2))){
-                                        //we found discordant reads with one pair unmapped
-                                        chr_buff_size[nbchr - 2] += sam_line_size;
-                                        sam_buff_dest[n]          = nbchr - 2;
                                 }
                                 else{
                                         //we found unmapped pairs reads
@@ -3806,7 +3783,7 @@ int main(int argc, char *argv[]) {
 			}
                         free(tmp_chr);                                                                                                                                        
 			//now we fill up the buffer_out_vec
-			for (n = 0; n < (indix.bns->n_seqs + 2); n++) {
+			for (n = 0; n < (indix.bns->n_seqs + 1); n++) {
 
                                 assert(chr_buff_size[n] <= INT_MAX);
 
@@ -3828,7 +3805,7 @@ int main(int argc, char *argv[]) {
 
                         free(seqs);
                         free(actual_size);
-			for (n = 0; n < (indix.bns->n_seqs + 2); n++) {
+			for (n = 0; n < (indix.bns->n_seqs + 1); n++) {
 
                                 if (chr_buff_size[n]) {
                                         res = MPI_File_write_shared(fh_out[n], buffer_out_vec[n], chr_buff_size[n], MPI_CHAR, &status);
@@ -3850,7 +3827,7 @@ int main(int argc, char *argv[]) {
                 } //end for (u1 = 0; u1 < chunk_count; u1++){
 	
 		//free data structures and close sam files		
-		for (n = 0; n < (indix.bns->n_seqs + 2); n++)  {
+		for (n = 0; n < (indix.bns->n_seqs + 1); n++)  {
                 	free(files_out_sam_name[n]);
                 	free(file_map_by_chr[n]);
                		res = MPI_File_close(&fh_out[n]);
