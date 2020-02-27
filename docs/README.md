@@ -117,8 +117,9 @@ In the case of `mpiBWA`:
 
 In the case of `mpiBWAByChr`, additional files are provided:
 
-* Individual chrN.sam files with aligned reads on each chrN (ChrN are the chromosome name from the header). The chrN.sam contains the header for the chrN but the positions are not sorted. They can be sorted independently with [mpiSORT](https://github.com/bioinfo-pf-curie/mpiSORT).
-* The file discordant.sam contains chimeric alignments.
+* Individual chrN.sam files with aligned reads on each chrN (ChrN are the chromosome name from the header). The chrN.sam contains the header for the chrN and the reads mapping to that chromosome. The file contains primary and supplementary alignments for a read. If supplementary mapping are discordant they are not filtered out. The file can be sorted independently with [mpiSORT](https://github.com/bioinfo-pf-curie/mpiSORT) and during the sorting supplementary reads are filtered in discordant SAM file
+
+* The file discordant.sam contains primary chimeric alignments with their secondary alignments.
 * The unmapped.sam contains unmapped reads.
 
 
