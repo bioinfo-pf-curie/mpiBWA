@@ -12,6 +12,7 @@ AM_PROG_AR
 # Checks for libraries.
 AC_CHECK_LIB([m], [sqrt])
 AC_CHECK_LIB([z], [gzdopen])
+AC_CHECK_LIB([p], [pthread])
 
 # Checks for library functions.
 AC_CHECK_FUNCS([dup2]) 
@@ -30,7 +31,7 @@ AC_CHECK_FUNCS([strtol])
 AC_CHECK_FUNCS([strtoull])
 
 # Checks for headers
-
+AC_CHECK_FUNCS([getcwd])
 AC_CHECK_HEADERS([arpa/inet.h]) 
 AC_CHECK_HEADERS([fcntl.h]) 
 AC_CHECK_HEADERS([inttypes.h]) 
@@ -44,6 +45,7 @@ AC_CHECK_HEADERS([sys/socket.h])
 AC_CHECK_HEADERS([sys/time.h]) 
 AC_CHECK_HEADERS([unistd.h]) 
 AC_CHECK_HEADER_STDBOOL
+AC_CHECK_HEADERS([pthread.h], [ LIBS="-lpthread ${LIBS}"])
 
 # Check for inline
 AC_C_INLINE 
