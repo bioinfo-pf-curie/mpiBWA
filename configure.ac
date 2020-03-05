@@ -45,7 +45,6 @@ AC_CHECK_HEADERS([sys/socket.h])
 AC_CHECK_HEADERS([sys/time.h]) 
 AC_CHECK_HEADERS([unistd.h]) 
 AC_CHECK_HEADER_STDBOOL
-AC_CHECK_HEADERS([pthread.h], [ LIBS="-lpthread ${LIBS}"])
 
 # Check for inline
 AC_C_INLINE 
