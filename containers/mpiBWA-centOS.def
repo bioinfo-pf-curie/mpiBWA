@@ -9,6 +9,7 @@ Stage: build
     yum install -y which git coreutils-single automake mpich mpich-devel redhat-rpm-config make zlib-devel
     git clone https://github.com/bioinfo-pf-curie/mpiBWA.git
     cd mpiBWA
+    git checkout devel
     aclocal
     autoconf
     automake --add-missing
