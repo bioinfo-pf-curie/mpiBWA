@@ -1,7 +1,8 @@
 # mpiBWA
 
 This software allows the alignment of high-throughput sequencing data from fastq files. Those files can be pair or single ended, trimmed or not. 
-`mpiBWA` relies on [BWA MEM](https://github.com/lh3/bwa) and on the Message Passing Interface (MPI) standard to perform the parallelisation of the alignment processing over multiple cores and nodes of high performance computing clusters.
+`mpiBWA` relies on [BWA MEM](https://github.com/lh3/bwa) and on the Message Passing Interface (MPI) standard to perform the parallelisation of the alignment processing over multiple cores and nodes of high performance computing clusters. `mpiBWA` is fully reproducible with the original [BWA MEM](https://github.com/lh3/bwa) version. This means that, if you took the same number of threads in the serial version of BWA and in the MPI version, then you will obtain exactly the same results.
+
 
 * [Installation](docs/INSTALL.md)
 * [Documentation](docs/README.md)
@@ -17,6 +18,8 @@ This program has been developed by Frederic Jarlier from Institut Curie and Nico
 Contacts: [frederic.jarlier@curie.fr](mailto:frederic.jarlier@curie.fr]), [philippe.hupe@curie.fr](mailto:frederic.jarlier@curie.fr])
 
 ## Acknowledgements
+
+* [TGCC France Génomique](https://www.france-genomique.org/plateformes-et-equipements/plateforme-tgcc-arpajon/)
 
 ## Citation
 

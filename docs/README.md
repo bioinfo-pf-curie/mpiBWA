@@ -195,19 +195,9 @@ mpirun i-n 2 mpiBWA mem -t 16 -o ${HOME}/mpiBWAExample/HCC1187C.sam ${HOME}/mpiB
 
 You can go in the [examples](../examples) directory and submit the job with `qsub` command using the [pbs.sh](../examples/pbs.sh) script to test the program.
 
-## Performance
-
-This parallel version of BWA MEM is meant to be 100% reproducible with original BWA MEM version. This means that, if you took the same number of threads in the serial version of BWA and in the MPI version, then you will obtain exactly the same results.
-
-Here is an example of the scalability of the program we obtained at [TGCC France Génomique](https://www.france-genomique.org/plateformes-et-equipements/plateforme-tgcc-arpajon/) (Broadwell architecture):
-
-![img](Results_TGCC_Broadwell.jpg)
-
-
 ## Parallel filesystems
 
 This software needs a parallel filesystem for execution. The program has been tested with  [Lustre](http://lustre.org/) and [BeeGFS](https://www.beegfs.io/).
-
 
 
 WARNING: be aware that the flock mode (i.e. file locking) on parallel filesystems ([Lustre](http://lustre.org/), [BeeGFS](https://www.beegfs.io/), etc) must must be on,  otherwise the reproducibility is not guaranteed.
