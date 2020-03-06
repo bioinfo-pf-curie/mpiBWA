@@ -4,6 +4,16 @@ version-1.0
 ----------------------------------------------------------------------
 Preliminary releases
 
+Release from the 06/03/2020
+
+1) Review of the management of discordant reads in case of mpiBWAByChr regarding the question we wonder in the previous release
+
+Case of discordant or unmapped fragment : we decide the fragment discordant goes in the chromosome SAM it belongs and in the discordant SAM.
+The discordant SAM is here to help the mpiMarkDup step. Indeed discordant duplicate will be sort and marked like the others and then it will be possible to mark discordant reads in the chromosom SAM.   
+
+2) Fix memory leaks
+
+
 Release from the 15/01/2020
 
 1) Add a version of the main that aligns and splits the result by chromosome.
@@ -33,7 +43,7 @@ pbwa7_SOURCES = main_parallel_version_split_by_chr.c
 What's next:
 
 1) Shall we include secondary alignment
-2) Shall we include discordant reads in the chromosome it belongs
+2) Shall we include discordant reads in the chromosome it belongs?
 
 
 Release from the 12/12/2019
