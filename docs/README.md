@@ -115,17 +115,17 @@ In the case of `mpiBWA`:
 
 In the case of `mpiBWAByChr`, additional files are provided:
 
-* Individual chrN.sam files with aligned reads on each chrN (ChrN are the chromosome name from the header). The chrN.sam contains the header for the chrN and the reads mapping to that chromosome. The file contains primary and supplementary alignments for a read. If supplementary mapping are discordant they are not filtered out. The file can be sorted independently with [mpiSORT](https://github.com/bioinfo-pf-curie/mpiSORT) and during the sorting supplementary reads are filtered in discordant SAM file
+* Individual chrN.sam files with aligned reads on each chrN (ChrN are the chromosome name from the header). The chrN.sam contains the header for the chrN and the reads mapping to that chromosome. The file contains primary and supplementary alignments for a read. If supplementary mapping are discordant they are not filtered out. The file can be sorted independently with [mpiSORT](https://github.com/bioinfo-pf-curie/mpiSORT) and during the sorting these supplementary alignments are filtered out in the discordant.gz file (see [mpiSORT](https://github.com/bioinfo-pf-curie/mpiSORT) documentation).
 
-* The file discordant.sam contains primary chimeric alignments with their secondary alignments. Supplementary or secondary alignment coulb be ignored if you pass -M option to mpiBWA.
+* The file discordant.sam contains primary chimeric alignments with their secondary alignments. Supplementary or secondary alignments could be ignored with the `-M` [bwa-mem](http://bio-bwa.sourceforge.net/bwa.shtml) option passed to `mpiBWA`.
 * The unmapped.sam contains unmapped reads.
 
-Nota bene: 
+Note that:
 
-1) Supplementary or secondary alignments could be ignored if you pass -M option to mpiBWA. In all cases they are filtered out by mpiSort.
+1. Supplementary or secondary alignments could be ignored with the `-M` [bwa-mem](http://bio-bwa.sourceforge.net/bwa.shtml) option passed to `mpiBWA`. In all cases they are filtered out by [mpiSORT](https://github.com/bioinfo-pf-curie/mpiSORT).
 
-2) The discordant fragment are not extracted from a chromosome file, they are just a copy of it.
-The purpose of the discordant fragment SAM is to help the marking of duplicates in the following analyse.
+2. The discordant fragments are not extracted from the chromosome files, they are just copied.
+The purpose of the discordant fragment SAM is to help the marking of duplicates in the downstream analysis.
 Indeed it is easier to mark them separataly and pass the result in the chromosome file.
 
 ## Informatic resources
