@@ -2657,7 +2657,7 @@ int main(int argc, char *argv[]) {
                                         chr_buff_size[nbchr - 1] += sam_line_size;
                                         sam_buff_dest[n]          = nbchr - 1;
                                 }
-                       	}
+                       	}//end for (n = 0; n < reads; n++)
 			free(tmp_chr);
 			//now we fill up the buffer_out_vec
 			for (n = 0; n < (indix.bns->n_seqs + 2); n++) {
@@ -2679,7 +2679,7 @@ int main(int argc, char *argv[]) {
                                 actual_size[sam_buff_dest[n]] += seqs[n].l_seq;
                                 free(seqs[n].sam);
                         }
-
+			free(sam_buff_dest);
                         free(seqs);
                         free(actual_size);
                         for (n = 0; n < (indix.bns->n_seqs + 2); n++) {
@@ -2703,13 +2703,13 @@ int main(int argc, char *argv[]) {
                         fprintf(stderr, "rank: %d :: finish for chunck %zu \n", rank_num, u1);
 		} //end for (u1 = 0; u1 < chunk_count; u1++){
 	
-	//free data structures and close sam files 
-	for (n = 0; n < (indix.bns->n_seqs + 2); n++)  {
-		free(files_out_sam_name[n]);
-                free(file_map_by_chr[n]);
-                res = MPI_File_close(&fh_out[n]);
-                assert(res == MPI_SUCCESS);
-        }
+		//free data structures and close sam files 
+		for (n = 0; n < (indix.bns->n_seqs + 2); n++)  {
+			free(files_out_sam_name[n]);
+                	free(file_map_by_chr[n]);
+                	res = MPI_File_close(&fh_out[n]);
+                	assert(res == MPI_SUCCESS);
+        	}
 
 	} //end if (file_r2 != NULL && stat_r1.st_size == stat_r2.st_size)
 	
@@ -3337,7 +3337,7 @@ int main(int argc, char *argv[]) {
 				actual_size[sam_buff_dest[n]] += seqs[n].l_seq;
 				free(seqs[n].sam); 
 			}
-			
+			free(sam_buff_dest);
 			free(seqs);
 			free(actual_size);
 			for (n = 0; n < (indix.bns->n_seqs + 2); n++) {
@@ -3802,7 +3802,7 @@ int main(int argc, char *argv[]) {
                                 actual_size[sam_buff_dest[n]] += seqs[n].l_seq;
                                 free(seqs[n].sam);
                         }
-
+			free(sam_buff_dest);
                         free(seqs);
                         free(actual_size);
 			for (n = 0; n < (indix.bns->n_seqs + 1); n++) {
