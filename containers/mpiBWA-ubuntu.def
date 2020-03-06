@@ -10,7 +10,6 @@ Stage: build
     apt-get install -y git automake openmpi-common libopenmpi-dev make zlib1g-dev
     git clone https://github.com/bioinfo-pf-curie/mpiBWA.git
     cd mpiBWA
-    git checkout devel
     aclocal
     autoconf
     automake --add-missing
