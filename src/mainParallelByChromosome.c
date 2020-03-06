@@ -2598,6 +2598,8 @@ int main(int argc, char *argv[]) {
 			bef = MPI_Wtime();
                         localsize = 0;
                         int *sam_buff_dest  = calloc ( reads, sizeof(int) );
+                        //vecto to check if a discordant need to be add in discordant.sam we set 1 if true 0 else
+                        int *add_in_disc    =  calloc ( reads, sizeof(int) );
                         char *current_line; //pointer to the sam line
                         char *currentCarac;
                         int chr, mchr;
@@ -2639,27 +2641,26 @@ int main(int argc, char *argv[]) {
                                 } else {
                                        mchr = getChr(currentCarac, files_out_sam_name, nbchr-2, tmp_chr);
                                 }
-                                
-				if ((chr < (nbchr - 2)) && (chr == mchr)){
-					//then we found concordant reads				
-				 	chr_buff_size[chr]    += sam_line_size;
+                        
+				if (chr < (nbchr - 2)){
+                                        //the read goes in the SAM it belongs 
+                                        chr_buff_size[chr]    += sam_line_size;
                                         sam_buff_dest[n]       = chr;
                                 }
-				else if ((chr == (nbchr - 2)) && ( mchr < (nbchr - 2))){
-                                        //we found discordant reads with one pair unmapped
-                                        chr_buff_size[nbchr - 2] += sam_line_size;
-                                        sam_buff_dest[n]          = nbchr - 1;
-                                }
-                                else if ((mchr == (nbchr - 2)) && ( chr < (nbchr - 2))){
-                                        //we found discordant reads with one pair unmapped
-                                        chr_buff_size[nbchr - 2] += sam_line_size;
-                                        sam_buff_dest[n]          = nbchr - 2;
-                                }
-				else{
-                                        //we found unmapped pairs reads
+                                else {
+                                        //the read goes in unmapped sam
                                         chr_buff_size[nbchr - 1] += sam_line_size;
                                         sam_buff_dest[n]          = nbchr - 1;
                                 }
+                                                                                                                                                                                                                                                                                                                          //finally we test if the read goes in discordant sam file
+				 if ((chr < (nbchr - 2)) && ( mchr < (nbchr - 2) && (chr != mchr))) {
+                                        chr_buff_size[nbchr - 2] += sam_line_size;
+                                        add_in_disc[n]  = 1;
+                                }
+
+
+
+        
                        	}//end for (n = 0; n < reads; n++)
 			free(tmp_chr);
 			//now we fill up the buffer_out_vec
@@ -2673,15 +2674,22 @@ int main(int argc, char *argv[]) {
                                         buffer_out_vec[n][chr_buff_size[n]] = '\0';
                                 }
                         }
-                        size_t *actual_size = calloc(reads, sizeof(size_t));
+                        size_t *actual_size = calloc(indix.bns->n_seqs + 2, sizeof(size_t));
                         char *p_temp2;
                         for (n = 0; n < reads; n++) {
 
                                 p_temp2 = buffer_out_vec[sam_buff_dest[n]] + actual_size[sam_buff_dest[n]];
                                 memmove(p_temp2, seqs[n].sam, seqs[n].l_seq);
                                 actual_size[sam_buff_dest[n]] += seqs[n].l_seq;
+				 if (add_in_disc[n]){
+                                        p_temp2 = buffer_out_vec[nbchr - 2] + actual_size[nbchr - 2];
+                                        memmove(p_temp2, seqs[n].sam, seqs[n].l_seq);
+                                        actual_size[nbchr - 2] += seqs[n].l_seq;
+                                }
+
                                 free(seqs[n].sam);
                         }
+			free(add_in_disc);
 			free(sam_buff_dest);
                         free(seqs);
                         free(actual_size);
@@ -3239,6 +3247,8 @@ int main(int argc, char *argv[]) {
 			bef = MPI_Wtime();
 			localsize = 0;
 			int *sam_buff_dest  = calloc ( reads, sizeof(int) );
+			//vecto to check if a discordant need to be add in discordant.sam we set 1 if true 0 else
+			int *add_in_disc    =  calloc ( reads, sizeof(int) );
 			char *current_line; //pointer to the sam line
 			char *currentCarac;
 			int chr, mchr;
@@ -3281,45 +3291,27 @@ int main(int argc, char *argv[]) {
 				currentCarac = strstr(currentCarac + 1, "\t");
 				currentCarac++;
 				
-				if (currentCarac[0] == '=') {
-            				mchr = chr;
-					
-        			} else if ( currentCarac[0] == '*') {
-            				mchr = nbchr - 2;
-					
-        			} else {
-					mchr = getChr(currentCarac, files_out_sam_name, nbchr-2, tmp_chr);
-				}
-			
-				if ((chr < (nbchr - 2)) && (chr == mchr)){
-                                        //then we found concordant reads
+				if (currentCarac[0] == '=') 		mchr = chr;
+				else if ( currentCarac[0] == '*') 	mchr = nbchr - 2;
+				else mchr = getChr(currentCarac, files_out_sam_name, nbchr-2, tmp_chr);
+							
+				if (chr < (nbchr - 2)){
+                                        //the read goes in the SAM it belongs 
                                          chr_buff_size[chr]    += sam_line_size;
                                          sam_buff_dest[n]       = chr;
                                 }
-				else if ((chr < (nbchr - 2)) && ( mchr < (nbchr - 2))){
-
-                                        //we found discordant reads
-                                        chr_buff_size[nbchr - 2] += sam_line_size;
-                                        sam_buff_dest[n]          = nbchr - 2;
-
-                                }
-            			else if ((chr == (nbchr - 2)) && ( mchr < (nbchr - 2))){
-
-                                        //we found discordant reads with one pair unmapped
-					chr_buff_size[nbchr - 2] += sam_line_size;
-                                        sam_buff_dest[n]          = nbchr - 1;
-                                }
-				else if ((mchr == (nbchr - 2)) && ( chr < (nbchr - 2))){
-
-                                        //we found discordant reads with one pair unmapped
-                                        chr_buff_size[nbchr - 2] += sam_line_size;
-                                        sam_buff_dest[n]          = nbchr - 2;
-				}
-				else{
-                                        //we found unmapped pairs reads
+				else {
+					//the read goes in unmapped sam
 					chr_buff_size[nbchr - 1] += sam_line_size;
-                                        sam_buff_dest[n] 	  = nbchr - 1;
-				}                        
+                                        sam_buff_dest[n]          = nbchr - 1;
+				}
+
+				//finally we test if the read goes in discordant sam file
+				if ((chr < (nbchr - 2)) && ( mchr < (nbchr - 2) && (chr != mchr))) { 
+					chr_buff_size[nbchr - 2] += sam_line_size;
+					add_in_disc[n]  = 1;
+                		}
+            			                        
 			}        
 
 			free(tmp_chr);
@@ -3334,16 +3326,26 @@ int main(int argc, char *argv[]) {
 					buffer_out_vec[n][chr_buff_size[n]] = '\0';
 				}
 			}
-                       	size_t *actual_size = calloc(reads, sizeof(size_t));
+                       	size_t *actual_size = calloc(indix.bns->n_seqs + 2, sizeof(size_t));
 			char *p_temp2;
 			for (n = 0; n < reads; n++) {
 
 				p_temp2 = buffer_out_vec[sam_buff_dest[n]] + actual_size[sam_buff_dest[n]];
 				memmove(p_temp2, seqs[n].sam, seqs[n].l_seq);
 				actual_size[sam_buff_dest[n]] += seqs[n].l_seq;
+
+				//now we test if we need to add in discordant SAM
+				//in this case we replace sam_buff_dest[n] with nbchr - 2
+				if (add_in_disc[n]){
+					p_temp2 = buffer_out_vec[nbchr - 2] + actual_size[nbchr - 2];
+                                	memmove(p_temp2, seqs[n].sam, seqs[n].l_seq);
+                                	actual_size[nbchr - 2] += seqs[n].l_seq;
+				}
+
 				free(seqs[n].sam); 
 			}
 			free(sam_buff_dest);
+			free(add_in_disc);
 			free(seqs);
 			free(actual_size);
 			for (n = 0; n < (indix.bns->n_seqs + 2); n++) {
