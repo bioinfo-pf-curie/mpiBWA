@@ -126,7 +126,7 @@ Note that:
 
 2. The discordant fragments are not extracted from the chromosome files, they are just copied.
 The purpose of the discordant fragment SAM is to help the marking of duplicates in the downstream analysis.
-Indeed it is easier to mark them separataly and pass the result in the chromosome file.
+Indeed it is easier to mark them separately and pass the result in the chromosome file.
 
 ## Informatic resources
 
