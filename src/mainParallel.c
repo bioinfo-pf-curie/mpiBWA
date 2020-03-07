@@ -1,25 +1,20 @@
 /*
 This file is part of mpiBWA
 
-NGS aligner inspired by BWA
-
 The project was developped by Frederic Jarlier from Institut Curie and Nicolas Joly from Institut Pasteur
 
-Copyright (C) 2016-2017  Institut Curie / Institut Pasteur
+NGS aligner inspired by BWA-MEM 
+
+Copyright (C) 2016-2020  Institut Curie / Institut Pasteur
+
+You can use, modify and/ or redistribute the software under the terms of license (see the LICENSE file for more details).
+   
+The software is distributed in the hope that it will be useful, but "AS IS" WITHOUT ANY WARRANTY OF ANY KIND. Users are therefore encouraged to test the software's suitability as regards their requirements in conditions enabling the security of their systems and/or data. 
+   
+The fact that you are presently reading this means that you have had knowledge of the license and that you accept its terms.
 
 
 
-This program is free software: you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the Free
-Software Foundation, either version 3 of the License, or (at your option)
-any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #define _GNU_SOURCE
@@ -45,6 +40,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "bwa.h"
 #include "bwamem.h"
 #include "utils.h"
+
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
 
 #ifdef USE_MALLOC_WRAPPERS
 #  include "malloc_wrap.h"
@@ -1368,9 +1367,14 @@ void create_sam_header(char *file_out, bwaidx_t *indix, int *count, char *hdr_li
 	if (rank_num == 0) {
 		int s, len;
 		char *buff;
+		struct stat stat_file_out;
 
-		res = MPI_File_delete(file_out, MPI_INFO_NULL);
-		assert(res == MPI_SUCCESS || res == MPI_ERR_NO_SUCH_FILE || res == MPI_ERR_IO);
+		//We test if the output sam exists
+		if ( stat(file_out, &stat_file_out)  != -1 ) {
+		    res = MPI_File_delete(file_out, MPI_INFO_NULL);
+		    assert(res == MPI_SUCCESS);
+		}
+				
 		res = MPI_File_open(MPI_COMM_SELF, file_out, MPI_MODE_CREATE|MPI_MODE_WRONLY, MPI_INFO_NULL, &fh_out);
 		assert(res == MPI_SUCCESS);
 		/* Add reference sequence lines */
@@ -1440,7 +1444,7 @@ int main(int argc, char *argv[]) {
 	size_t localsize;
 	size_t n = 0;
 	off_t locoff, locsiz, *alloff, *curoff, maxsiz, totsiz, filsiz;
-	struct stat stat_r1, stat_r2;
+	struct stat stat_r1, stat_r2, stat_map, stat_file_out;
 
 	MPI_Aint size_shr;
 	MPI_Comm comm_shr;
@@ -1455,15 +1459,31 @@ int main(int argc, char *argv[]) {
 	bseq1_t *seqs;
 
 	if (argc < 2) {
-		fprintf(stderr, "Program: MPI version of BWA MEM\n\n"
-			"Version: v%s\n\n"
-			"Contact 1: Frederic Jarlier (frederic.jarlier@curie.fr)\n\n"
-			"usage : mpirun -n TOTAL_PROC %s mem -t 8 -o RESULTS REFERENCE FASTQ_R1 FASTQ_R2\n\n"
-			"Requirements : After the creation of reference file with BWA you need to create a referenced\n"
-			"	   map file genome with pidx like this  pidx ref.fasta generate a ref.fasta.map.\n"
-			"	   The .map file is a copy of memory mapped reference used for shared memory purpose.\n",
-			VERSION, progname);
-		return 1; }
+		fprintf(stderr, "program: %s is a MPI version of BWA MEM\n"
+			"version: %s\n"
+			"\nusage : mpirun -n TOTAL_PROC %s mem -t 8 -o SAM_FILE REFERENCE_GENOME FASTQ_R1 [FASTQ_R2]\n"
+            "\n\tTOTAL_PROC tells how many cores will be used by MPI to parallelize the computation.\n"
+			"\nrequirements : from the reference genome index file generated with the command 'bwa index'\n"
+            "\tyou need to create a reference genome map file with 'mpiBAWIdx' that comes along\n"
+            "\twith this program as follows:\n"
+            "\n\t\tmpiBWAIdx myReferenceGenome.fa\n\n"
+			"\tIt creates a .map file that will be used in shared memory as reference genome.\n"
+            "\ninput:\n"
+            "\tREFERENCE_GENOME: reference genome name (e.g. myReferenceGenome.fa).\n"
+            "\t\tDo not provide the '.map' extension of the file genareted with 'mpiBWAIdx'\n"
+            "\n\tFASTQ_R1: fastq file for R1\n"
+            "\n\tFASTQ_R2: fastq file for R2 if the data come from paired-end sequencing (optional)\n"
+            "\noutput: SAM_FILE\n"
+            "\noptions: 'bwa mem' options can be passed from command line (e.g. mpiBWA mem -t 8 -k 18)\n"
+            "\nFor more detailed documentation visit:\n"
+            "\thttps://github.com/bioinfo-pf-curie/mpiBWA\n"
+            "\nCopyright (C) 2020  Institut Curie <http://www.curie.fr> \n"
+            "\nThis program comes with ABSOLUTELY NO WARRANTY. \n"
+            "This is free software, and you are welcome to redistribute it \n"
+            "under the terms of the CeCILL License. \n"
+	    	"\ncontact: Frederic Jarlier (frederic.jarlier@curie.fr) \n",
+			progname, VERSION, progname);
+			return 1; }
 
 	/* Validate provided command (first argument) */
 	if (strcmp(argv[1], "mem") != 0) {
@@ -1754,6 +1774,14 @@ int main(int argc, char *argv[]) {
 	//MPI_Info_set(finfo,"romio_cb_write","enable");
 	//MPI_Info_set(finfo,"romio_cb_read","enable");
 
+
+	/* Check the map file is present otherwise send a message ... */
+        if (stat(file_map, &stat_map) == -1) {
+                fprintf(stderr, "There is a problem with the map file %s: %s. It is not present or you have not generate it with mpiBWAIdx \n", file_map, strerror(errno));
+	        res = MPI_Finalize();
+                assert(res == MPI_SUCCESS);
+                exit(2);
+        }
 
 	/* Check that output file (-o) is not null ... */
 	if (file_out == NULL) {
@@ -2254,9 +2282,13 @@ int main(int argc, char *argv[]) {
 		if (rank_num == 0) {
 			int s, len;
 			char *buff;
+			
+			//We test if the output sam exists
+			if ( stat(file_out, &stat_file_out)  != -1 ) {
+				res = MPI_File_delete(file_out, MPI_INFO_NULL);
+				assert(res == MPI_SUCCESS);
+			}
 
-			res = MPI_File_delete(file_out, MPI_INFO_NULL);
-			assert(res == MPI_SUCCESS || res == MPI_ERR_NO_SUCH_FILE || res == MPI_ERR_IO);
 			res = MPI_File_open(MPI_COMM_SELF, file_out, MPI_MODE_CREATE|MPI_MODE_WRONLY, MPI_INFO_NULL, &fh_out);
 			assert(res == MPI_SUCCESS);
 			/* Add reference sequence lines */

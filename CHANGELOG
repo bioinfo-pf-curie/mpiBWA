@@ -1,0 +1,180 @@
+version-1.0
+    - mpiBWA: MPI version of BWA MEM
+
+----------------------------------------------------------------------
+Preliminary releases
+
+Release from the 06/03/2020
+
+1) Review of the management of discordant reads in case of mpiBWAByChr regarding the question we wonder in the previous release
+
+Case of discordant or unmapped fragment : we decide the fragment discordant goes in the chromosome SAM it belongs and in the discordant SAM.
+The discordant SAM is here to help the mpiMarkDup step. Indeed discordant duplicate will be sort and marked like the others and then it will be possible to mark discordant reads in the chromosom SAM.   
+
+2) Fix memory leaks
+
+
+Release from the 15/01/2020
+
+1) Add a version of the main that aligns and splits the result by chromosome.
+We create the output file with the header and SAM files by chromosome, a SAM for discordant and unmapped reads.
+
+Rational:
+
+The current version of mpiBWA creates one big SAM file. When this SAM is big  (like around one tera bytes big or mor for whole genome sequencing data with high depth pf coverage), it makes it difficult to sort that file. The idea with this version is to create a SAM file by chromosome.
+Each chromosome name comes from the header line of the genome reference. This way, the SAM file to sort and/or to mark duplicates is much smaller so we need less RAM and CPU by chromosome.
+The extra overhead of the splitting is negligible compare with previous version.
+Now we can sort individual chromosome in parallel, for instance the chr1 of 300X WGS is equivalent to a 30X. 
+
+Warning: 
+
+This version is under construction. It has been tested in the case in which the fastq files are trimmed.
+Another tests are on-going. The sorting program is not updated to deal with chromosome independently.
+This is under construction too.
+
+How to use: 
+
+In the Makefile.am replace the line 
+
+pbwa7_SOURCES = main_parallel_version.c 
+with 
+pbwa7_SOURCES = main_parallel_version_split_by_chr.c 
+
+What's next:
+
+1) Shall we include secondary alignment
+2) Shall we include discordant reads in the chromosome it belongs?
+
+
+Release from the 12/12/2019
+
+1) remove MPI call after finalyze
+
+Release from the 3/04/2019
+
+Changes in Master branch
+
+1) Add support of single read trimmed or not
+
+Release from the 10/07/2018
+
+Changes in Master branch
+
+1) Fix a bug during the mapping in shared memory of the reference genome
+This bug didn't appear with openMPI version but Intel compiler complains.
+
+2) Creation of a google group
+	https://groups.google.com/forum/#!forum/hpc-bioinformatics-pipeline 
+
+3) To improve performance on Lustre file system removed the “suid” mount option (rw,nosuid,flock,lazystatfs).
+With Beegfs set the "flock" to "on" for reproducibility.
+
+Release from the 30/04/2018
+
+Changes in Master branch
+
+1) Add support for trimmed reads.
+2) Be aware of the flock mode on parallel file system (Lustre, beegfs): flock must be on.
+Otherwise reproducibility is not guaranteed.
+
+Release from the 21/03/2018
+
+1) Fix an inversion in file handle (line 1039 and 1056)
+
+Release from 23/12/2017
+
+changes in Master branch 
+
+1) 100% reproducibility with the pipeline control (bwa mem -t 8)
+2) remove memory limits now offset are computed on 1gb buffer
+3) remove some memory leaks
+4) optimization of code
+
+Release from 04/12/2017
+
+Changes in the branch Master.
+
+1) Fix a memory leak.
+
+Release from 01/12/2017
+
+Changes in the branch Master.
+Fix the mpi_read_at buffer limit size.
+
+
+Release from 29/11/2017
+
+Add a new branch called Experimental.
+Warning: This is experimental work, do not use in production. But test it and send us reports.
+
+Release from 21/11/2017
+
+Changes in  LAZYCHUNCK branch:
+
+1) forget a end condition
+
+Release from 20/11/2017
+
+Changes in  LAZYCHUNCK branch:
+1) remove memory leaks
+2) update results section
+3) test with 600Gb (x2) fastq files and 100 jobs: ok. (20 mn to approximate chuncks offset)
+4) reproducibility with constant number of jobs: ok.
+ 
+Notes:
+If want 100% reproducibility whatever the number of jobs use the master branch or the FULLMPI branch.
+But if you want go faster use LAZYCHUNK branch.
+
+Release from 17/11/2017
+
+Changes in  LAZYCHUNCK branch
+
+1) Improvement of the algorithm for window sizing.
+2) Change the number of bases for the estimation line 541.
+
+Release from 15/11/2017
+
+Changes in LAZYCHUNK branch
+
+1) Due to a mmap in the previous version the virtual memory may be big when the fastq file is large.
+Some scheduler like Torque doesn't like this. We review the algorithm of computing chuncks.
+first we divide the file in window of size (number of jobs) * 1Gb. On each window jobs approximate chuncks of 10 mega bases.
+this way the virtual memory stay low.
+ 
+2) We also saw problem on some architecture with MPI file read shared we replace it with MPI file read at.
+
+3) We have also other projects of parallelization (sorting, marking duplicates, clustering... ) and we are looking for people willing to help us for developments and tests. Don't hesitate to contact me (frederic.jarlier@curie.fr).
+
+
+Release from 30/06/2017
+
+Major changes:
+=======
+
+First release
+
+We have implemented a new algorithm.
+In this algorithm you have master jobs and aligner jobs.
+Master jobs are responsible for computing offset and chunk sizes.
+This way all the chuncks have the same number of bases.
+Then master jobs send chunks to bwa-mem and are aligned.
+Finally master jobs write in the result sam file.
+
+the total number of jobs must be: (number of master) * 8
+8 is the number of threads used by bwa-mem.
+
+First result test on broadwell of TGCC
+
+Condition: Due to mpi_read_at buffer limit of 2gb.
+You should limit the initial buffer read to 2gb per master jobs.
+Futur release will remove this condition.
+
+Tested on the SRR2052 WGS with 352*8 cpu
+alignment time: 26 mn
+Time to compute chunks: 8s
+Scalability : ok
+Reproducibility : ok
+Command line :mpi_run -n 352 -c 8
+or : MSUB -n 352
+MSUB -c 8
+

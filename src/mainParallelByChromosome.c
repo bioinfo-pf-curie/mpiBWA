@@ -1,25 +1,18 @@
 /*
 This file is part of mpiBWA
 
-NGS aligner inspired by BWA
-
 The project was developped by Frederic Jarlier from Institut Curie and Nicolas Joly from Institut Pasteur
 
-Copyright (C) 2016-2017  Institut Curie / Institut Pasteur
+NGS aligner inspired by BWA-MEM 
 
+Copyright (C) 2016-2020  Institut Curie / Institut Pasteur
 
+You can use, modify and/ or redistribute the software under the terms of license (see the LICENSE file for more details).
+   
+The software is distributed in the hope that it will be useful, but "AS IS" WITHOUT ANY WARRANTY OF ANY KIND. Users are therefore encouraged to test the software's suitability as regards their requirements in conditions enabling the security of their systems and/or data. 
+   
+The fact that you are presently reading this means that you have had knowledge of the license and that you accept its terms.
 
-This program is free software: you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the Free
-Software Foundation, either version 3 of the License, or (at your option)
-any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #define _GNU_SOURCE
@@ -41,6 +34,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <string.h>
 #include <unistd.h>
 #include <zlib.h>
+
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
 
 #include "bwa.h"
 #include "bwamem.h"
@@ -1368,9 +1365,14 @@ void create_sam_header(char *file_out, bwaidx_t *indix, int *count, char *hdr_li
 	if (rank_num == 0) {
 		int s, len;
 		char *buff;
+		struct stat stat_file_out;
 
-		res = MPI_File_delete(file_out, MPI_INFO_NULL);
-		assert(res == MPI_SUCCESS || res == MPI_ERR_NO_SUCH_FILE || res == MPI_ERR_IO);
+                //We test if the output sam exists
+                if ( stat(file_out, &stat_file_out)  != -1 ) {
+                	res = MPI_File_delete(file_out, MPI_INFO_NULL);
+                	assert(res == MPI_SUCCESS);
+                }
+
 		res = MPI_File_open(MPI_COMM_SELF, file_out, MPI_MODE_CREATE|MPI_MODE_WRONLY, MPI_INFO_NULL, &fh_out);
 		assert(res == MPI_SUCCESS);
 		/* Add reference sequence lines */
@@ -1426,12 +1428,16 @@ void create_sam_header_by_chr_file(char *file_out[], bwaidx_t *indix, int *count
         if (rank_num == 0) {
              int s, len;
              char *buff;
+	     struct stat stat_file_out;
 
-	     // Remove files if already exists 	
+	     // Remove sam files if already exists 	
              for (s = 0; s < (*indix).bns->n_seqs; ++s) {		
-             	res = MPI_File_delete(file_out[s], MPI_INFO_NULL);
-             	assert(res == MPI_SUCCESS || res == MPI_ERR_NO_SUCH_FILE || res == MPI_ERR_IO);
-             	res = MPI_File_open(MPI_COMM_SELF, file_out[s], MPI_MODE_CREATE|MPI_MODE_WRONLY, MPI_INFO_NULL, &fh_out[s]);
+             	
+		if ( stat(file_out[s], &stat_file_out)  != -1 ) {
+        		res = MPI_File_delete(file_out[s], MPI_INFO_NULL);
+                        assert(res == MPI_SUCCESS);
+                }
+		res = MPI_File_open(MPI_COMM_SELF, file_out[s], MPI_MODE_CREATE|MPI_MODE_WRONLY, MPI_INFO_NULL, &fh_out[s]);
              	assert(res == MPI_SUCCESS);
 	     }
 
@@ -1527,7 +1533,7 @@ int main(int argc, char *argv[]) {
 	size_t localsize;
 	size_t n = 0;
 	off_t locoff, locsiz, *alloff, *curoff, maxsiz, totsiz, filsiz;
-	struct stat stat_r1, stat_r2;
+	struct stat stat_r1, stat_r2, stat_map;
 
 	MPI_Aint size_shr;
 	MPI_Comm comm_shr;
@@ -1542,16 +1548,38 @@ int main(int argc, char *argv[]) {
 	bseq1_t *seqs;
 
 	if (argc < 2) {
-		fprintf(stderr, "Program: MPI version of BWA MEM\n\n"
-			"Version: v%s\n\n"
-			"Contact 1: Frederic Jarlier (frederic.jarlier@curie.fr)\n\n"
-			"usage : mpirun -n TOTAL_PROC %s mem -t 8 -o RESULTS REFERENCE FASTQ_R1 FASTQ_R2\n\n"
-			"Requirements : After the creation of reference file with BWA you need to create a referenced\n"
-			"	   map file genome with pidx like this  pidx ref.fasta generate a ref.fasta.map.\n"
-			"	   The .map file is a copy of memory mapped reference used for shared memory purpose.\n",
-			VERSION, progname);
-		return 1; }
 
+		fprintf(stderr, "program: %s is a MPI version of BWA MEM\n"
+			"version: %s\n"
+			"\nusage : mpirun -n TOTAL_PROC %s mem -t 8 -o SAM_FILE REFERENCE_GENOME FASTQ_R1 [FASTQ_R2]\n"
+            "\n\tTOTAL_PROC tells how many cores will be used by MPI to parallelize the computation.\n"
+			"\nrequirements : from the reference genome index file generated with the command 'bwa index'\n"
+            "\tyou need to create a reference genome map file with 'mpiBAWIdx' that comes along\n"
+            "\twith this program as follows:\n"
+            "\n\t\tmpiBWAIdx myReferenceGenome.fa\n\n"
+			"\tIt creates a .map file that will be used in shared memory as reference genome.\n"
+            "\ninput:\n"
+            "\tREFERENCE_GENOME: reference genome name (e.g. myReferenceGenome.fa).\n"
+            "\t\tDo not provide the '.map' extension of the file genareted with 'mpiBWAIdx'\n"
+            "\n\tFASTQ_R1: fastq file for R1\n"
+            "\n\tFASTQ_R2: fastq file for R2 is the data come from paired-end sequencing (optional)\n"
+            "\noutput:\n"
+            "\tSAM_FILE\n"
+            "\n\tIndividual chrN.sam files with aligned reads on each chrN (ChrN are the chromosome name\n"
+            "\tfrom the header). The chrN.sam contains the header for the chrN but the positions\n"
+            "\tare not sorted. They can be sorted independently with mpiSORT.\n"
+            "\n\tThe file discordant.sam contains chimeric alignments.\n"
+            "\n\tThe unmapped.sam contains unmapped reads.\n"
+            "\noptions: 'bwa mem' options can be passed from command line (e.g. mpiBWA mem -t 8 -k 18)\n"
+            "\nFor more detailed documentation visit:\n"
+            "\thttps://github.com/bioinfo-pf-curie/mpiBWA\n"
+            "\nCopyright (C) 2020  Institut Curie <http://www.curie.fr> \n"
+            "\nThis program comes with ABSOLUTELY NO WARRANTY. \n"
+            "This is free software, and you are welcome to redistribute it \n"
+            "under the terms of the CeCILL License. \n"
+	    	"\ncontact: Frederic Jarlier (frederic.jarlier@curie.fr) \n",
+			progname, VERSION, progname);
+			return 1; }
 	/* Validate provided command (first argument) */
 	if (strcmp(argv[1], "mem") != 0) {
 		fprintf(stderr, "%s: unsupported %s command\n", progname, argv[1]);
@@ -1855,13 +1883,41 @@ int main(int argc, char *argv[]) {
 	size_t f_out_sz = strlen(file_out);
 	size_t mi = f_out_sz;
 	char *k = file_out + f_out_sz;
-	while (*k-- != '/') mi--;
+	while ( (mi > 0) && (*k-- != '/')) mi--;
+        //char output_path[FILENAME_MAX];
+
+	if (mi == 0){
+		fprintf(stderr, "We have a problem. the output file must be a path and a file name.Make sure it is a valid path. \n");
+                res = MPI_Finalize();
+                assert(res == MPI_SUCCESS);
+                exit(2);
+
+	}
+
 	char *output_path = malloc (mi * sizeof(char));
 	output_path[mi] = 0;
-	char *h = output_path;
-	memmove(h, file_out, mi);
+        char *h = output_path;
+        memmove(h, file_out, mi);
         assert(output_path);
-	
+
+
+	//if ( mi == 0) getcwd( output_path, FILENAME_MAX );
+	/*else{ 
+		output_path[mi] = 0;
+		char *h = output_path;
+		memmove(h, file_out, mi);
+        	assert(output_path);
+	}
+	*/
+	/* Check the map file is present otherwise send a message ... */
+        if (stat(file_map, &stat_map) == -1) {
+                fprintf(stderr, "There is a problem with the map file %s: %s. It is not present or you have not generate it with mpiBWAIdx \n", file_map, strerror(errno));
+	        res = MPI_Finalize();
+                assert(res == MPI_SUCCESS);
+                exit(2);
+        }
+
+
 	/* Check R1 & R2 file sizes */
 	if (file_r1 != NULL && stat(file_r1, &stat_r1) == -1) {
 		fprintf(stderr, "%s: %s\n", file_r1, strerror(errno));
@@ -2378,8 +2434,11 @@ int main(int argc, char *argv[]) {
 		//we create a file which contains only the header
 		//this file will be used by the sorting to get individual chromosom file
 		create_sam_header(file_out, &indix, &count, hdr_line, rg_line, rank_num);
-
-                for (s = 0; s < (indix.bns->n_seqs + 2); ++s){
+		
+		//we add the header in the discordant SAM
+		create_sam_header(file_map_by_chr[indix.bns->n_seqs], &indix, &count, hdr_line, rg_line, rank_num);
+                
+		for (s = 0; s < (indix.bns->n_seqs + 2); ++s){
                         res = MPI_File_open(MPI_COMM_WORLD, file_map_by_chr[s], MPI_MODE_CREATE|MPI_MODE_WRONLY|MPI_MODE_APPEND, MPI_INFO_NULL, &fh_out[s]);
                         assert(res == MPI_SUCCESS);
                 }
@@ -2539,6 +2598,8 @@ int main(int argc, char *argv[]) {
 			bef = MPI_Wtime();
                         localsize = 0;
                         int *sam_buff_dest  = calloc ( reads, sizeof(int) );
+                        //vecto to check if a discordant need to be add in discordant.sam we set 1 if true 0 else
+                        int *add_in_disc    =  calloc ( reads, sizeof(int) );
                         char *current_line; //pointer to the sam line
                         char *currentCarac;
                         int chr, mchr;
@@ -2580,28 +2641,27 @@ int main(int argc, char *argv[]) {
                                 } else {
                                        mchr = getChr(currentCarac, files_out_sam_name, nbchr-2, tmp_chr);
                                 }
-                                
-				if ((chr < (nbchr - 2)) && (chr == mchr)){
-					//then we found concordant reads				
-				 	chr_buff_size[chr]    += sam_line_size;
+                        
+				if (chr < (nbchr - 2)){
+                                        //the read goes in the SAM it belongs 
+                                        chr_buff_size[chr]    += sam_line_size;
                                         sam_buff_dest[n]       = chr;
                                 }
-				else if ((chr == (nbchr - 2)) && ( mchr < (nbchr - 2))){
-                                        //we found discordant reads with one pair unmapped
-                                        chr_buff_size[nbchr - 2] += sam_line_size;
-                                        sam_buff_dest[n]          = nbchr - 1;
-                                }
-                                else if ((mchr == (nbchr - 2)) && ( chr < (nbchr - 2))){
-                                        //we found discordant reads with one pair unmapped
-                                        chr_buff_size[nbchr - 2] += sam_line_size;
-                                        sam_buff_dest[n]          = nbchr - 2;
-                                }
-				else{
-                                        //we found unmapped pairs reads
+                                else {
+                                        //the read goes in unmapped sam
                                         chr_buff_size[nbchr - 1] += sam_line_size;
                                         sam_buff_dest[n]          = nbchr - 1;
                                 }
-                       	}
+                                                                                                                                                                                                                                                                                                                          //finally we test if the read goes in discordant sam file
+				 if ((chr < (nbchr - 2)) && ( mchr < (nbchr - 2) && (chr != mchr))) {
+                                        chr_buff_size[nbchr - 2] += sam_line_size;
+                                        add_in_disc[n]  = 1;
+                                }
+
+
+
+        
+                       	}//end for (n = 0; n < reads; n++)
 			free(tmp_chr);
 			//now we fill up the buffer_out_vec
 			for (n = 0; n < (indix.bns->n_seqs + 2); n++) {
@@ -2614,16 +2674,23 @@ int main(int argc, char *argv[]) {
                                         buffer_out_vec[n][chr_buff_size[n]] = '\0';
                                 }
                         }
-                        size_t *actual_size = calloc(reads, sizeof(size_t));
+                        size_t *actual_size = calloc(indix.bns->n_seqs + 2, sizeof(size_t));
                         char *p_temp2;
                         for (n = 0; n < reads; n++) {
 
                                 p_temp2 = buffer_out_vec[sam_buff_dest[n]] + actual_size[sam_buff_dest[n]];
                                 memmove(p_temp2, seqs[n].sam, seqs[n].l_seq);
                                 actual_size[sam_buff_dest[n]] += seqs[n].l_seq;
+				 if (add_in_disc[n]){
+                                        p_temp2 = buffer_out_vec[nbchr - 2] + actual_size[nbchr - 2];
+                                        memmove(p_temp2, seqs[n].sam, seqs[n].l_seq);
+                                        actual_size[nbchr - 2] += seqs[n].l_seq;
+                                }
+
                                 free(seqs[n].sam);
                         }
-
+			free(add_in_disc);
+			free(sam_buff_dest);
                         free(seqs);
                         free(actual_size);
                         for (n = 0; n < (indix.bns->n_seqs + 2); n++) {
@@ -2647,13 +2714,13 @@ int main(int argc, char *argv[]) {
                         fprintf(stderr, "rank: %d :: finish for chunck %zu \n", rank_num, u1);
 		} //end for (u1 = 0; u1 < chunk_count; u1++){
 	
-	//free data structures and close sam files 
-	for (n = 0; n < (indix.bns->n_seqs + 2); n++)  {
-		free(files_out_sam_name[n]);
-                free(file_map_by_chr[n]);
-                res = MPI_File_close(&fh_out[n]);
-                assert(res == MPI_SUCCESS);
-        }
+		//free data structures and close sam files 
+		for (n = 0; n < (indix.bns->n_seqs + 2); n++)  {
+			free(files_out_sam_name[n]);
+                	free(file_map_by_chr[n]);
+                	res = MPI_File_close(&fh_out[n]);
+                	assert(res == MPI_SUCCESS);
+        	}
 
 	} //end if (file_r2 != NULL && stat_r1.st_size == stat_r2.st_size)
 	
@@ -2988,6 +3055,9 @@ int main(int argc, char *argv[]) {
 		//this file will be used by the sorting to get individual chromosom file
 		create_sam_header(file_out, &indix, &count, hdr_line, rg_line, rank_num);
 
+		//we add the header in the discordant SAM
+		create_sam_header(file_map_by_chr[indix.bns->n_seqs], &indix, &count, hdr_line, rg_line, rank_num);
+		
 		for (s = 0; s < (indix.bns->n_seqs + 2); ++s){		
 			res = MPI_File_open(MPI_COMM_WORLD, file_map_by_chr[s], MPI_MODE_CREATE|MPI_MODE_WRONLY|MPI_MODE_APPEND, MPI_INFO_NULL, &fh_out[s]);
 			assert(res == MPI_SUCCESS);
@@ -3177,6 +3247,8 @@ int main(int argc, char *argv[]) {
 			bef = MPI_Wtime();
 			localsize = 0;
 			int *sam_buff_dest  = calloc ( reads, sizeof(int) );
+			//vecto to check if a discordant need to be add in discordant.sam we set 1 if true 0 else
+			int *add_in_disc    =  calloc ( reads, sizeof(int) );
 			char *current_line; //pointer to the sam line
 			char *currentCarac;
 			int chr, mchr;
@@ -3219,45 +3291,27 @@ int main(int argc, char *argv[]) {
 				currentCarac = strstr(currentCarac + 1, "\t");
 				currentCarac++;
 				
-				if (currentCarac[0] == '=') {
-            				mchr = chr;
-					
-        			} else if ( currentCarac[0] == '*') {
-            				mchr = nbchr - 2;
-					
-        			} else {
-					mchr = getChr(currentCarac, files_out_sam_name, nbchr-2, tmp_chr);
-				}
-			
-				if ((chr < (nbchr - 2)) && (chr == mchr)){
-                                        //then we found concordant reads
+				if (currentCarac[0] == '=') 		mchr = chr;
+				else if ( currentCarac[0] == '*') 	mchr = nbchr - 2;
+				else mchr = getChr(currentCarac, files_out_sam_name, nbchr-2, tmp_chr);
+							
+				if (chr < (nbchr - 2)){
+                                        //the read goes in the SAM it belongs 
                                          chr_buff_size[chr]    += sam_line_size;
                                          sam_buff_dest[n]       = chr;
                                 }
-				else if ((chr < (nbchr - 2)) && ( mchr < (nbchr - 2))){
-
-                                        //we found discordant reads
-                                        chr_buff_size[nbchr - 2] += sam_line_size;
-                                        sam_buff_dest[n]          = nbchr - 2;
-
-                                }
-            			else if ((chr == (nbchr - 2)) && ( mchr < (nbchr - 2))){
-
-                                        //we found discordant reads with one pair unmapped
-					chr_buff_size[nbchr - 2] += sam_line_size;
-                                        sam_buff_dest[n]          = nbchr - 1;
-                                }
-				else if ((mchr == (nbchr - 2)) && ( chr < (nbchr - 2))){
-
-                                        //we found discordant reads with one pair unmapped
-                                        chr_buff_size[nbchr - 2] += sam_line_size;
-                                        sam_buff_dest[n]          = nbchr - 2;
-				}
-				else{
-                                        //we found unmapped pairs reads
+				else {
+					//the read goes in unmapped sam
 					chr_buff_size[nbchr - 1] += sam_line_size;
-                                        sam_buff_dest[n] 	  = nbchr - 1;
-				}                        
+                                        sam_buff_dest[n]          = nbchr - 1;
+				}
+
+				//finally we test if the read goes in discordant sam file
+				if ((chr < (nbchr - 2)) && ( mchr < (nbchr - 2) && (chr != mchr))) { 
+					chr_buff_size[nbchr - 2] += sam_line_size;
+					add_in_disc[n]  = 1;
+                		}
+            			                        
 			}        
 
 			free(tmp_chr);
@@ -3272,16 +3326,26 @@ int main(int argc, char *argv[]) {
 					buffer_out_vec[n][chr_buff_size[n]] = '\0';
 				}
 			}
-                       	size_t *actual_size = calloc(reads, sizeof(size_t));
+                       	size_t *actual_size = calloc(indix.bns->n_seqs + 2, sizeof(size_t));
 			char *p_temp2;
 			for (n = 0; n < reads; n++) {
 
 				p_temp2 = buffer_out_vec[sam_buff_dest[n]] + actual_size[sam_buff_dest[n]];
 				memmove(p_temp2, seqs[n].sam, seqs[n].l_seq);
 				actual_size[sam_buff_dest[n]] += seqs[n].l_seq;
+
+				//now we test if we need to add in discordant SAM
+				//in this case we replace sam_buff_dest[n] with nbchr - 2
+				if (add_in_disc[n]){
+					p_temp2 = buffer_out_vec[nbchr - 2] + actual_size[nbchr - 2];
+                                	memmove(p_temp2, seqs[n].sam, seqs[n].l_seq);
+                                	actual_size[nbchr - 2] += seqs[n].l_seq;
+				}
+
 				free(seqs[n].sam); 
 			}
-			
+			free(sam_buff_dest);
+			free(add_in_disc);
 			free(seqs);
 			free(actual_size);
 			for (n = 0; n < (indix.bns->n_seqs + 2); n++) {
@@ -3539,11 +3603,9 @@ int main(int argc, char *argv[]) {
 		        memmove(p0, indix.bns->anns[s].name, strlen( indix.bns->anns[s].name));
 		}
 		char UNMAPPED[]   = "unmapped";
-		char DISCORDANT[] = "discordant";
-		files_out_sam_name[s++] = strdup(DISCORDANT);
 		files_out_sam_name[s++] = strdup(UNMAPPED);
 		int file_name_len = 0;
-	        for (s = 0; s < (indix.bns->n_seqs + 2); ++s){
+	        for (s = 0; s < (indix.bns->n_seqs + 1); ++s){
 	        	/* Derived file names */
 	        	file_name_len = strlen(output_path) + strlen(files_out_sam_name[s]) + 6;
 	        	file_map_by_chr[s] = calloc( file_name_len, sizeof(char));
@@ -3555,10 +3617,11 @@ int main(int argc, char *argv[]) {
 		//this file will be used by the sorting to get individual chromosom file
 		create_sam_header(file_out, &indix, &count, hdr_line, rg_line, rank_num);
 
+
 		///This is a testline to stop the program wherever I want
 		//if(0){ MPI_Barrier(MPI_COMM_WORLD); MPI_Finalize(); return 0;}
 
-		for (s = 0; s < (indix.bns->n_seqs + 2); ++s){
+		for (s = 0; s < (indix.bns->n_seqs + 1); ++s){
                         res = MPI_File_open(MPI_COMM_WORLD, file_map_by_chr[s], MPI_MODE_CREATE|MPI_MODE_WRONLY|MPI_MODE_APPEND, MPI_INFO_NULL, &fh_out[s]);
                         assert(res == MPI_SUCCESS);
                 }
@@ -3571,8 +3634,8 @@ int main(int argc, char *argv[]) {
 		
 		buffer_r1 = NULL; seqs = NULL;
 		//localsize_vec contain the size of the buffer to write in the sam file
-		int *chr_buff_size  = calloc ( (indix.bns->n_seqs + 2), sizeof(int) );
-		char *buffer_out_vec[indix.bns->n_seqs + 2];
+		int *chr_buff_size  = calloc ( (indix.bns->n_seqs + 1), sizeof(int) );
+		char *buffer_out_vec[indix.bns->n_seqs + 1];
 
 		before_local_mapping = MPI_Wtime();
 
@@ -3691,7 +3754,7 @@ int main(int argc, char *argv[]) {
                         int chr, mchr;
                         size_t coord, sam_line_size;
                         unsigned char quality;
-                        int nbchr = indix.bns->n_seqs + 2;
+                        int nbchr = indix.bns->n_seqs + 1;
 
 			char *tmp_chr = malloc( 200 * sizeof(char));
                         tmp_chr[0] = 0;
@@ -3708,39 +3771,18 @@ int main(int argc, char *argv[]) {
 				currentCarac++;
 				//GO TO RNAME (Chr name)
 				currentCarac = strstr(currentCarac + 1, "\t");
-                                if ( currentCarac[1] == '*') chr =  nbchr-2;
-                                else chr = getChr(currentCarac, files_out_sam_name, nbchr-2, tmp_chr);
-				//GO TO COORD
-				currentCarac = strstr(currentCarac + 1, "\t");
-                                coord = strtoull(currentCarac, &currentCarac, 10);
+                                if ( currentCarac[1] == '*') chr =  nbchr-1;
+                                else chr = getChr(currentCarac, files_out_sam_name, nbchr-1, tmp_chr);
 
-                                //TAKE MAPQ AND GO TO CIGAR
-                                quality = strtoull(currentCarac, &currentCarac, 10);
-                                //GO TO RNEXT
-				currentCarac = strstr(currentCarac + 1, "\t");
-                                currentCarac++;
-                                if (currentCarac[0] == '=') {
-                                        mchr = chr;
-                                } else if ( currentCarac[0] == '*') {
-                                       mchr = nbchr - 2;
-                                } else {
-                                       mchr = getChr(currentCarac, files_out_sam_name, nbchr-2, tmp_chr);
-                                }
-
-                                if ((chr < (nbchr - 2)) && (chr == mchr)){
+                                if ((chr < (nbchr - 1))){
 					//then we found concordant reads                                
 				        chr_buff_size[chr]    += sam_line_size;
 				        sam_buff_dest[n]       = chr;
 				}
-				else if ((chr == (nbchr - 2)) && ( mchr < (nbchr - 2))){
+				else if ((chr == (nbchr - 1))){
                                         //we found discordant reads with one pair unmapped
-                                        chr_buff_size[nbchr - 2] += sam_line_size;
+                                        chr_buff_size[nbchr - 1] += sam_line_size;
                                         sam_buff_dest[n]          = nbchr - 1;
-                                }
-                                else if ((mchr == (nbchr - 2)) && ( chr < (nbchr - 2))){
-                                        //we found discordant reads with one pair unmapped
-                                        chr_buff_size[nbchr - 2] += sam_line_size;
-                                        sam_buff_dest[n]          = nbchr - 2;
                                 }
                                 else{
                                         //we found unmapped pairs reads
@@ -3750,7 +3792,7 @@ int main(int argc, char *argv[]) {
 			}
                         free(tmp_chr);                                                                                                                                        
 			//now we fill up the buffer_out_vec
-			for (n = 0; n < (indix.bns->n_seqs + 2); n++) {
+			for (n = 0; n < (indix.bns->n_seqs + 1); n++) {
 
                                 assert(chr_buff_size[n] <= INT_MAX);
 
@@ -3769,10 +3811,10 @@ int main(int argc, char *argv[]) {
                                 actual_size[sam_buff_dest[n]] += seqs[n].l_seq;
                                 free(seqs[n].sam);
                         }
-
+			free(sam_buff_dest);
                         free(seqs);
                         free(actual_size);
-			for (n = 0; n < (indix.bns->n_seqs + 2); n++) {
+			for (n = 0; n < (indix.bns->n_seqs + 1); n++) {
 
                                 if (chr_buff_size[n]) {
                                         res = MPI_File_write_shared(fh_out[n], buffer_out_vec[n], chr_buff_size[n], MPI_CHAR, &status);
@@ -3794,7 +3836,7 @@ int main(int argc, char *argv[]) {
                 } //end for (u1 = 0; u1 < chunk_count; u1++){
 	
 		//free data structures and close sam files		
-		for (n = 0; n < (indix.bns->n_seqs + 2); n++)  {
+		for (n = 0; n < (indix.bns->n_seqs + 1); n++)  {
                 	free(files_out_sam_name[n]);
                 	free(file_map_by_chr[n]);
                		res = MPI_File_close(&fh_out[n]);
