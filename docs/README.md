@@ -78,7 +78,7 @@ This command launches 2 processes MPI and 8 threads will be created by mpiBWA.
 
 WARNING: do not write the extension `.map` for the reference. If the file is `myReferenceGenome.fa.map` just provide in the command line `myReferenceGenome.fa` to `mpiBWA`.
 
-The `-n` options passed to `mpirun` indicates the number of processes to run in parallel (this is basically the number of cores that will be used). For more details on how to choose the number processes, see the [Informatic resources](#informatic-resources) section.
+The `-n` options passed to `mpirun` indicates the number of processes to run in parallele. The total number of cores required is the product of the values provided in the `-n` and `-t` options (in the previous example, 16 cores are required). For more details on how to choose the number processes, see the [Informatic resources](#informatic-resources) section.
 
 `mpiBWA` requires several mandatory arguments:
 
@@ -117,7 +117,7 @@ In the case of `mpiBWAByChr`, additional files are provided:
 
 * Individual chrN.sam files with aligned reads on each chrN (ChrN are the chromosome name from the header). The chrN.sam contains the header for the chrN and the reads mapping to that chromosome. The file contains primary and supplementary alignments for a read. If supplementary mapping are discordant they are not filtered out. The file can be sorted independently with [mpiSORT](https://github.com/bioinfo-pf-curie/mpiSORT) and during the sorting these supplementary alignments are filtered out in the discordant.gz file (see [mpiSORT](https://github.com/bioinfo-pf-curie/mpiSORT) documentation).
 
-* The file discordant.sam contains primary chimeric alignments with their secondary alignments. Supplementary or secondary alignments could be ignored with the `-M` [bwa-mem](http://bio-bwa.sourceforge.net/bwa.shtml) option passed to `mpiBWA`.
+* The file discordant.sam contains primary chimeric alignments with their secondary alignments.
 * The unmapped.sam contains unmapped reads.
 
 Note that:
@@ -200,20 +200,20 @@ You can go in the [examples](../examples) directory and submit the job with `qsu
 This software needs a parallel filesystem for execution. The program has been tested with  [Lustre](http://lustre.org/) and [BeeGFS](https://www.beegfs.io/).
 
 
-WARNING: be aware that the flock mode (i.e. file locking) on parallel filesystems ([Lustre](http://lustre.org/), [BeeGFS](https://www.beegfs.io/), etc) must must be on,  otherwise the reproducibility is not guaranteed.
+WARNING: be aware that the flock mode (i.e. file locking) on parallel filesystems ([Lustre](http://lustre.org/), [BeeGFS](https://www.beegfs.io/), etc) must be on,  otherwise the reproducibility is not guaranteed.
 
 
 ## Algorithm
 
 The algorithm consists of 3 parts:
 
-1. MPI jobs create chunks of reads. All those chunks contain the same number of nucleotids.
+1. MPI jobs create chunks of reads. All these chunks contain the same number of nucleotids.
 2. MPI jobs calls aligner jobs. This part invokes BWA MEM algorithm.
-3. MPI jobs write the alignment results in a SAM file or in individual chromosom SAM files. This part uses shared file pointers.
+3. MPI jobs write the alignment results in a SAM file or in individual chromosome SAM files. This part uses shared file pointers.
 
 ## References
 
-This work is based on the original bwa aligner written by Li et al.([Burrow-Wheeler Aligner for short-read alignment](https://github.com/lh3/bwa)):
+This work is based on the original bwa aligner ([Burrow-Wheeler Aligner for short-read alignment](https://github.com/lh3/bwa)) written by Li et al.:
 
 * Li H. and Durbin R. [Fast and accurate long-read alignment with Burrows-Wheeler transform](https://academic.oup.com/bioinformatics/article/26/5/589/211735). Bioinformatics, 2010 ([pdf](https://academic.oup.com/bioinformatics/article-pdf/26/5/589/16896917/btp698.pdf)).
 
