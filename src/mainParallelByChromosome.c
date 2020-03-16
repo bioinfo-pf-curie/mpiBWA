@@ -2092,18 +2092,8 @@ int main(int argc, char *argv[]) {
 		size_t h=0;
 		for ( h = 0; h < total_num_reads; h++){
 			assert( local_read_size[h] == blen );
-			assert( local_read_offsets[h] >= 0 );
+			assert( local_read_offsets[h] >= 0);
 		}
-
-		/*
-		 * We compute number of chunks for forward reads
-		 * and send it to
-		 */
-		bef = MPI_Wtime();
-
-		/*
-		 * We update information from previous rank
-		 */
 
 		// we allocate vector for chunks offset
 		begin_offset_chunk 	= calloc(chunck_num, sizeof(size_t));
