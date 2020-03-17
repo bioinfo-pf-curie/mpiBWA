@@ -377,56 +377,48 @@ void find_reads_size_and_offsets(size_t offset_in_file,
 //			then a last chunk is filled with the remaining bases
 //			display some stats about the time it took to do all this
 void find_chunks_info_trim(	size_t *begin_offset_chunk,
-						size_t *begin_offset_chunk_2,
-						size_t *chunk_size,
-						size_t *chunk_size_2,
-						size_t *reads_in_chunk,
-						size_t *reads_in_chunk_2,
-						int *local_read_size,
-						int *local_read_size_2,
-						size_t *local_read_bytes,
-						size_t *local_read_bytes_2,
-						size_t *local_read_offsets,
-						size_t *local_read_offsets_2,
-						int rank_num,
-						int proc_num,
-						size_t local_num_reads,
-						size_t local_num_reads_2,
-						size_t grand_total_num_reads,
-						size_t grand_total_num_reads_2,
-						off_t maxsiz,
-						size_t *chunk_count,
-						char *file_r1,
-						char *file_r2){
+				size_t *begin_offset_chunk_2,
+				size_t *chunk_size,
+				size_t *chunk_size_2,
+				size_t *reads_in_chunk,
+				size_t *reads_in_chunk_2,
+				int *local_read_size,
+				int *local_read_size_2,
+				size_t *local_read_bytes,
+				size_t *local_read_bytes_2,
+				size_t *local_read_offsets,
+				size_t *local_read_offsets_2,
+				int rank_num,
+				int proc_num,
+				size_t local_num_reads,
+				size_t local_num_reads_2,
+				size_t grand_total_num_reads,
+				size_t grand_total_num_reads_2,
+				off_t maxsiz,
+				size_t *chunk_count){
 	
 	//non MPI related resources
-
-	char *buffer_r1 = malloc(100);
-	char *buffer_r2 = malloc(100);
-	char *p1, *q1, *p2, *q2;
-	char *name1, *name2;
-
-	int count 						= 0;
+	int count 				= 0;
 	int res;
 	int i,bef,aft;
-	int read_nb 					= 0; // have to use a buffer value instead of the iterator directly in case there are more reads handled by the process than there are in a chunk.
+	int read_nb 				= 0; // have to use a buffer value instead of the iterator directly in case there are more reads handled by the process than there are in a chunk.
 	int nb_reads_to_send			= 0;
 	int nb_reads_to_recv			= 0;
 	int reads_type_to_send			= 0; 	// use to know if we shall send forward (0) or backward (1)
 	int reads_type_to_recv			= 0; 	// use to know if we shall recieve forward (0) or backward (1)
-	int *sizes_to_send				= NULL;
-	int *sizes_to_recv				= NULL;
-	int *p_sizes  					= NULL; //reserved pointer
-	int *p_sizes_2  				= NULL; //reserved pointer
+	int *sizes_to_send			= NULL;
+	int *sizes_to_recv			= NULL;
+	int *p_sizes  				= NULL; //reserved pointer
+	int *p_sizes_2  			= NULL; //reserved pointer
 	
-	size_t *p_bytes  				= NULL; //reserved pointer
-	size_t *p_bytes_2  				= NULL; //reserved pointer
-	size_t u1 						= 0;
+	size_t *p_bytes  			= NULL; //reserved pointer
+	size_t *p_bytes_2  			= NULL; //reserved pointer
+	size_t u1 				= 0;
 	size_t local_read_min;
 	size_t *bytes_to_send			= NULL;
 	size_t *bytes_to_recv			= NULL;
-	size_t *p_offset 				= NULL; //reserved pointer
-	size_t *p_offset_2 				= NULL; //reserved pointer
+	size_t *p_offset 			= NULL; //reserved pointer
+	size_t *p_offset_2 			= NULL; //reserved pointer
 	size_t reads_recieved			= 0;
 	size_t reads_recieved_2			= 0;
 	size_t *offsets_to_send			= NULL;
@@ -435,23 +427,15 @@ void find_chunks_info_trim(	size_t *begin_offset_chunk,
 	size_t bytes_in_chunk 	 		= 0, bytes_in_chunk_2 = 0;
 	size_t index_in_chunk 			= 0;
 	size_t begin_offset 			= 0, begin_offset_2	= 0;
-	size_t bases_previous_chunk     = 0;
-	size_t offset_previous_chunk 	= 0, offset_previous_chunk_2 = 0;
+	size_t bases_previous_chunk     	= 0;
+	size_t offset_previous_chunk 		= 0, offset_previous_chunk_2 = 0;
 	size_t size_previous_chunk 	 	= 0, size_previous_chunk_2 = 0;
-	size_t x 						=0,y=0; 	// iterators of the number of reads in each file
+	size_t x 				=0,y=0; 	// iterators of the number of reads in each file
 	size_t read1=0,read2=0;
 	size_t size_chunk = 100;
 	size_t tmp_cnt=0;
 
-	MPI_File fh_r1;
-	MPI_File fh_r2;	
 	MPI_Status status;
-	
-	//init char buffer
-	buffer_r1[99] = '0';
-	buffer_r2[99] = '0';
-
-	bef = MPI_Wtime();
 
 	if (rank_num > 0){
 		// we wait the previous rank to send the final size chunk
@@ -923,15 +907,13 @@ void find_chunks_info(
 						size_t local_num_reads,
 						size_t grand_total_num_reads,
 						off_t maxsiz,
-						size_t *chunk_count,
-						char *file_r1
+						size_t *chunk_count
 						){
 	
 	//non MPI related resources
-	char *buffer_r1 = malloc(100);
-	char *p1, *q1, *name1;	
+	
 	int i,bef,aft;
-	int read_nb=0;   				// have to use a buffer value instead of the iterator directly in case there are more reads handled by the process than there are in a chunk.
+	int read_nb=0;  // have to use a buffer value instead of the iterator directly in case there are more reads handled by the process than there are in a chunk.
 	int nb_reads_to_send			= 0;
 	int nb_reads_to_recv			= 0;
 	int reads_type_to_send			= 0; 	// use to know if we shall send forward (0) or backward (1)
@@ -962,13 +944,8 @@ void find_chunks_info(
 	size_t size_chunk = 100;
 	size_t tmp_cnt=0;
 
-	MPI_File fh_r1;
 	MPI_Status status;
 	
-	buffer_r1[99] = '0';
-	
-	bef = MPI_Wtime();
-
 	if (rank_num > 0){
 		// we wait the previous rank to send the final size chunk
 		// and offset of the chunk
@@ -2127,8 +2104,7 @@ int main(int argc, char *argv[]) {
 				 local_num_reads,
 				 grand_total_num_reads,
 				 maxsiz,
-				 &chunk_count,
-				 file_r1
+				 &chunk_count
 				 );
 
 		aft = MPI_Wtime();
@@ -2433,14 +2409,11 @@ int main(int argc, char *argv[]) {
                                         chr_buff_size[nbchr - 1] += sam_line_size;
                                         sam_buff_dest[n]          = nbchr - 1;
                                 }
-                                                                                                                                                                                                                                                                                                                          //finally we test if the read goes in discordant sam file
+                                //finally we test if the read goes in discordant sam file
 				 if ((chr < (nbchr - 2)) && ( mchr < (nbchr - 2) && (chr != mchr))) {
                                         chr_buff_size[nbchr - 2] += sam_line_size;
                                         add_in_disc[n]  = 1;
                                 }
-
-
-
         
                        	}//end for (n = 0; n < reads; n++)
 			free(tmp_chr);
@@ -2743,9 +2716,7 @@ int main(int argc, char *argv[]) {
 				 grand_total_num_reads,
 				 grand_total_num_reads_2,
 				 maxsiz,
-				 &chunk_count,
-				 file_r1,
-				 file_r2);
+				 &chunk_count);
 
 		aft = MPI_Wtime();
 		fprintf(stderr, "%s ::: rank %d ::: evaluating offsets chuncks and sizes (%.02f) found %zu chuncks \n", __func__, rank_num, aft - bef, chunk_count);
@@ -3338,8 +3309,7 @@ int main(int argc, char *argv[]) {
 						local_num_reads,
 						grand_total_num_reads,
 						maxsiz,
-						&chunk_count,
-						file_r1);
+						&chunk_count);
 
 		aft = MPI_Wtime();
 		fprintf(stderr, "%s ::: rank %d ::: evaluating offsets chuncks and sizes (%.02f) found %zu chuncks \n", __func__, rank_num, aft - bef, chunk_count);
