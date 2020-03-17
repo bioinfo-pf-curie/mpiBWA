@@ -257,12 +257,13 @@ void find_reads_size_and_offsets(size_t offset_in_file,
 		r = b + read_buffer_sz;
 
 		if ( read_buffer_sz == DEFAULT_INBUF_SIZE){
+			r--;
 			//go to last previous read
-			while (r-- != b){if (*r == '+' && *(r-1) == '\n' && *(r+1) == '\n') {r--; break;}}
-                        while (r-- != b){if (*r == '\n') break;}
-                        while (r-- != b){if (*r == '@') break;}
-                        r--; //stop at \n
-                        offset_end_buff = (r - b);
+			while (r != (b+1)){if (*r == '+' && *(r-1) == '\n' && *(r+1) == '\n') break; else r--;}
+            while (r != b){if (*r == '\n') break; else r--;}
+            while (r != b){if (*r == '@') break; else r--;}
+            r--; //stop at \n
+            offset_end_buff = (r - b);
 		}
 		else
 			offset_end_buff = (r - b);

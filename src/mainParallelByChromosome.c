@@ -140,13 +140,13 @@ void find_process_starting_offset(size_t *goff, size_t size, char* file_to_read,
 	
 	///define the arbitrary offsets
 	goff[0]=0;
-    	for(i = 1 ; i < proc_num; i++){goff[i] = lsize*i;}
-    	goff[proc_num] = size;
-    	res = MPI_File_read_at(mpi_fd, (MPI_Offset)goff[rank_num], buffer_r0, tmp_sz, MPI_CHAR, &status); //read the wanted part of the file nd save it into the buffer
-    	assert(res == MPI_SUCCESS);
+    for(i = 1 ; i < proc_num; i++){goff[i] = lsize*i;}
+    goff[proc_num] = size;
+    res = MPI_File_read_at(mpi_fd, (MPI_Offset)goff[rank_num], buffer_r0, tmp_sz, MPI_CHAR, &status); //read the wanted part of the file nd save it into the buffer
+    assert(res == MPI_SUCCESS);
 	p = buffer_r0;
-    	e = buffer_r0 + tmp_sz;
-	
+    e = buffer_r0 + tmp_sz;
+
 	if (goff[rank_num] > 0){
 
         	while (p < e) {
@@ -251,14 +251,15 @@ void find_reads_size_and_offsets(size_t offset_in_file,
 		assert(*buffer_r == '@');	
 
 		//we search the last read 
-		b = buffer_r;
-		r = b + read_buffer_sz;
+		b = buffer_r; 
+		r = b + read_buffer_sz;  
 		
 		if ( read_buffer_sz == DEFAULT_INBUF_SIZE){
+			r--;	
 			//go to last previous read
-			while (r-- != b){if (*r == '+' && *(r-1) == '\n' && *(r+1) == '\n') {r--; break;}}					
-			while (r-- != b){if (*r == '\n') break;}
-			while (r-- != b){if (*r == '@') break;}
+			while (r != (b+1)){if (*r == '+' && *(r-1) == '\n' && *(r+1) == '\n') break; else r--;} 					
+			while (r != b){if (*r == '\n') break; else r--;}
+			while (r != b){if (*r == '@') break; else r--;}
 			r--; //stop at \n
 			offset_end_buff = (r - b);
 		}
@@ -1889,9 +1890,9 @@ int main(int argc, char *argv[]) {
 
 	char *output_path = malloc (mi * sizeof(char) + 1);
 	output_path[mi] = 0;
-        char *h = output_path;
-        memmove(h, file_out, mi);
-        assert(output_path);
+    char *h = output_path;
+    memmove(h, file_out, mi);
+    assert(output_path);
 
 
 	//if ( mi == 0) getcwd( output_path, FILENAME_MAX );
@@ -2353,19 +2354,19 @@ int main(int argc, char *argv[]) {
 			//MPI_Barrier(MPI_COMM_WORLD);
 			/* Write results ... */
 			bef = MPI_Wtime();
-                        localsize = 0;
-                        int *sam_buff_dest  = calloc ( reads, sizeof(int) );
-                        //vecto to check if a discordant need to be add in discordant.sam we set 1 if true 0 else
-                        int *add_in_disc    =  calloc ( reads, sizeof(int) );
-                        char *current_line; //pointer to the sam line
-                        char *currentCarac;
-                        int chr, mchr;
-                        size_t coord, sam_line_size;
-                        unsigned char quality;
-                        int nbchr = indix.bns->n_seqs + 2;
+            localsize = 0;
+            int *sam_buff_dest  = calloc ( reads, sizeof(int) );
+            //vecto to check if a discordant need to be add in discordant.sam we set 1 if true 0 else
+            int *add_in_disc    =  calloc ( reads, sizeof(int) );
+            char *current_line; //pointer to the sam line
+            char *currentCarac;
+            int chr, mchr;
+            size_t coord, sam_line_size;
+            unsigned char quality;
+            int nbchr = indix.bns->n_seqs + 2;
 
-                        char *tmp_chr = malloc( 200 * sizeof(char));
-                        tmp_chr[0] = 0;
+            char *tmp_chr = malloc( 200 * sizeof(char));
+            tmp_chr[199] = 0;
 
 			for (n = 0; n < reads; n++) {
                                 /* Reuse .l_seq to store SAM line length to avoid multiple strlen() calls */
