@@ -20,6 +20,9 @@ Contacts: [frederic.jarlier@curie.fr](mailto:frederic.jarlier@curie.fr]), [phili
 ## Acknowledgements
 
 * [TGCC France Génomique](https://www.france-genomique.org/plateformes-et-equipements/plateforme-tgcc-arpajon/)
+* [Intel](https://www.intel.fr/content/www/fr/fr/homepage.html)
+* [Université Paris Descartes](https://u-paris.fr/en/498-2)
+* [Institut Pasteur](https://www.pasteur.fr)
 
 ## Citation
 
