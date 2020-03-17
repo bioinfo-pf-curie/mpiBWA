@@ -1887,7 +1887,7 @@ int main(int argc, char *argv[]) {
 
 	}
 
-	char *output_path = malloc (mi * sizeof(char));
+	char *output_path = malloc (mi * sizeof(char) + 1);
 	output_path[mi] = 0;
         char *h = output_path;
         memmove(h, file_out, mi);
@@ -2384,7 +2384,7 @@ int main(int argc, char *argv[]) {
                                 else chr = getChr(currentCarac, files_out_sam_name, nbchr-2, tmp_chr);
                                 //GO TO COORD
                                 currentCarac = strstr(currentCarac + 1, "\t");
-				coord = strtoull(currentCarac, &currentCarac, 10);
+								coord = strtoull(currentCarac, &currentCarac, 10);
 
                                 //TAKE MAPQ AND GO TO CIGAR
                                 quality = strtoull(currentCarac, &currentCarac, 10);
@@ -2435,7 +2435,7 @@ int main(int argc, char *argv[]) {
                                 p_temp2 = buffer_out_vec[sam_buff_dest[n]] + actual_size[sam_buff_dest[n]];
                                 memmove(p_temp2, seqs[n].sam, seqs[n].l_seq);
                                 actual_size[sam_buff_dest[n]] += seqs[n].l_seq;
-				 if (add_in_disc[n]){
+				 				if (add_in_disc[n]){
                                         p_temp2 = buffer_out_vec[nbchr - 2] + actual_size[nbchr - 2];
                                         memmove(p_temp2, seqs[n].sam, seqs[n].l_seq);
                                         actual_size[nbchr - 2] += seqs[n].l_seq;
@@ -2537,11 +2537,11 @@ int main(int argc, char *argv[]) {
 		size_t total_num_reads_2	= 0;
 
 		//Here I decided to keep separated vectors because otherwise with all the reallocs they would be too big and take too much contiguous memory space
-		int *local_read_size    	= calloc(1, sizeof(int));
-		int *local_read_size_2    	= calloc(1, sizeof(int));
+		int *local_read_size    		= calloc(1, sizeof(int));
+		int *local_read_size_2    		= calloc(1, sizeof(int));
 		size_t *local_read_bytes    	= calloc(1, sizeof(size_t));
 		size_t *local_read_bytes_2    	= calloc(1, sizeof(size_t));
-		size_t *local_read_offsets 	= calloc(1, sizeof(size_t));
+		size_t *local_read_offsets 		= calloc(1, sizeof(size_t));
 		size_t *local_read_offsets_2 	= calloc(1, sizeof(size_t));
 
 		assert( local_read_offsets 	!= NULL);
