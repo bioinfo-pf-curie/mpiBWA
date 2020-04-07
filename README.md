@@ -26,3 +26,5 @@ Contacts: [frederic.jarlier@curie.fr](mailto:frederic.jarlier@curie.fr]), [phili
 
 ## Citation
 
+Jarlier F, Joly N, Fedy N et al. QUARTIC: QUick pArallel algoRithms for high-Throughput sequencIng data proCessing. F1000Research 2020, 9:240 ([https://doi.org/10.12688/f1000research.22954.1](https://doi.org/10.12688/f1000research.22954.1))
+
