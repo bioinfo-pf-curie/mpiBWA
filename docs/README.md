@@ -162,15 +162,15 @@ In order to submit a job using [Slurm](https://slurm.schedmd.com/sbatch.html), y
 #! /bin/bash
 #SBATCH -J MPIBWA_32_JOBS
 #SBATCH -N 2                            # Ask 2 nodes
-#SBATCH -n 32                           # Total number of cores
-#SBATCH -c 16                           # use 16 core per mpi job
-#SBATCH --tasks-per-node=16             # Ask 16 cores per node
+#SBATCH -n 32                           # total number of mpi jobs 
+#SBATCH -c 16                           # use 16 cores per mpi job
+#SBATCH --tasks-per-node=16             # Ask 16 mpi jobs per node
 #SBATCH --mem-per-cpu=${MEM}            # See Memory ressources
 #SBATCH -t 01:00:00
 #SBATCH -o STDOUT_FILE.%j.o
 #SBATCH -e STDERR_FILE.%j.e
 
-mpirun -n 2 mpiBWA mem -t 16 -o ${HOME}/mpiBWAExample/HCC1187C.sam ${HOME}/mpiBWAExample/hg19.small.fa examples/data/HCC1187C_R1_10K.fastq examples/data/HCC1187C_R2_10K.fastq`
+mpirun mpiBWA mem -t 16 -o ${HOME}/mpiBWAExample/HCC1187C.sam ${HOME}/mpiBWAExample/hg19.small.fa examples/data/HCC1187C_R1_10K.fastq examples/data/HCC1187C_R2_10K.fastq`
 
 ```
 
@@ -189,7 +189,7 @@ In order to submit a job using [PBS/Torque](https://support.adaptivecomputing.co
 #PBS -o STDOUT_FILE.%j.o
 #PBS -e STDERR_FILE.%j.e
 
-mpirun i-n 2 mpiBWA mem -t 16 -o ${HOME}/mpiBWAExample/HCC1187C.sam ${HOME}/mpiBWAExample/hg19.small.fa examples/data/HCC1187C_R1_10K.fastq examples/data/HCC1187C_R2_10K.fastq`
+mpirun mpiBWA mem -t 16 -o ${HOME}/mpiBWAExample/HCC1187C.sam ${HOME}/mpiBWAExample/hg19.small.fa examples/data/HCC1187C_R1_10K.fastq examples/data/HCC1187C_R2_10K.fastq`
 
 ```
 
