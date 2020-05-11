@@ -1706,7 +1706,7 @@ int main(int argc, char *argv[]) {
 	/* start up MPI */
 	int threads_ok;
 	int provided;
-	res = MPI_Init_threads(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
+	res = MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
 	assert(res == MPI_SUCCESS);
 	threads_ok = provided >= MPI_THREAD_FUNNELED;
 	fprintf(stderr, "rank %d is thread ok ? %d\n", rank_num, threads_ok );
