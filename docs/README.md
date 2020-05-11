@@ -150,13 +150,13 @@ We set a list of base lines with bwa
 
 BWA
 
-1 threads on 1 node : bwa mem -t 1
+1 threads on 1 node : `bwa mem -t 1`
  [M::mem_process_seqs] Processed 40246 reads in 23.303 CPU sec, 23.367 real sec
 
-8 threads on 1 node : bwa mem -t 8
+8 threads on 1 node : `bwa mem -t 8`
 [M::mem_process_seqs] Processed 322302 reads in 199.261 CPU sec, 25.104 real sec
 
-16 threads on 1 node : bwa mem -t 16
+16 threads on 1 node : `bwa mem -t 16`
 [M::mem_process_seqs] Processed 644448 reads in 413.054 CPU sec, 26.000 real sec
 
 Now we compare those base lines with different mpiBWA configuration 
@@ -165,31 +165,31 @@ mpiBWA
 
 We build a mpiBWA base line on one node 
 
-1 threads on 1 node : mpirun -n 1 mpiBWA mem -t 1
+1 threads on 1 node : `mpirun -n 1 mpiBWA mem -t 1`
 [M::mem_process_seqs] Processed 40224 reads in 25.779 CPU sec, 25.840 real sec
 
 and on several nodes
 
-8 threads on 8 nodes : mpirun -N 8 -npernode 1 -n 1 mpiBWA mem -t 1
+8 threads on 8 nodes : `mpirun -N 8 -npernode 1 -n 1 mpiBWA mem -t 1`
 [M::mem_process_seqs] Processed 40244 reads in 24.416 CPU sec, 24.475 real sec
 
 So far we don’t see differences compare with bwa mem baseline 
 
 Now we procede with the parallelization. We start to increase the number of mpi jobs with 1 bwa threads
 
-8 threads on 1 node : mpirun -N 1 -n 8 mpiBWA mem -t 1
+8 threads on 1 node : `mpirun -N 1 -n 8 mpiBWA mem -t 1`
 [M::mem_process_seqs] Processed 40278 reads in 34.377 CPU sec, 34.461 real sec
 
-16 threads on 1 node :  mpirun -N 1 -n 16 mpiBWA mem -t 1
+16 threads on 1 node :  `mpirun -N 1 -n 16 mpiBWA mem -t 1`
 [M::mem_process_seqs] Processed 40276 reads in 35.040 CPU sec, 35.123 real sec
 
 And we increase the number of nodes
 
-16 threads on 2 node : mpirun -N 2 -npernode 8 -n 16 mpiBWA mem -t 1
+16 threads on 2 node : `mpirun -N 2 -npernode 8 -n 16 mpiBWA mem -t 1`
 [M::mem_process_seqs] Processed 40266 reads in 33.799 CPU sec, 33.879 real sec
 
 
-32 threads on 2 node : mpirun -N 2 -npernode 16 -n 32 mpiBWA mem -t 1
+32 threads on 2 node : `mpirun -N 2 -npernode 16 -n 32 mpiBWA mem -t 1`
 [M::mem_process_seqs] Processed 40274 reads in 34.715 CPU sec, 34.796 real sec
 
 So we have no differences if we execute on 1 node and on 2 nodes. We can repeat with 3 and more nodes.
@@ -201,13 +201,13 @@ With our configuration running mpiBWA with one thread is the best option. And as
 Here we present parameters we can use to increase performance 
 
 Change the OMPI_COMM_TYPE:
-MPI_Comm_split_type(MPI_COMM_WORLD, OMPI_COMM_TYPE_SOCKET, 0, MPI_INFO_NULL, &comm_shr);
+`MPI_Comm_split_type(MPI_COMM_WORLD, OMPI_COMM_TYPE_SOCKET, 0, MPI_INFO_NULL, &comm_shr);`
 
 Modify the type of allocation of the shared window:
-MPI_Info_set(win_info, "alloc_shared_non_contig", "false");
+`MPI_Info_set(win_info, "alloc_shared_non_contig", "false");`
 
 Bind the process to NUMA domain:
-mpirun --bind-to numa
+`mpirun --bind-to numa`
 
 ## Examples
 
