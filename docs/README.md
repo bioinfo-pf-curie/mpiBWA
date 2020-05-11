@@ -145,13 +145,12 @@ This part is very important read carefully this section before running mpiBWA on
 
 In this section we present a guideline to benchmark mpiBWA with your infrastructure.
 We will answer questions about how to use efficiently multithreading with MPI.
-We present here a example we did on our architecture at Institut Curie.
+We present an example we did on our architecture at Institut Curie.
+During the benchmark make sure you are alone on the nodes.  
 
-First it is important to set the baselines. The baseline is build with BWA mem standard. 
+First we set the baselines.
 
-We build a list of baselines with BWA MEM
-
-BWA
+* BWA MEM baselines
 
 1 threads on 1 node : `bwa mem -t 1`  
  [M::mem_process_seqs] Processed 40246 reads in 23.303 CPU sec, 23.367 real sec
@@ -164,9 +163,9 @@ BWA
 
 Now we compare those base lines with mpiBWA  
 
-mpiBWA
+* mpiBWA MEM baselines 
 
-We build a mpiBWA base line on one node: 
+We start with one node one thread: 
 
 1 threads on 1 node : `mpirun -n 1 mpiBWA mem -t 1`  
 [M::mem_process_seqs] Processed 40224 reads in 25.779 CPU sec, 25.840 real sec
@@ -177,8 +176,10 @@ and on several nodes:
 [M::mem_process_seqs] Processed 40244 reads in 24.416 CPU sec, 24.475 real sec
 
 So far we don’t see differences compare with BWA mem baseline 
+Now we go further with the parallelization.  
+ We start to increase the number of mpi jobs with 10 bwa threads
 
-Now we procede with the parallelization. We start to increase the number of mpi jobs with 10 bwa threads
+* mpiBWA MEM + multithreads
 
 10 threads on 1 node : `mpirun -N 1 -n 1 mpiBWA mem -t 10`  
 [M::mem_process_seqs] Processed 402610 reads in 257.005 CPU sec, 25.803 real sec
@@ -188,20 +189,22 @@ Now we procede with the parallelization. We start to increase the number of mpi 
 
 And we increase the number of nodes
 
+* mpiBWA MEM + multithreads + multi nodes
+
 20 threads on 2 node : `mpirun -N 2 -npernode 1 -n 2 --bind-to socket mpiBWA mem -t 10`  
 [M::mem_process_seqs] Processed 403144 reads in 260.081 CPU sec, 26.114 real sec
-
 
 40 threads on 2 node : `mpirun -N 2 -npernode 1 -n 2 --bind-to socket mpiBWA mem -t 20`  
 [M::mem_process_seqs] Processed 805198 reads in 549.086 CPU sec, 27.610 real sec
 
-So we have no differences if we execute on 1 node and on 2 nodes. We can repeat with 3 and more nodes.
+So we see no difference if we execute on 1 node and on 2 nodes. And we can repeat with 3 and more nodes.  
+Test also the setup with mpiBWAByChr.
 
 Conclusion:
-
-With our configuration running mpiBWA with 10 threads seems the best option.   
-We notice a small increase when we use all the cores of a node. We recommand to leave some cores for the system node.
-Try also some bindings with mpirun as we do when we bind to socket, this could help.     
+ 
+With our configuration running mpiBWA with 10 threads seems a good option.   
+We notice a small increase when we use all the cores of a node. We recommand to leave some cores for the system node.  
+Explore the mpirun options as we do with the bind to socket, this could help and remove contention like NUMA effects.          
 
 ## Examples
 
