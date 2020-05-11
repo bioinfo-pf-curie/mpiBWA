@@ -1298,6 +1298,9 @@ void map_indexes(char *file_map, int *count, bwaidx_t *indix, int *ignore_alt, M
 
 	MPI_Info_create(&win_info);
 	MPI_Info_set(win_info, "alloc_shared_non_contig", "true");
+	
+	//FOR INTEL KNL   
+	//MPI_Info_set(win_info, "alloc_shared_non_contig", "false");
 
 	//create a new comunicator, and a window of shared memory associated to it
 	bef = MPI_Wtime();
@@ -2124,46 +2127,10 @@ int main(int argc, char *argv[]) {
 		/*
 		 * Map reference genome indexes in shared memory (by host)
 		 */
+		 bef = MPI_Wtime();
+                map_indexes(file_map, &count, &indix, &ignore_alt, &win_shr);
+                aft = MPI_Wtime();
 	
-		MPI_Info win_info;
-		MPI_Info_create(&win_info);
-		MPI_Info_set(win_info, "alloc_shared_non_contig", "true");
-
-		bef = MPI_Wtime();
-		res = MPI_File_open(MPI_COMM_WORLD, file_map, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh_map);
-		assert(res == MPI_SUCCESS);
-		res = MPI_File_get_size(fh_map, &size_map);
-		assert(res == MPI_SUCCESS);
-		res = MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &comm_shr);
-		assert(res == MPI_SUCCESS);
-		res = MPI_Comm_rank(comm_shr, &rank_shr);
-		assert(res == MPI_SUCCESS);
-		size_shr = (rank_shr == 0) ? size_map : 0;
-		res = MPI_Win_allocate_shared(size_shr, sizeof(char), win_info, comm_shr, &addr, &win_shr);
-		assert(res == MPI_SUCCESS);
-		MPI_Info_free(&win_info);
-		res = MPI_Win_shared_query(win_shr, MPI_PROC_NULL, &size_shr, &res, &addr_map);
-		assert(res == MPI_SUCCESS);
-
-		m = size_map; a = addr_map; size_tot = 0;
-		while (rank_shr == 0) {
-			res = MPI_File_read(fh_map, a, INT_MAX/2, MPI_UINT8_T, &status);
-			assert(res == MPI_SUCCESS);
-			res = MPI_Get_count(&status, MPI_UINT8_T, &count);
-			assert(res == MPI_SUCCESS);
-			if (count == 0) break;
-			m -= count; a += count; size_tot += count; }
-		assert(size_tot == 0 || size_tot == size_map);
-		res = MPI_Win_fence(0, win_shr);
-		assert(res == MPI_SUCCESS);
-		bwa_mem2idx(size_map, addr_map, &indix);
-		if (ignore_alt)
-			for (c = 0; c < indix.bns->n_seqs; ++c)
-			indix.bns->anns[c].is_alt = 0;
-
-		res = MPI_File_close(&fh_map);
-		assert(res == MPI_SUCCESS);
-		aft = MPI_Wtime();
 		fprintf(stderr, "%s: mapped indexes (%.02f)\n", __func__, aft - bef);
 
 		//we create a vector with chromosom names 
