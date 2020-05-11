@@ -176,8 +176,10 @@ and on several nodes:
 [M::mem_process_seqs] Processed 40244 reads in 24.416 CPU sec, 24.475 real sec
 
 So far we don’t see differences compare with BWA mem baseline 
+Now we go further with the parallelization.  
+ We start to increase the number of mpi jobs with 10 bwa threads
 
-Now we procede further with the parallelization. We start to increase the number of mpi jobs with 10 bwa threads
+* mpiBWA MEM + multithreads
 
 10 threads on 1 node : `mpirun -N 1 -n 1 mpiBWA mem -t 10`  
 [M::mem_process_seqs] Processed 402610 reads in 257.005 CPU sec, 25.803 real sec
@@ -187,19 +189,20 @@ Now we procede further with the parallelization. We start to increase the number
 
 And we increase the number of nodes
 
+* mpiBWA MEM + multithreads + multi nodes
+
 20 threads on 2 node : `mpirun -N 2 -npernode 1 -n 2 --bind-to socket mpiBWA mem -t 10`  
 [M::mem_process_seqs] Processed 403144 reads in 260.081 CPU sec, 26.114 real sec
-
 
 40 threads on 2 node : `mpirun -N 2 -npernode 1 -n 2 --bind-to socket mpiBWA mem -t 20`  
 [M::mem_process_seqs] Processed 805198 reads in 549.086 CPU sec, 27.610 real sec
 
-So we have no differences if we execute on 1 node and on 2 nodes. We can repeat with 3 and more nodes.  
+So we see no difference if we execute on 1 node and on 2 nodes. And we can repeat with 3 and more nodes.  
 Test also the setup with mpiBWAByChr.
 
 Conclusion:
  
-With our configuration running mpiBWA with 10 threads seems the best option.   
+With our configuration running mpiBWA with 10 threads seems a good option.   
 We notice a small increase when we use all the cores of a node. We recommand to leave some cores for the system node.  
 Explore the mpirun options as we do with the bind to socket, this could help and remove contention like NUMA effects.          
 
