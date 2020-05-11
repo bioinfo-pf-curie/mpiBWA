@@ -145,7 +145,7 @@ This part is very important read carefully this section before running mpiBWA on
 
 In this section we present a guideline to benchmark mpiBWA with your infrastructure.
 We will answer questions about how to use efficiently multithreading with MPI.
-We present here a example we did on our architecture at Institut Curie.
+We present an example we did on our architecture at Institut Curie.
 During the benchmark make sure you are alone on the nodes.  
 
 First we set the baselines.
