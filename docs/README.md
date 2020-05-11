@@ -146,8 +146,9 @@ This part is very important read carefully this section before running mpiBWA on
 In this section we present a guideline to benchmark mpiBWA with your infrastructure.
 We will answer questions about how to use efficiently multithreading with MPI.
 We present here a example we did on our architecture at Institut Curie.
+During the benchmark make sure you are alone on the nodes.  
 
-First it is important to set the baselines. The baseline is build with BWA mem standard. 
+First we set the baselines.
 
 * BWA MEM baselines
 
@@ -162,7 +163,7 @@ First it is important to set the baselines. The baseline is build with BWA mem s
 
 Now we compare those base lines with mpiBWA  
 
-* mpiBWA 
+* mpiBWA MEM baselines 
 
 We start with one node one thread: 
 
