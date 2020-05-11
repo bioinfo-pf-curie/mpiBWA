@@ -12,7 +12,7 @@
 * [Informatic resources](#informatic-resources)
     * [Memory](#memory)
     * [Cpu](#cpu)
-    * [Benchmark your architecture](#bench)
+    * [Benchmark](#bench)
 * [Examples](#examples)
     * [Standard](#standard)
     * [Slurm](#slurm)
@@ -139,15 +139,17 @@ The total memory used during the alignment if approximately the size of the `.ma
 
 The number of cores is related to the number of rank of the MPI jobs and to the number of threads you ask with bwa with the -t option. For example, the command line `mpirun -n 4 mpiBWA mem -t 8 -o HCC1187C.sam hg19.small.fa examples/data/HCC1187C_R1_10K.fastq examples/data/HCC1187C_R2_10K.fastq` will use 32 cores.
 
-### Benchmark your architecture
+### Benchmark
 
-In this section we present some guidelines to benchmark mpiBWA on your infrastructure.
+This part is very important read carefully this section before running mpiBWA on your cluster.
+
+In this section we present a guideline to benchmark mpiBWA with your infrastructure.
 We will answer questions about how to use efficiently multithreading with MPI.
-We present here a example we did on our architecture but this should be done carefully on yours before using mpiBWA.
+We present here a example we did on our architecture at Institut Curie.
 
-First it is important to set a base line. The base is build with bwa mem standard. 
+First it is important to set the baselines. The baseline is build with BWA mem standard. 
 
-We set a list of base lines with bwa
+We build a list of baselines with BWA MEM
 
 BWA
 
@@ -160,28 +162,28 @@ BWA
 16 threads on 1 node : `bwa mem -t 16`  
 [M::mem_process_seqs] Processed 644448 reads in 413.054 CPU sec, 26.000 real sec
 
-Now we compare those base lines with different mpiBWA configuration 
+Now we compare those base lines with mpiBWA  
 
 mpiBWA
 
-We build a mpiBWA base line on one node 
+We build a mpiBWA base line on one node: 
 
 1 threads on 1 node : `mpirun -n 1 mpiBWA mem -t 1`  
 [M::mem_process_seqs] Processed 40224 reads in 25.779 CPU sec, 25.840 real sec
 
-and on several nodes
+and on several nodes:
 
 1 threads on 8 nodes : `mpirun -N 8 -npernode 1 -n 8 mpiBWA mem -t 1`  
 [M::mem_process_seqs] Processed 40244 reads in 24.416 CPU sec, 24.475 real sec
 
-So far we don’t see differences compare with bwa mem baseline 
+So far we don’t see differences compare with BWA mem baseline 
 
 Now we procede with the parallelization. We start to increase the number of mpi jobs with 10 bwa threads
 
 10 threads on 1 node : `mpirun -N 1 -n 1 mpiBWA mem -t 10`  
 [M::mem_process_seqs] Processed 402610 reads in 257.005 CPU sec, 25.803 real sec
 
-20 threads on 1 node :  `mpirun -N 1 -n 2 mpiBWA mem -t 20`  
+20 threads on 1 node :  `mpirun -N 1 -n 1 mpiBWA mem -t 20`  
 [M::mem_process_seqs] Processed 804856 reads in 546.449 CPU sec, 27.477 real sec
 
 And we increase the number of nodes
@@ -198,7 +200,7 @@ So we have no differences if we execute on 1 node and on 2 nodes. We can repeat 
 Conclusion:
 
 With our configuration running mpiBWA with 10 threads seems the best option.   
-We notice a small increase when we use all the cores of a node we recommand to leave some core for the system.
+We notice a small increase when we use all the cores of a node. We recommand to leave some cores for the system node.
 Try also some bindings with mpirun as we do when we bind to socket, this could help.     
 
 ## Examples
