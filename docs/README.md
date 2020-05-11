@@ -194,7 +194,7 @@ And we increase the number of nodes
 40 threads on 2 node : `mpirun -N 2 -npernode 1 -n 2 --bind-to socket mpiBWA mem -t 20`  
 [M::mem_process_seqs] Processed 805198 reads in 549.086 CPU sec, 27.610 real sec
 
-So we have no differences if we execute on 1 node and on 2 nodes. We can repeat with 3 and more nodes.
+So we have no differences if we execute on 1 node and on 2 nodes. We can repeat with 3 and more nodes.  
 Test also the setup with mpiBWAByChr.
 
 Conclusion:
