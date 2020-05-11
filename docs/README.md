@@ -171,7 +171,7 @@ We build a mpiBWA base line on one node
 
 and on several nodes
 
-8 threads on 8 nodes : `mpirun -N 8 -npernode 1 -n 1 mpiBWA mem -t 1`  
+1 threads on 8 nodes : `mpirun -N 8 -npernode 1 -n 8 mpiBWA mem -t 1`  
 [M::mem_process_seqs] Processed 40244 reads in 24.416 CPU sec, 24.475 real sec
 
 So far we don’t see differences compare with bwa mem baseline 
@@ -197,8 +197,9 @@ So we have no differences if we execute on 1 node and on 2 nodes. We can repeat 
 
 Conclusion:
 
-With our configuration running mpiBWA with 10 threads is the best option.   
-We notice a small increase when we use all the cores of a node we recommand to leave some core for the system.    
+With our configuration running mpiBWA with 10 threads seems the best option.   
+We notice a small increase when we use all the cores of a node we recommand to leave some core for the system.
+Try also some bindings with mpirun as we do when we bind to socket, this could help.     
 
 ## Examples
 
