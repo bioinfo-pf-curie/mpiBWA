@@ -1801,7 +1801,13 @@ int main(int argc, char *argv[]) {
 	sprintf(file_map, "%s.map", file_ref);
 
 	/* start up MPI */
-	res = MPI_Init(&argc, &argv);
+	int threads_ok;
+        int provided;
+        res = MPI_Init_threads(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
+        assert(res == MPI_SUCCESS);
+        threads_ok = provided >= MPI_THREAD_FUNNELED;
+        fprintf(stderr, "rank %d is thread ok ? %d\n", rank_num, threads_ok );
+        fprintf(stderr, "rank %d will use %d threads per mpi job \n", rank_num, opt->n_threads);
 	assert(res == MPI_SUCCESS);
 	res = MPI_Comm_size(MPI_COMM_WORLD, &proc_num);
 	assert(res == MPI_SUCCESS);
