@@ -2,7 +2,7 @@
 
 #SBATCH -J MPIBWA_32_JOBS
 #SBATCH -N 2                            # Ask 2 nodes
-#SBATCH -n 2                            # Total number of cores
+#SBATCH -n 2                            # Total number of mpi job
 #SBATCH -c 8                            # use 8 core per mpi job
 #SBATCH --tasks-per-node=1              # Ask 1 mpi job per node
 #SBATCH --mem-per-cpu=${MEM}            # See Memory ressources
