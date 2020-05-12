@@ -12,7 +12,7 @@
 * [Informatic resources](#informatic-resources)
     * [Memory](#memory)
     * [Cpu](#cpu)
-    * [Benchmark](#bench)
+    * [Benchmark](#benchmark)
 * [Examples](#examples)
     * [Standard](#standard)
     * [Slurm](#slurm)
@@ -79,7 +79,7 @@ This command launches 2 processes MPI and 8 threads will be created by mpiBWA.
 
 WARNING: do not write the extension `.map` for the reference. If the file is `myReferenceGenome.fa.map` just provide in the command line `myReferenceGenome.fa` to `mpiBWA`.
 
-The `-n` options passed to `mpirun` indicates the number of processes to run in parallele. The total number of cores required is the product of the values provided in the `-n` and `-t` options (in the previous example, 16 cores are required). For more details on how to choose the number processes, see the [Informatic resources](#informatic-resources) section.
+The `-n` options passed to `mpirun` indicates the number of processes to run in parallel. The total number of cores required is the product of the values provided in the `-n` and `-t` options (in the previous example, 16 cores are required). For more details on how to choose the number processes, see the [Informatic resources](#informatic-resources) section.
 
 `mpiBWA` requires several mandatory arguments:
 
@@ -141,70 +141,66 @@ The number of cores is related to the number of rank of the MPI jobs and to the 
 
 ### Benchmark
 
-This part is very important read carefully this section before running mpiBWA on your cluster.
+This section provides some guidelines to benchmark `mpiBWA` and `bwa` with your infrastructure. It is intended to help the reader to assess what is the best use case  and configuration to efficiently benefit from the multithreading with MPI depending on your computing cluster infrastructure. We strongly recommend that you read carefully this section before running `mpiBWA` on your cluster.
 
-In this section we present a guideline to benchmark mpiBWA with your infrastructure.
-We will answer questions about how to use efficiently multithreading with MPI.
-We present an example we did on our architecture at Institut Curie.
-During the benchmark make sure you are alone on the nodes.  
+#### Assess the performance baseline with the standard bwa
 
-First we set the baselines.
 
-* BWA MEM baselines
+1 threads on 1 node : `bwa mem -t 1`
+[M::mem_process_seqs] Processed 40246 reads in 23.303 CPU sec, 23.367 real sec
 
-1 threads on 1 node : `bwa mem -t 1`  
- [M::mem_process_seqs] Processed 40246 reads in 23.303 CPU sec, 23.367 real sec
-
-8 threads on 1 node : `bwa mem -t 8`  
+8 threads on 1 node : `bwa mem -t 8`
 [M::mem_process_seqs] Processed 322302 reads in 199.261 CPU sec, 25.104 real sec
 
-16 threads on 1 node : `bwa mem -t 16`  
+16 threads on 1 node : `bwa mem -t 16`
 [M::mem_process_seqs] Processed 644448 reads in 413.054 CPU sec, 26.000 real sec
 
-Now we compare those base lines with mpiBWA  
+#### Assess the performance baseline with the standard mpiBWA
 
-* mpiBWA MEM baselines 
 
-We start with one node one thread: 
+**Start with one node and one bwa thread**: 
 
-1 threads on 1 node : `mpirun -n 1 mpiBWA mem -t 1`  
+1 threads on 1 node : `mpirun -n 1 mpiBWA mem -t 1`
 [M::mem_process_seqs] Processed 40224 reads in 25.779 CPU sec, 25.840 real sec
 
-and on several nodes:
+**Now use several nodes and one bwa thread**:
 
-1 threads on 8 nodes : `mpirun -N 8 -npernode 1 -n 8 mpiBWA mem -t 1`  
+1 threads on 8 nodes : `mpirun -N 8 -npernode 1 -n 8 mpiBWA mem -t 1`
 [M::mem_process_seqs] Processed 40244 reads in 24.416 CPU sec, 24.475 real sec
 
-So far we don’t see differences compare with BWA mem baseline 
-Now we go further with the parallelization.  
-We start to increase the number of mpi jobs with 10 bwa threads
 
-* mpiBWA MEM + multithreads
+So far, the real time for both `bwa` or `mpiBWA` is pretty much the same (~25 sec) whatever the configuration.
 
-10 threads on 1 node : `mpirun -N 1 -n 1 mpiBWA mem -t 10`  
+
+**mpiBWA MEM + multithreads**
+
+Now we go further with the parallelization and increase the number of mpi jobs with 10 bwa threads.
+
+10 threads on 1 node : `mpirun -N 1 -n 1 mpiBWA mem -t 10`
 [M::mem_process_seqs] Processed 402610 reads in 257.005 CPU sec, 25.803 real sec
 
-20 threads on 1 node :  `mpirun -N 1 -n 1 mpiBWA mem -t 20`  
+20 threads on 1 node :  `mpirun -N 1 -n 1 mpiBWA mem -t 20`
 [M::mem_process_seqs] Processed 804856 reads in 546.449 CPU sec, 27.477 real sec
 
-And we increase the number of nodes
 
-* mpiBWA MEM + multithreads + multi nodes
+**mpiBWA MEM + multithreads + multi nodes**
 
-20 threads on 2 node : `mpirun -N 2 -npernode 1 -n 2 --bind-to socket mpiBWA mem -t 10`  
+Now you can increase the number of nodes.
+
+20 threads on 2 node : `mpirun -N 2 -npernode 1 -n 2 --bind-to socket mpiBWA mem -t 10`
 [M::mem_process_seqs] Processed 403144 reads in 260.081 CPU sec, 26.114 real sec
 
-40 threads on 2 node : `mpirun -N 2 -npernode 1 -n 2 --bind-to socket mpiBWA mem -t 20`  
+40 threads on 2 node : `mpirun -N 2 -npernode 1 -n 2 --bind-to socket mpiBWA mem -t 20`
 [M::mem_process_seqs] Processed 805198 reads in 549.086 CPU sec, 27.610 real sec
 
-So we see no difference if we execute on 1 node and on 2 nodes. And we can repeat with 3 and more nodes.  
-Test also the setup with mpiBWAByChr.
+Still, the real time is pretty much the same (~25 sec) whatever you use 1 node or 2 nodes. Then, you can repeat the experiment with 3 and more nodes.
 
-Conclusion:
+####Conclusion
  
-With our configuration running mpiBWA with 10 threads seems a good option.   
-We notice a small increase when we use all the cores of a node. We recommand to leave some cores for the system node.  
-Explore the mpirun options as we do with the bind to socket, this could help and remove contention like NUMA effects.          
+In this benchmark example, we can see that running mpiBWA with 10 threads seems a good configuration.
+We notice a small increase of real time  when we use all the cores of a node. Therefore, We recommend to leave some cores for the system node.
+Explore the `mpirun` options as we do with the bind to socket, this could help and remove contention like NUMA effects.
+Test also the setup with mpiBWAByChr.
 
 ## Examples
 
