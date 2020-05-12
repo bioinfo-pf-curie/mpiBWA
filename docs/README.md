@@ -220,14 +220,14 @@ mpirun -N 1 -n 1 mpiBWA mem -t 20
 
 Now you can increase the number of nodes.
 
-20 threads on 2 node :
+20 threads on 2 nodes :
 
 ```
 mpirun -N 2 -npernode 1 -n 2 --bind-to socket mpiBWA mem -t 10
 [M::mem_process_seqs] Processed 403144 reads in 260.081 CPU sec, 26.114 real sec
 ```
 
-40 threads on 2 node :
+40 threads on 2 nodes :
 
 ```
 mpirun -N 2 -npernode 1 -n 2 --bind-to socket mpiBWA mem -t 20
