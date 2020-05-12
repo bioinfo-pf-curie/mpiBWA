@@ -146,15 +146,20 @@ This section provides some guidelines to benchmark `mpiBWA` and `bwa` with your 
 #### Assess the performance baseline with the standard bwa
 
 
-1 threads on 1 node : `bwa mem -t 1`
+1 threads on 1 node : 
 
+bwa mem -t 1
 [M::mem_process_seqs] Processed 40246 reads in 23.303 CPU sec, 23.367 real sec
 
-8 threads on 1 node : `bwa mem -t 8`
+8 threads on 1 node :
+
+bwa mem -t 8
 [M::mem_process_seqs] Processed 322302 reads in 199.261 CPU sec, 25.104 real sec
 
 
-16 threads on 1 node : `bwa mem -t 16`
+16 threads on 1 node : 
+
+bwa mem -t 16
 [M::mem_process_seqs] Processed 644448 reads in 413.054 CPU sec, 26.000 real sec
 
 
@@ -163,15 +168,22 @@ This section provides some guidelines to benchmark `mpiBWA` and `bwa` with your 
 
 **Start with one node and one bwa thread**: 
 
-1 threads on 1 node : `mpirun -n 1 mpiBWA mem -t 1`
+1 threads on 1 node : 
+
+```
+mpirun -n 1 mpiBWA mem -t 1
 [M::mem_process_seqs] Processed 40224 reads in 25.779 CPU sec, 25.840 real sec
+```
 
 
 **Now use several nodes and one bwa thread**:
 
-1 threads on 8 nodes : `mpirun -N 8 -npernode 1 -n 8 mpiBWA mem -t 1`
-[M::mem_process_seqs] Processed 40244 reads in 24.416 CPU sec, 24.475 real sec
+1 threads on 8 nodes :
 
+```
+mpirun -N 8 -npernode 1 -n 8 mpiBWA mem -t 1
+[M::mem_process_seqs] Processed 40244 reads in 24.416 CPU sec, 24.475 real sec
+```
 
 
 So far, the real time for both `bwa` or `mpiBWA` is pretty much the same (~25 sec) whatever the configuration.
@@ -181,15 +193,20 @@ So far, the real time for both `bwa` or `mpiBWA` is pretty much the same (~25 se
 
 Now we go further with the parallelization and increase the number of mpi jobs with 10 bwa threads.
 
-10 threads on 1 node : `mpirun -N 1 -n 1 mpiBWA mem -t 10`
+10 threads on 1 node :
 
+```
+mpirun -N 1 -n 1 mpiBWA mem -t 10
 [M::mem_process_seqs] Processed 402610 reads in 257.005 CPU sec, 25.803 real sec
+```
 
 
-20 threads on 1 node :  `mpirun -N 1 -n 1 mpiBWA mem -t 20`
+20 threads on 1 node :
 
+```
+mpirun -N 1 -n 1 mpiBWA mem -t 20
 [M::mem_process_seqs] Processed 804856 reads in 546.449 CPU sec, 27.477 real sec
-
+```
 
 
 
@@ -197,13 +214,19 @@ Now we go further with the parallelization and increase the number of mpi jobs w
 
 Now you can increase the number of nodes.
 
-20 threads on 2 node : `mpirun -N 2 -npernode 1 -n 2 --bind-to socket mpiBWA mem -t 10`
+20 threads on 2 node :
 
+```
+mpirun -N 2 -npernode 1 -n 2 --bind-to socket mpiBWA mem -t 10
 [M::mem_process_seqs] Processed 403144 reads in 260.081 CPU sec, 26.114 real sec
+```
 
-40 threads on 2 node : `mpirun -N 2 -npernode 1 -n 2 --bind-to socket mpiBWA mem -t 20`
+40 threads on 2 node :
 
+```
+mpirun -N 2 -npernode 1 -n 2 --bind-to socket mpiBWA mem -t 20
 [M::mem_process_seqs] Processed 805198 reads in 549.086 CPU sec, 27.610 real sec
+```
 
 Still, the real time is pretty much the same (~25 sec) whatever you use 1 node or 2 nodes. Then, you can repeat the experiment with 3 and more nodes.
 
