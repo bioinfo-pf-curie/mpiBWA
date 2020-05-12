@@ -236,7 +236,7 @@ mpirun -N 2 -npernode 1 -n 2 --bind-to socket mpiBWA mem -t 20
 
 Still, the real time is pretty much the same (~25 sec) whatever you use 1 node or 2 nodes. Then, you can repeat the experiment with 3 and more nodes.
 
-####Conclusion
+#### Conclusion
  
 In this benchmark example, we can see that running mpiBWA with 10 threads seems a good configuration.
 We notice a small increase of real time  when we use all the cores of a node. Therefore, We recommend to leave some cores for the system node.
