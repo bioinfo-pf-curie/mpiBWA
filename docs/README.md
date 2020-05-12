@@ -12,6 +12,7 @@
 * [Informatic resources](#informatic-resources)
     * [Memory](#memory)
     * [Cpu](#cpu)
+    * [Benchmark](#bench)
 * [Examples](#examples)
     * [Standard](#standard)
     * [Slurm](#slurm)
@@ -138,6 +139,73 @@ The total memory used during the alignment if approximately the size of the `.ma
 
 The number of cores is related to the number of rank of the MPI jobs and to the number of threads you ask with bwa with the -t option. For example, the command line `mpirun -n 4 mpiBWA mem -t 8 -o HCC1187C.sam hg19.small.fa examples/data/HCC1187C_R1_10K.fastq examples/data/HCC1187C_R2_10K.fastq` will use 32 cores.
 
+### Benchmark
+
+This part is very important read carefully this section before running mpiBWA on your cluster.
+
+In this section we present a guideline to benchmark mpiBWA with your infrastructure.
+We will answer questions about how to use efficiently multithreading with MPI.
+We present an example we did on our architecture at Institut Curie.
+During the benchmark make sure you are alone on the nodes.  
+
+First we set the baselines.
+
+* BWA MEM baselines
+
+1 threads on 1 node : `bwa mem -t 1`  
+ [M::mem_process_seqs] Processed 40246 reads in 23.303 CPU sec, 23.367 real sec
+
+8 threads on 1 node : `bwa mem -t 8`  
+[M::mem_process_seqs] Processed 322302 reads in 199.261 CPU sec, 25.104 real sec
+
+16 threads on 1 node : `bwa mem -t 16`  
+[M::mem_process_seqs] Processed 644448 reads in 413.054 CPU sec, 26.000 real sec
+
+Now we compare those base lines with mpiBWA  
+
+* mpiBWA MEM baselines 
+
+We start with one node one thread: 
+
+1 threads on 1 node : `mpirun -n 1 mpiBWA mem -t 1`  
+[M::mem_process_seqs] Processed 40224 reads in 25.779 CPU sec, 25.840 real sec
+
+and on several nodes:
+
+1 threads on 8 nodes : `mpirun -N 8 -npernode 1 -n 8 mpiBWA mem -t 1`  
+[M::mem_process_seqs] Processed 40244 reads in 24.416 CPU sec, 24.475 real sec
+
+So far we don’t see differences compare with BWA mem baseline 
+Now we go further with the parallelization.  
+We start to increase the number of mpi jobs with 10 bwa threads
+
+* mpiBWA MEM + multithreads
+
+10 threads on 1 node : `mpirun -N 1 -n 1 mpiBWA mem -t 10`  
+[M::mem_process_seqs] Processed 402610 reads in 257.005 CPU sec, 25.803 real sec
+
+20 threads on 1 node :  `mpirun -N 1 -n 1 mpiBWA mem -t 20`  
+[M::mem_process_seqs] Processed 804856 reads in 546.449 CPU sec, 27.477 real sec
+
+And we increase the number of nodes
+
+* mpiBWA MEM + multithreads + multi nodes
+
+20 threads on 2 node : `mpirun -N 2 -npernode 1 -n 2 --bind-to socket mpiBWA mem -t 10`  
+[M::mem_process_seqs] Processed 403144 reads in 260.081 CPU sec, 26.114 real sec
+
+40 threads on 2 node : `mpirun -N 2 -npernode 1 -n 2 --bind-to socket mpiBWA mem -t 20`  
+[M::mem_process_seqs] Processed 805198 reads in 549.086 CPU sec, 27.610 real sec
+
+So we see no difference if we execute on 1 node and on 2 nodes. And we can repeat with 3 and more nodes.  
+Test also the setup with mpiBWAByChr.
+
+Conclusion:
+ 
+With our configuration running mpiBWA with 10 threads seems a good option.   
+We notice a small increase when we use all the cores of a node. We recommand to leave some cores for the system node.  
+Explore the mpirun options as we do with the bind to socket, this could help and remove contention like NUMA effects.          
+
 ## Examples
 
 There are many ways to distribute and bind MPI jobs according to your architecture. We provide below several examples to launch MPI jobs in a standard manner or with a job scheduling system such as [Slurm](https://slurm.schedmd.com/sbatch.html) and [PBS/Torque](https://support.adaptivecomputing.com/support/documentation-index/torque-resource-manager-documentation/).
@@ -162,9 +230,9 @@ In order to submit a job using [Slurm](https://slurm.schedmd.com/sbatch.html), y
 #! /bin/bash
 #SBATCH -J MPIBWA_32_JOBS
 #SBATCH -N 2                            # Ask 2 nodes
-#SBATCH -n 32                           # total number of mpi jobs 
+#SBATCH -n 2                            # total number of mpi jobs 
 #SBATCH -c 16                           # use 16 cores per mpi job
-#SBATCH --tasks-per-node=16             # Ask 16 mpi jobs per node
+#SBATCH --tasks-per-node=1              # Ask 1 mpi jobs per node
 #SBATCH --mem-per-cpu=${MEM}            # See Memory ressources
 #SBATCH -t 01:00:00
 #SBATCH -o STDOUT_FILE.%j.o
@@ -189,7 +257,7 @@ In order to submit a job using [PBS/Torque](https://support.adaptivecomputing.co
 #PBS -o STDOUT_FILE.%j.o
 #PBS -e STDERR_FILE.%j.e
 
-mpirun mpiBWA mem -t 16 -o ${HOME}/mpiBWAExample/HCC1187C.sam ${HOME}/mpiBWAExample/hg19.small.fa examples/data/HCC1187C_R1_10K.fastq examples/data/HCC1187C_R2_10K.fastq`
+mpirun -n 2 mpiBWA mem -t 16 -o ${HOME}/mpiBWAExample/HCC1187C.sam ${HOME}/mpiBWAExample/hg19.small.fa examples/data/HCC1187C_R1_10K.fastq examples/data/HCC1187C_R2_10K.fastq`
 
 ```
 

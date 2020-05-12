@@ -2,9 +2,9 @@
 
 #SBATCH -J MPIBWA_32_JOBS
 #SBATCH -N 2                            # Ask 2 nodes
-#SBATCH -n 4                            # Total number of cores
+#SBATCH -n 2                            # Total number of mpi job
 #SBATCH -c 8                            # use 8 core per mpi job
-#SBATCH --tasks-per-node=2              # Ask 2 cores per node
+#SBATCH --tasks-per-node=1              # Ask 1 mpi job per node
 #SBATCH --mem-per-cpu=${MEM}            # See Memory ressources
 #SBATCH -t 01:00:00
 #SBATCH -o STDOUT_FILE.%j.o
@@ -40,7 +40,7 @@ fi
 
 echo "INFO: aligning the reads with mpiBWA"
 
-mpirun -n 2 mpiBWA mem -t 8 -o ${output_dir}/HCC1187C.sam ${output_dir}/hg19.small.fa data/HCC1187C_R1_10K.fastq data/HCC1187C_R2_10K.fastq 2> ${output_dir}/mpiBWA.log
+mpirun mpiBWA mem -t 8 -o ${output_dir}/HCC1187C.sam ${output_dir}/hg19.small.fa data/HCC1187C_R1_10K.fastq data/HCC1187C_R2_10K.fastq 2> ${output_dir}/mpiBWA.log
 
 echo "INFO: mpiBWA.log is available in ${output_dir}"
 
