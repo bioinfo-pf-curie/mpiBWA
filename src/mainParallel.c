@@ -1298,7 +1298,12 @@ void map_indexes(char *file_map, int *count, bwaidx_t *indix, int *ignore_alt, M
 
 	MPI_Info_create(&win_info);
 	MPI_Info_set(win_info, "alloc_shared_non_contig", "true");
-        
+       
+	//FOR TEST
+	// MPI_Info_set(win_info, "alloc_shared_non_contig", "false");
+	// MPI_Info_set(win_info, "no_locks", "true");
+	
+ 
         //FOR INTEL KNL   
 	//MPI_Info_set(win_info, "alloc_shared_non_contig", "false");
         
@@ -1712,12 +1717,14 @@ int main(int argc, char *argv[]) {
 	res = MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
 	assert(res == MPI_SUCCESS);
 	threads_ok = provided >= MPI_THREAD_FUNNELED;
-	fprintf(stderr, "rank %d is thread ok ? %d\n", rank_num, threads_ok );
-	fprintf(stderr, "rank %d will use %d threads per mpi job \n", rank_num, opt->n_threads);
 	res = MPI_Comm_size(MPI_COMM_WORLD, &proc_num);
 	assert(res == MPI_SUCCESS);
 	res = MPI_Comm_rank(MPI_COMM_WORLD, &rank_num);
 	assert(res == MPI_SUCCESS);
+	if (rank_num == 0) {
+                fprintf(stderr, "rank %d: is multithread ok ? %d\n", rank_num, threads_ok );
+                fprintf(stderr, "all ranks will use %d threads per mpi job \n", opt->n_threads);
+        }
 
 	 // some internal structures
 	char *p1, *q1, *e1, *p2, *q2, *e2;
@@ -1806,6 +1813,8 @@ int main(int argc, char *argv[]) {
 		exit(2);
 	}
 
+	if (rank_num == 0)
+               fprintf(stderr, "%s: controls are done. Start analyzing fastqs it could take few minutes...\n", __func__, rank_num);
 	
 	if ( (file_r1 != NULL && file_r2 != NULL  && (stat_r1.st_size == stat_r2.st_size)))  {
 	
