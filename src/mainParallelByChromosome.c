@@ -1942,7 +1942,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	if (rank_num == 0)
-		fprintf(stderr, "%s: controls are done. Start analyzing fastqs it could take few minutes...\n", __func__, rank_num);	
+		fprintf(stderr, "%s: controls are done. Start analyzing fastqs it could take few minutes...\n", __func__);	
 
 
 	if ( (file_r1 != NULL && file_r2 != NULL  && (stat_r1.st_size == stat_r2.st_size)))  {
