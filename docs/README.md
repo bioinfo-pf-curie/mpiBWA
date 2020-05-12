@@ -148,19 +148,25 @@ This section provides some guidelines to benchmark `mpiBWA` and `bwa` with your 
 
 1 threads on 1 node : 
 
+```
 bwa mem -t 1
 [M::mem_process_seqs] Processed 40246 reads in 23.303 CPU sec, 23.367 real sec
+```
 
 8 threads on 1 node :
 
+```
 bwa mem -t 8
 [M::mem_process_seqs] Processed 322302 reads in 199.261 CPU sec, 25.104 real sec
+```
 
 
 16 threads on 1 node : 
 
+```
 bwa mem -t 16
 [M::mem_process_seqs] Processed 644448 reads in 413.054 CPU sec, 26.000 real sec
+```
 
 
 #### Assess the performance baseline with the standard mpiBWA
