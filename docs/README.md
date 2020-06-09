@@ -192,7 +192,7 @@ mpirun -N 8 -npernode 1 -n 8 mpiBWA mem -t 1
 ```
 
 
-So far, the real time for both `bwa` or `mpiBWA` is pretty much the same (~25 sec) whatever the configuration.
+So far, the walltime for both `bwa` or `mpiBWA` is pretty much the same (~25 sec) whatever the configuration.
 
 
 **mpiBWA MEM + multithreads**
@@ -234,14 +234,14 @@ mpirun -N 2 -npernode 1 -n 2 --bind-to socket mpiBWA mem -t 20
 [M::mem_process_seqs] Processed 805198 reads in 549.086 CPU sec, 27.610 real sec
 ```
 
-Still, the real time is pretty much the same (~25 sec) whatever you use 1 node or 2 nodes. Then, you can repeat the experiment with 3 and more nodes.
+Still, the walltime is pretty much the same (~25 sec) whatever you use 1 node or 2 nodes. Then, you can repeat the experiment with 3 and more nodes.
 
 #### Conclusion
  
 In this benchmark example, we can see that running mpiBWA with 10 threads seems a good configuration.
-We notice a small increase of real time  when we use all the cores of a node. Therefore, We recommend to leave some cores for the system node.
+We notice a small increase of walltime  when we use all the cores of a node. Therefore, We recommend to leave some cores for the system node.
 Explore the `mpirun` options as we do with the bind to socket, this could help and remove contention like NUMA effects.
-Test also the setup with mpiBWAByChr.
+Test also the setup with `mpiBWAByChr`.
 
 ## Examples
 
