@@ -15,7 +15,7 @@ mpiBWAIdx_SOURCES = pidx.c
 mpiBWAIdx_LDADD = libbwa.a
 
 SRC = utils.c kthread.c kstring.c ksw.c bwt.c bntseq.c bwa.c bwamem.c \
-	bwamem_pair.c bwamem_extra.c malloc_wrap.c
+	bwamem_pair.c bwamem_extra.c malloc_wrap.c tokenizer.c
 HDR = utils.h kstring.h ksw.h bwt.h bntseq.h bwa.h bwamem.h malloc_wrap.h \
-	kbtree.h khash.h kseq.h ksort.h kvec.h
+	kbtree.h khash.h kseq.h ksort.h kvec.h tokenizer.h
 

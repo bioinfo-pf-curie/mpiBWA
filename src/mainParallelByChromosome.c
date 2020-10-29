@@ -42,6 +42,7 @@ The fact that you are presently reading this means that you have had knowledge o
 #include "bwa.h"
 #include "bwamem.h"
 #include "utils.h"
+#include "tokenizer.h"
 
 #ifdef USE_MALLOC_WRAPPERS
 #  include "malloc_wrap.h"
@@ -81,6 +82,8 @@ The fact that you are presently reading this means that you have had knowledge o
 #define CB_BUFFER_SIZE  "3758096384" /* multiple of the block size by the number of proc*/
 #define DATA_SIEVING_READ "enable"
 #define min(a,b) (a>=b?b:a)
+#define MAX_CHAR_SIZE 2048
+#define MAX_CHR_NAME_SIZE 200
 
 
 void init_goff(size_t *goff, MPI_File mpi_filed, size_t fsize,int numproc,int rank){
@@ -1423,7 +1426,7 @@ void create_sam_header_by_chr_file(char *file_out[], bwaidx_t *indix, int *count
         MPI_File fh_out[(*indix).bns->n_seqs];
         MPI_Status status;
         //non MPI related resources
-        int bef,aft;
+        int bef, i, aft;
         int res;
         //the rank 0 takes care of that task
         if (rank_num == 0) {
@@ -1442,37 +1445,39 @@ void create_sam_header_by_chr_file(char *file_out[], bwaidx_t *indix, int *count
              	assert(res == MPI_SUCCESS);
 	     }
 
-             // Add reference sequence lines 
-             for (s = 0; s < (*indix).bns->n_seqs; ++s) {
-             	len = asprintf(&buff, "@SQ\tSN:%s\tLN:%d\n", (*indix).bns->anns[s].name, (*indix).bns->anns[s].len);
-                res = MPI_File_write(fh_out[s], buff, len, MPI_CHAR, &status);
-                assert(res == MPI_SUCCESS);
-                res = MPI_Get_count(&status, MPI_CHAR, count);
-                assert(res == MPI_SUCCESS);
-                assert(*count == len);
-                free(buff);
-              }
-	      // Add header lines 
- 	      if (hdr_line != NULL) {
-                        len = asprintf(&buff, "%s\n", hdr_line);
-                        res = MPI_File_write(fh_out[s], buff, len, MPI_CHAR, &status);
+	      for (i = 0; i < (*indix).bns->n_seqs; ++i) {	
+             	// Add reference sequence lines 
+             	for (s = 0; s < (*indix).bns->n_seqs; ++s) {
+             		len = asprintf(&buff, "@SQ\tSN:%s\tLN:%d\n", (*indix).bns->anns[s].name, (*indix).bns->anns[s].len);
+                	res = MPI_File_write(fh_out[i], buff, len, MPI_CHAR, &status);
+                	assert(res == MPI_SUCCESS);
+                	res = MPI_Get_count(&status, MPI_CHAR, count);
+                	assert(res == MPI_SUCCESS);
+                	assert(*count == len);
+                	free(buff);
+              	}
+	      	// Add header lines 
+ 	      	if (hdr_line != NULL) {
+              		len = asprintf(&buff, "%s\n", hdr_line);
+                	res = MPI_File_write(fh_out[i], buff, len, MPI_CHAR, &status);
+                	assert(res == MPI_SUCCESS);
+                	res = MPI_Get_count(&status, MPI_CHAR, count);
+                	assert(res == MPI_SUCCESS);
+                	assert(*count == len);
+                	free(buff);
+               	}
+       	       	if (rg_line != NULL) {
+               		len = asprintf(&buff, "%s\n", rg_line);
+                        res = MPI_File_write(fh_out[i], buff, len, MPI_CHAR, &status);
                         assert(res == MPI_SUCCESS);
                         res = MPI_Get_count(&status, MPI_CHAR, count);
                         assert(res == MPI_SUCCESS);
                         assert(*count == len);
                         free(buff);
-               }
-       	       if (rg_line != NULL) {
-                        len = asprintf(&buff, "%s\n", rg_line);
-                        res = MPI_File_write(fh_out[s], buff, len, MPI_CHAR, &status);
-                        assert(res == MPI_SUCCESS);
-                        res = MPI_Get_count(&status, MPI_CHAR, count);
-                        assert(res == MPI_SUCCESS);
-                        assert(*count == len);
-                        free(buff);
-			res = MPI_File_close(&fh_out[s]);
+			res = MPI_File_close(&fh_out[i]);
 	                assert(res == MPI_SUCCESS);
-                }
+                	}
+		}
         }
 
         bef = MPI_Wtime();
@@ -1502,7 +1507,7 @@ static int getChr(char *str, char *chrNames[], int nbchr, char *tmp_chr) {
 
     tmp_chr[size - 1] = '\0';
     assert(strlen(tmp_chr) != 0);
-    
+   
     for (i = 0, found = 0; i < nbchr && !found; i++) {
         found = !strcmp(tmp_chr, chrNames[i]);
     }
@@ -2143,9 +2148,9 @@ int main(int argc, char *argv[]) {
 
 		//we create a vector with chromosom names 
 		int s;
-		MPI_File *fh_out          = malloc( (indix.bns->n_seqs + 2) * sizeof(MPI_File));
-		char *files_out_sam_name[indix.bns->n_seqs + 2];
-		char *file_map_by_chr[(indix.bns->n_seqs + 2)];
+		MPI_File *fh_out          = malloc( (indix.bns->n_seqs + 1) * sizeof(MPI_File));
+		char *files_out_sam_name[indix.bns->n_seqs + 1];
+		char *file_map_by_chr[(indix.bns->n_seqs + 1)];
 
 		for (s = 0; s < indix.bns->n_seqs; ++s){
 			files_out_sam_name[s] = malloc( (strlen( indix.bns->anns[s].name) + 1 ) * sizeof(char));
@@ -2155,12 +2160,10 @@ int main(int argc, char *argv[]) {
 		}
 		
 		char UNMAPPED[]   = "unmapped";
-		char DISCORDANT[] = "discordant";
-		files_out_sam_name[s++] = strdup(DISCORDANT);
 		files_out_sam_name[s++] = strdup(UNMAPPED);
 		int file_name_len = 0;
 		
-		for (s = 0; s < (indix.bns->n_seqs + 2); ++s){
+		for (s = 0; s < (indix.bns->n_seqs + 1); ++s){
 			/* Derived file names */
 		        file_name_len = strlen(output_path) + strlen(files_out_sam_name[s]) + 6;
 		        file_map_by_chr[s] = calloc( file_name_len, sizeof(char));		        
@@ -2177,7 +2180,7 @@ int main(int argc, char *argv[]) {
 		//we add the header in the discordant SAM
 		create_sam_header(file_map_by_chr[indix.bns->n_seqs], &indix, &count, hdr_line, rg_line, rank_num);
                 
-		for (s = 0; s < (indix.bns->n_seqs + 2); ++s){
+		for (s = 0; s < (indix.bns->n_seqs + 1); ++s){
                         res = MPI_File_open(MPI_COMM_WORLD, file_map_by_chr[s], MPI_MODE_CREATE|MPI_MODE_WRONLY|MPI_MODE_APPEND, MPI_INFO_NULL, &fh_out[s]);
                         assert(res == MPI_SUCCESS);
                 }
@@ -2201,8 +2204,8 @@ int main(int argc, char *argv[]) {
 
 		buffer_r1 = buffer_r2 = NULL; seqs = NULL;
 		//localsize_vec contain the size of the buffer to write in the sam file
-		int *chr_buff_size  = calloc ( (indix.bns->n_seqs + 2), sizeof(int) );
-		char *buffer_out_vec[indix.bns->n_seqs + 2];
+		int *chr_buff_size  = calloc ( (indix.bns->n_seqs + 1), sizeof(int) );
+		char *buffer_out_vec[indix.bns->n_seqs + 1];
 		
 		// here we loop until there's nothing to read
 		// in the offset and size file
@@ -2335,72 +2338,115 @@ int main(int argc, char *argv[]) {
 			//MPI_Barrier(MPI_COMM_WORLD);
 			/* Write results ... */
 			bef = MPI_Wtime();
-            localsize = 0;
-            int *sam_buff_dest  = calloc ( reads, sizeof(int) );
-            //vecto to check if a discordant need to be add in discordant.sam we set 1 if true 0 else
-            int *add_in_disc    =  calloc ( reads, sizeof(int) );
-            char *current_line; //pointer to the sam line
-            char *currentCarac;
-            int chr, mchr;
-            size_t coord, sam_line_size;
-            unsigned char quality;
-            int nbchr = indix.bns->n_seqs + 2;
+            		localsize = 0;
 
-            char *tmp_chr = malloc( 200 * sizeof(char));
-            tmp_chr[199] = 0;
+			char *current_line; //pointer to the sam line
+			char *currentCarac;
+                        char *start_sam_line;
+                        int chr, mchr, i;
+                        size_t coord, sam_line_size;
+                        unsigned char quality;
+                        int nbchr = indix.bns->n_seqs + 2;
+                        char sep[] = { ' ', '\t' };
 
-			for (n = 0; n < reads; n++) {
-                                /* Reuse .l_seq to store SAM line length to avoid multiple strlen() calls */
-                                // Now we parse the sam line to extract taped chromosoms
-                                // and update the local size vector
-                                current_line  = seqs[n].sam;
+                        char *tmp_chr = malloc( MAX_CHR_NAME_SIZE * sizeof(char));
+                        tmp_chr[0] = 0;
+
+                        int next;
+                        char currentLine[MAX_CHAR_SIZE];
+			//first we cont how many sam line we have
+			size_t total_sam_line = 0;
+
+                        for (n = 0; n < reads; n++) {
+                                next = tokenizer(seqs[n].sam,'\n', currentLine);
+                                while (next) {
+                                        total_sam_line++;
+                                        next = tokenizer(NULL, '\n', currentLine);
+                                }
+                                for(i=0; i<MAX_CHAR_SIZE; i++){
+                                       currentLine[i]=0;
+                               }
+                        }
+
+			int *sam_buff_dest      = calloc ( total_sam_line, sizeof(int) );
+                        char **start_addr       = malloc ( total_sam_line * sizeof(char*));
+                        int *line_size_to_cpy   = malloc ( total_sam_line * sizeof(int));
+                        size_t incr_line =0;
+
+                        for(i=0; i< MAX_CHAR_SIZE; i++){
+                                currentLine[i]=0;
+                        }
+
+                        for (n = 0; n < reads; n++) {
+                                int total_sam_line_size = 0;
                                 seqs[n].l_seq = strlen(seqs[n].sam);
-                                sam_line_size = strlen(seqs[n].sam);
-                                //GO TO FLAG
-                                currentCarac = strstr(current_line, "\t");
-                                //fprintf(stderr, "currentCarac = %s \n ",currentCarac)
-                                currentCarac++;
-                                //GO TO RNAME (Chr name)
-                                currentCarac = strstr(currentCarac + 1, "\t");
-                                if ( currentCarac[1] == '*') chr =  nbchr-2;
-                                else chr = getChr(currentCarac, files_out_sam_name, nbchr-2, tmp_chr);
-                                //GO TO COORD
-                                currentCarac = strstr(currentCarac + 1, "\t");
-								coord = strtoull(currentCarac, &currentCarac, 10);
 
-                                //TAKE MAPQ AND GO TO CIGAR
-                                quality = strtoull(currentCarac, &currentCarac, 10);
-                                //GO TO RNEXT
-                                currentCarac = strstr(currentCarac + 1, "\t");
-                                currentCarac++;
-                                if (currentCarac[0] == '=') {
-                                	mchr = chr;
-                                } else if ( currentCarac[0] == '*') {
-                                       mchr = nbchr - 2;
-                                } else {
-                                       mchr = getChr(currentCarac, files_out_sam_name, nbchr-2, tmp_chr);
+                                next = tokenizer(seqs[n].sam,'\n', currentLine);
+                                currentCarac = currentLine;
+                                start_sam_line = seqs[n].sam;
+
+
+				while (next){
+
+                                        start_sam_line = seqs[n].sam + total_sam_line_size;
+                                        sam_line_size = strlen(currentLine) + 1;
+                                        //we update the offset in the
+                                        //source file
+                                        currentLine[sam_line_size - 1] = '\n';
+                                        currentLine[sam_line_size] = '\0';
+                                        currentCarac = currentLine;
+                                        //WE PASS READ NAME
+                                        currentCarac = strpbrk (currentCarac, sep);
+                                        currentCarac++;
+
+                                        //WE PASS FLAG  
+					currentCarac = strpbrk (currentCarac, sep);
+                                        currentCarac++;
+
+                                        if ( currentCarac[0] == '*') chr =  nbchr-1;
+                                        else chr = getChr(currentCarac - 1, files_out_sam_name, nbchr-1, tmp_chr);
+
+					//PASS CHR
+                                        currentCarac = strpbrk (currentCarac, sep);
+                                        currentCarac++;
+					
+					//PASS COORD
+					currentCarac = strpbrk (currentCarac, sep);
+                                        currentCarac++;
+
+					//PASS MAPQ
+					currentCarac = strpbrk (currentCarac, sep);
+                                        currentCarac++;
+                                        //PASS CIGAR
+                                        currentCarac = strpbrk (currentCarac, sep);
+                                        currentCarac++;
+
+                                        if (currentCarac[0] == '=')             mchr = chr;
+                                        else if ( currentCarac[0] == '*')       mchr = nbchr-1;
+                                        else mchr = getChr(currentCarac - 1, files_out_sam_name, nbchr-1, tmp_chr);
+
+                                        if (chr < (nbchr - 1)){
+						chr_buff_size[chr]              += sam_line_size;
+                                                sam_buff_dest[incr_line]        = chr;
+                                                start_addr[incr_line]           = start_sam_line;
+
+                                        }
+                                        else {
+						chr_buff_size[nbchr - 1]        += sam_line_size;
+                                                sam_buff_dest[incr_line]        = nbchr-1;
+                                                start_addr[incr_line]           = start_sam_line;
+                                        }
+
+                                        line_size_to_cpy[incr_line] = sam_line_size;
+                                        total_sam_line_size += sam_line_size;
+                                        incr_line++;
+                                        next = tokenizer(NULL, '\n', currentLine);
                                 }
-                        
-				if (chr < (nbchr - 2)){
-                                        //the read goes in the SAM it belongs 
-                                        chr_buff_size[chr]    += sam_line_size;
-                                        sam_buff_dest[n]       = chr;
-                                }
-                                else {
-                                        //the read goes in unmapped sam
-                                        chr_buff_size[nbchr - 1] += sam_line_size;
-                                        sam_buff_dest[n]          = nbchr - 1;
-                                }
-                                //finally we test if the read goes in discordant sam file
-				 if ((chr < (nbchr - 2)) && ( mchr < (nbchr - 2) && (chr != mchr))) {
-                                        chr_buff_size[nbchr - 2] += sam_line_size;
-                                        add_in_disc[n]  = 1;
-                                }
-        
-                       	}//end for (n = 0; n < reads; n++)
+                        }
+
 			free(tmp_chr);
 			//now we fill up the buffer_out_vec
-			for (n = 0; n < (indix.bns->n_seqs + 2); n++) {
+			for (n = 0; n < (indix.bns->n_seqs + 1); n++) {
 
                                 assert(chr_buff_size[n] <= INT_MAX);
 
@@ -2410,26 +2456,25 @@ int main(int argc, char *argv[]) {
                                         buffer_out_vec[n][chr_buff_size[n]] = '\0';
                                 }
                         }
-                        size_t *actual_size = calloc(indix.bns->n_seqs + 2, sizeof(size_t));
+                        size_t *actual_size = calloc(indix.bns->n_seqs + 1, sizeof(size_t));
                         char *p_temp2;
-                        for (n = 0; n < reads; n++) {
+                        int u = 0;
+                        for (n = 0; n < total_sam_line; n++) {
 
                                 p_temp2 = buffer_out_vec[sam_buff_dest[n]] + actual_size[sam_buff_dest[n]];
-                                memmove(p_temp2, seqs[n].sam, seqs[n].l_seq);
-                                actual_size[sam_buff_dest[n]] += seqs[n].l_seq;
-				 				if (add_in_disc[n]){
-                                        p_temp2 = buffer_out_vec[nbchr - 2] + actual_size[nbchr - 2];
-                                        memmove(p_temp2, seqs[n].sam, seqs[n].l_seq);
-                                        actual_size[nbchr - 2] += seqs[n].l_seq;
-                                }
+                                memmove(p_temp2, start_addr[n], line_size_to_cpy[n]);
+                                actual_size[sam_buff_dest[n]] += line_size_to_cpy[n];
 
-                                free(seqs[n].sam);
                         }
-			free(add_in_disc);
-			free(sam_buff_dest);
+                        for (n = 0; n < reads; n++) free(seqs[n].sam);
+                        free(sam_buff_dest);
                         free(seqs);
                         free(actual_size);
-                        for (n = 0; n < (indix.bns->n_seqs + 2); n++) {
+                        free(start_addr);
+                        free(line_size_to_cpy);
+  
+
+                      	for (n = 0; n < (indix.bns->n_seqs + 1); n++) {
 
                                 if (chr_buff_size[n]) {
                                         res = MPI_File_write_shared(fh_out[n], buffer_out_vec[n], chr_buff_size[n], MPI_CHAR, &status);
@@ -2451,7 +2496,7 @@ int main(int argc, char *argv[]) {
 		} //end for (u1 = 0; u1 < chunk_count; u1++){
 	
 		//free data structures and close sam files 
-		for (n = 0; n < (indix.bns->n_seqs + 2); n++)  {
+		for (n = 0; n < (indix.bns->n_seqs + 1); n++)  {
 			free(files_out_sam_name[n]);
                 	free(file_map_by_chr[n]);
                 	res = MPI_File_close(&fh_out[n]);
@@ -2518,11 +2563,11 @@ int main(int argc, char *argv[]) {
 		size_t total_num_reads_2	= 0;
 
 		//Here I decided to keep separated vectors because otherwise with all the reallocs they would be too big and take too much contiguous memory space
-		int *local_read_size    		= calloc(1, sizeof(int));
-		int *local_read_size_2    		= calloc(1, sizeof(int));
+		int *local_read_size    	= calloc(1, sizeof(int));
+		int *local_read_size_2  	= calloc(1, sizeof(int));
 		size_t *local_read_bytes    	= calloc(1, sizeof(size_t));
 		size_t *local_read_bytes_2    	= calloc(1, sizeof(size_t));
-		size_t *local_read_offsets 		= calloc(1, sizeof(size_t));
+		size_t *local_read_offsets 	= calloc(1, sizeof(size_t));
 		size_t *local_read_offsets_2 	= calloc(1, sizeof(size_t));
 
 		assert( local_read_offsets 	!= NULL);
@@ -2767,9 +2812,9 @@ int main(int argc, char *argv[]) {
 
 		//we create a vector with chromosom names 
 		int s;
-		MPI_File *fh_out	= malloc( (indix.bns->n_seqs + 2) * sizeof(MPI_File));
-	        char *files_out_sam_name[indix.bns->n_seqs + 2];
-		char *file_map_by_chr[indix.bns->n_seqs + 2];
+		MPI_File *fh_out	= malloc( (indix.bns->n_seqs + 1) * sizeof(MPI_File));
+	        char *files_out_sam_name[indix.bns->n_seqs + 1];
+    		char *file_map_by_chr[indix.bns->n_seqs + 1];
 	
 		for (s = 0; s < indix.bns->n_seqs; ++s){
 			
@@ -2780,12 +2825,10 @@ int main(int argc, char *argv[]) {
 		}
 
 		char UNMAPPED[]   = "unmapped"; 
-		char DISCORDANT[] = "discordant";
-		files_out_sam_name[s++] = strdup(DISCORDANT);
     		files_out_sam_name[s++] = strdup(UNMAPPED);
 		//char *file_map_by_chr[(indix.bns->n_seqs + 2)];
 		size_t file_name_len = 0;
-		for (s = 0; s < (indix.bns->n_seqs + 2); ++s){
+		for (s = 0; s < (indix.bns->n_seqs + 1); ++s){
 			/* Derived file names */
 			file_name_len = strlen(output_path) + strlen(files_out_sam_name[s]) + 6;
 			file_map_by_chr[s] = calloc( file_name_len, sizeof(char));
@@ -2803,7 +2846,7 @@ int main(int argc, char *argv[]) {
 		//we add the header in the discordant SAM
 		create_sam_header(file_map_by_chr[indix.bns->n_seqs], &indix, &count, hdr_line, rg_line, rank_num);
 		
-		for (s = 0; s < (indix.bns->n_seqs + 2); ++s){		
+		for (s = 0; s < (indix.bns->n_seqs + 1); ++s){		
 			res = MPI_File_open(MPI_COMM_WORLD, file_map_by_chr[s], MPI_MODE_CREATE|MPI_MODE_WRONLY|MPI_MODE_APPEND, MPI_INFO_NULL, &fh_out[s]);
 			assert(res == MPI_SUCCESS);
 		}
@@ -2827,8 +2870,8 @@ int main(int argc, char *argv[]) {
 		//we loop the chunck_count
 		
 		 //localsize_vec contain the size of the buffer to write in the sam file
-		int *chr_buff_size  = calloc ( (indix.bns->n_seqs + 2), sizeof(int) );
-		char *buffer_out_vec[indix.bns->n_seqs + 2];
+		int *chr_buff_size  = calloc ( (indix.bns->n_seqs + 1), sizeof(int) );
+		char *buffer_out_vec[indix.bns->n_seqs + 1];
                                                                                            
 		size_t u1 = 0; 
 		for (u1 = 0; u1 < chunk_count; u1++){
@@ -2991,77 +3034,120 @@ int main(int argc, char *argv[]) {
 			/* Write results ... */
 			bef = MPI_Wtime();
 			localsize = 0;
-			int *sam_buff_dest  = calloc ( reads, sizeof(int) );
+			//int *sam_buff_dest  = calloc ( reads, sizeof(int) );
 			//vecto to check if a discordant need to be add in discordant.sam we set 1 if true 0 else
-			int *add_in_disc    =  calloc ( reads, sizeof(int) );
+			//int *add_in_disc    =  calloc ( reads, sizeof(int) );
 			char *current_line; //pointer to the sam line
 			char *currentCarac;
+			char *start_sam_line;
 			int chr, mchr;
 			size_t coord, sam_line_size;
 			unsigned char quality;	
-			int nbchr = indix.bns->n_seqs + 2;
+			int nbchr = indix.bns->n_seqs + 1;
+			char sep[] = { ' ', '\t' };
 
-			char *tmp_chr = malloc( 200 * sizeof(char));
+			char *tmp_chr = malloc( MAX_CHR_NAME_SIZE * sizeof(char));
 			tmp_chr[0] = 0;
 			
-			for (n = 0; n < reads; n++) {
-				/* Reuse .l_seq to store SAM line length to avoid multiple strlen() calls */
-				// Now we parse the sam line to extract taped chromosoms
-				// and update the local size vector
-									
-				current_line  = seqs[n].sam;
-				seqs[n].l_seq = strlen(seqs[n].sam);
-				sam_line_size = strlen(seqs[n].sam); 
-				
-				//GO TO FLAG
-				currentCarac = strstr(current_line, "\t");
-				//fprintf(stderr, "currentCarac = %s \n ",currentCarac)
-				currentCarac++;
-				//GO TO RNAME (Chr name)
-				currentCarac = strstr(currentCarac + 1, "\t");
- 				
-				if ( currentCarac[1] == '*') chr =  nbchr-2;
-				else chr = getChr(currentCarac, files_out_sam_name, nbchr-2, tmp_chr);
-				
-				//GO TO COORD
-				currentCarac = strstr(currentCarac + 1, "\t");				
+			int next;
+			char currentLine[MAX_CHAR_SIZE];
 
-				//TAKE COORD AND GO TO MAPQ
-				coord = strtoull(currentCarac, &currentCarac, 10);				
+			//first we cont how many sam line we have
+			size_t total_sam_line = 0;
+			
+                        for (n = 0; n < reads; n++) {
+			        next = tokenizer(seqs[n].sam,'\n', currentLine);
+				while (next) {
+					total_sam_line++;
+					next = tokenizer(NULL, '\n', currentLine);
+				}					
+			        for(i=0; i<MAX_CHAR_SIZE; i++){
+                	               currentLine[i]=0;
+		               }
+			}	
+	
+
+			int *sam_buff_dest  	= calloc ( total_sam_line, sizeof(int) );
+			char **start_addr    	= malloc ( total_sam_line * sizeof(char*));
+			int *line_size_to_cpy   = malloc ( total_sam_line * sizeof(int));	
+			size_t incr_line =0;			
+
+			for(i=0; i< MAX_CHAR_SIZE; i++){
+                                currentLine[i]=0;
+                        }
+
+			for (n = 0; n < reads; n++) {
+				int total_sam_line_size = 0;					
+				seqs[n].l_seq = strlen(seqs[n].sam);
+			
+				next = tokenizer(seqs[n].sam,'\n', currentLine);
+				currentCarac = currentLine;
+				start_sam_line = seqs[n].sam;
+
+				while (next){
 				
-				//TAKE MAPQ AND GO TO CIGAR
-				quality = strtoull(currentCarac, &currentCarac, 10);
-				
-				//GO TO RNEXT
-				currentCarac = strstr(currentCarac + 1, "\t");
-				currentCarac++;
-				
-				if (currentCarac[0] == '=') 		mchr = chr;
-				else if ( currentCarac[0] == '*') 	mchr = nbchr - 2;
-				else mchr = getChr(currentCarac, files_out_sam_name, nbchr-2, tmp_chr);
+					start_sam_line = seqs[n].sam + total_sam_line_size;	
+					sam_line_size = strlen(currentLine) + 1;
+                         		//we update the offset in the
+                                        //source file
+                                        currentLine[sam_line_size - 1] = '\n';
+                                        currentLine[sam_line_size] = '\0';
+					currentCarac = currentLine;
+					//WE PASS READ NAME
+					currentCarac = strpbrk (currentCarac, sep);
+					currentCarac++;
+					 				
+					//WE PASS FLAG					
+					currentCarac = strpbrk (currentCarac, sep);	
+					currentCarac++;
+					
+					if ( currentCarac[0] == '*') chr =  nbchr-1;
+					else chr = getChr(currentCarac - 1, files_out_sam_name, nbchr-1, tmp_chr);
+	
+					//PASS CHR
+					currentCarac = strpbrk (currentCarac, sep);
+					currentCarac++;
+						
+					//PASS COORD
+					currentCarac = strpbrk (currentCarac, sep);
+					currentCarac++;
+					//PASS MAPQ
+					currentCarac = strpbrk (currentCarac, sep);
+                                        currentCarac++;
+                                        //PASS CIGAR
+                                        currentCarac = strpbrk (currentCarac, sep);
+					currentCarac++;
+					
+					if (currentCarac[0] == '=') 		mchr = chr;
+					else if ( currentCarac[0] == '*') 	mchr = nbchr-1;
+					else mchr = getChr(currentCarac - 1, files_out_sam_name, nbchr-1, tmp_chr);
 							
-				if (chr < (nbchr - 2)){
-                                        //the read goes in the SAM it belongs 
-                                         chr_buff_size[chr]    += sam_line_size;
-                                         sam_buff_dest[n]       = chr;
-                                }
-				else {
-					//the read goes in unmapped sam
-					chr_buff_size[nbchr - 1] += sam_line_size;
-                                        sam_buff_dest[n]          = nbchr - 1;
+					if (chr < (nbchr - 1)){
+                                        	//the read goes in the SAM it belongs 
+                                        	chr_buff_size[chr]    		+= sam_line_size;
+                                         	sam_buff_dest[incr_line]       	= chr;
+						start_addr[incr_line]		= start_sam_line;
+						
+                                	}
+					else {
+						//the read goes in unmapped sam
+						chr_buff_size[nbchr - 1] 	+= sam_line_size;
+                                        	sam_buff_dest[incr_line]        = nbchr-1;
+						start_addr[incr_line]           = start_sam_line;
+					}
+					
+					line_size_to_cpy[incr_line] = sam_line_size;
+					total_sam_line_size += sam_line_size;
+					incr_line++;				
+					next = tokenizer(NULL, '\n', currentLine);
 				}
 
-				//finally we test if the read goes in discordant sam file
-				if ((chr < (nbchr - 2)) && ( mchr < (nbchr - 2) && (chr != mchr))) { 
-					chr_buff_size[nbchr - 2] += sam_line_size;
-					add_in_disc[n]  = 1;
-                		}
             			                        
 			}        
-
+			
 			free(tmp_chr);
          		//now we fill up the buffer_out_vec
-			for (n = 0; n < (indix.bns->n_seqs + 2); n++) {
+			for (n = 0; n < (indix.bns->n_seqs + 1); n++) {
 
 				assert(chr_buff_size[n] <= INT_MAX);
 				
@@ -3071,29 +3157,25 @@ int main(int argc, char *argv[]) {
 					buffer_out_vec[n][chr_buff_size[n]] = '\0';
 				}
 			}
-                       	size_t *actual_size = calloc(indix.bns->n_seqs + 2, sizeof(size_t));
+                       	size_t *actual_size = calloc(indix.bns->n_seqs + 1, sizeof(size_t));
 			char *p_temp2;
-			for (n = 0; n < reads; n++) {
+			int u = 0;
+			for (n = 0; n < total_sam_line; n++) {
 
 				p_temp2 = buffer_out_vec[sam_buff_dest[n]] + actual_size[sam_buff_dest[n]];
-				memmove(p_temp2, seqs[n].sam, seqs[n].l_seq);
-				actual_size[sam_buff_dest[n]] += seqs[n].l_seq;
-
-				//now we test if we need to add in discordant SAM
-				//in this case we replace sam_buff_dest[n] with nbchr - 2
-				if (add_in_disc[n]){
-					p_temp2 = buffer_out_vec[nbchr - 2] + actual_size[nbchr - 2];
-                                	memmove(p_temp2, seqs[n].sam, seqs[n].l_seq);
-                                	actual_size[nbchr - 2] += seqs[n].l_seq;
-				}
-
-				free(seqs[n].sam); 
+				memmove(p_temp2, start_addr[n], line_size_to_cpy[n]);
+				actual_size[sam_buff_dest[n]] += line_size_to_cpy[n];
+				
 			}
+			for (n = 0; n < reads; n++) free(seqs[n].sam); 
+			
 			free(sam_buff_dest);
-			free(add_in_disc);
 			free(seqs);
 			free(actual_size);
-			for (n = 0; n < (indix.bns->n_seqs + 2); n++) {
+			free(start_addr);
+			free(line_size_to_cpy);
+
+			for (n = 0; n < (indix.bns->n_seqs + 1); n++) {
 				
 				if (chr_buff_size[n]) {
 					res = MPI_File_write_shared(fh_out[n], buffer_out_vec[n], chr_buff_size[n], MPI_CHAR, &status);
@@ -3115,14 +3197,12 @@ int main(int argc, char *argv[]) {
 
 		} //end for loop on chunks
 
-		for (n = 0; n < (indix.bns->n_seqs + 2); n++)  {
+		for (n = 0; n < (indix.bns->n_seqs + 1); n++)  {
 			free(files_out_sam_name[n]);
 			free(file_map_by_chr[n]);
 			res = MPI_File_close(&fh_out[n]);
 			assert(res == MPI_SUCCESS);
 		}
-		//if (buffer_out_vec) free(buffer_out_vec);
-		//if (chr_buff_size) free(chr_buff_size);
 	}// end else case files are trimmed
 
 	if (file_r1 != NULL && file_r2 == NULL){
