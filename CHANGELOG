@@ -1,6 +1,7 @@
 version-1.3
-    - review of mpiBWAByChr output (issue#31): we remove discordant.gz file now the fragment are written in the chromosome file it belong. 
-      in order to facilitate the fixmate and subsequent marking of duplicate 
+    - review of mpiBWAByChr output (issue#31): we remove discordant.gz file now the fragment are written in the chromosome file it belong.
+      This in order to facilitate the fixmate and subsequent marking of duplicate. 
+      The header has also change we now include all chromosoms (samtools fixmate need it).   
 
 version-1.2
     - Fix release not link in README.md (issue#28)
