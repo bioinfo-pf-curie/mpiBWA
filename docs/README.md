@@ -107,6 +107,12 @@ If you want to split the results of the alignment by chromosome, use `mpiBWAByCh
 ### Options
 
 * `bwa mem` options can be passed from command line (e.g. `mpiBWA mem -t 8 -k 18`)
+* `-f` add this option if you want to fix the mates during the mapping (optionnal)
+
+example: `mpirun -n 2 mpiBWAByChr mem -t 8 -f -o SAM REF FASTQ1 FASTQ2`
+
+the -f option add CIGAR, quality, and base score to each mate. This is equivalent to "samtools fixmate -c -m".
+This option permits to mark the duplicates with samtools in downstream analisys. The overhead time is less than 10%. 
 
 ### output
 

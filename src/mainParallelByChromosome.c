@@ -43,6 +43,7 @@ The fact that you are presently reading this means that you have had knowledge o
 #include "bwamem.h"
 #include "utils.h"
 #include "tokenizer.h"
+#include "fixmate.h"
 
 #ifdef USE_MALLOC_WRAPPERS
 #  include "malloc_wrap.h"
@@ -1533,6 +1534,7 @@ int main(int argc, char *argv[]) {
 	int proc_num, rank_num, rank_shr;
 	int res, count;
 	int files, nargs;
+	int dofixmate = 0;
 	int c, copy_comment = 0;
 	int ignore_alt = 0;
 	double bef, aft;
@@ -1557,7 +1559,7 @@ int main(int argc, char *argv[]) {
 
 		fprintf(stderr, "program: %s is a MPI version of BWA MEM\n"
 			"version: %s\n"
-			"\nusage : mpirun -n TOTAL_PROC %s mem -t 8 -o SAM_FILE REFERENCE_GENOME FASTQ_R1 [FASTQ_R2]\n"
+			"\nusage : mpirun -n TOTAL_PROC %s mem -t 8 [-f] -o SAM_FILE REFERENCE_GENOME FASTQ_R1 [FASTQ_R2]\n"
             "\n\tTOTAL_PROC tells how many cores will be used by MPI to parallelize the computation.\n"
 			"\nrequirements : from the reference genome index file generated with the command 'bwa index'\n"
             "\tyou need to create a reference genome map file with 'mpiBAWIdx' that comes along\n"
@@ -1565,6 +1567,7 @@ int main(int argc, char *argv[]) {
             "\n\t\tmpiBWAIdx myReferenceGenome.fa\n\n"
 			"\tIt creates a .map file that will be used in shared memory as reference genome.\n"
             "\ninput:\n"
+	    "\t-f to fix the mate on the fly for compatibility with samtools markdup (optional)\n"	
             "\tREFERENCE_GENOME: reference genome name (e.g. myReferenceGenome.fa).\n"
             "\t\tDo not provide the '.map' extension of the file genareted with 'mpiBWAIdx'\n"
             "\n\tFASTQ_R1: fastq file for R1\n"
@@ -1594,7 +1597,7 @@ int main(int argc, char *argv[]) {
 	/* initialize the BWA-MEM parameters to the default values */
 	opt = mem_opt_init();
 	memset(&opt0, 0, sizeof(opt0));
-	while ((c = getopt(argc-1, argv+1, "1paMCSPVYjk:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:W:x:G:h:y:K:X:H:o:")) >= 0) {
+	while ((c = getopt(argc-1, argv+1, "1paMCSPVYjk:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:W:x:G:h:y:K:X:H:o:f")) >= 0) {
 		if (c == 'k') opt->min_seed_len = atoi(optarg), opt0.min_seed_len = 1;
 		else if (c == '1') ; /* FIXME: unsupported */
 		else if (c == 'x') mode = optarg;
@@ -1695,6 +1698,7 @@ int main(int argc, char *argv[]) {
 		}
 		/* Tool specific options */
 		else if (c == 'o') file_out = optarg;
+		else if (c == 'f') dofixmate = 1;
 		else return 1; }
 
 	if (mode) {
@@ -1800,6 +1804,7 @@ int main(int argc, char *argv[]) {
 	bwa_fill_scmat(opt->a, opt->b, opt->mat);
 
 	files = 0;
+
 	file_ref = argv[optind+1+0];
 	if (nargs > 1) {
 		file_r1 = argv[optind+1+1]; files += 1;
@@ -2354,19 +2359,49 @@ int main(int argc, char *argv[]) {
 
                         int next;
                         char currentLine[MAX_CHAR_SIZE];
-			//first we cont how many sam line we have
-			size_t total_sam_line = 0;
 
-                        for (n = 0; n < reads; n++) {
+			//first we cont how many sam line we have
+
+			size_t total_sam_line = 0;
+                        int current_sam_line1 = 0;
+                        int current_sam_line2 = 0;
+                        n = 0;
+			if (dofixmate) bef = MPI_Wtime();
+                        while ( n < reads){
+                                current_sam_line1 = 0;
                                 next = tokenizer(seqs[n].sam,'\n', currentLine);
                                 while (next) {
                                         total_sam_line++;
+                                        current_sam_line1++;
                                         next = tokenizer(NULL, '\n', currentLine);
                                 }
-                                for(i=0; i<MAX_CHAR_SIZE; i++){
-                                       currentLine[i]=0;
-                               }
+                                for(i=0; i<MAX_CHAR_SIZE; i++) currentLine[i]=0;
+                                current_sam_line2 = 0;
+                                next = tokenizer(seqs[n+1].sam,'\n', currentLine);
+                                while (next) {
+                                        total_sam_line++;
+                                        current_sam_line2++;
+                                        next = tokenizer(NULL, '\n', currentLine);
+                                }
+
+                                if (dofixmate) {
+                                        if ((current_sam_line1 + current_sam_line2) > 1)
+                                                fixmate (rank_num, &seqs[n], &seqs[n+1], current_sam_line1, current_sam_line2, &indix );
+                                        else {
+                                                fprintf(stderr, "we have a problem \n");
+                                                fprintf(stderr, "seqs1= %s \n seqs2 = %s \n", seqs[n].sam, seqs[n+1].sam);
+                                                assert ( 1 == 0);
+                                        }
+                                }
+                                for(i=0; i<MAX_CHAR_SIZE; i++) currentLine[i]=0;
+                                n = n + 2;
                         }
+
+			if (dofixmate){
+                                 aft = MPI_Wtime();
+                                 fprintf(stderr, "rank: %d :: %s: time spend in fixmate (%.02f) \n", rank_num, __func__, aft - bef);
+                        }
+
 
 			int *sam_buff_dest      = calloc ( total_sam_line, sizeof(int) );
                         char **start_addr       = malloc ( total_sam_line * sizeof(char*));
@@ -2379,7 +2414,7 @@ int main(int argc, char *argv[]) {
 
                         for (n = 0; n < reads; n++) {
                                 int total_sam_line_size = 0;
-                                seqs[n].l_seq = strlen(seqs[n].sam);
+                                //seqs[n].l_seq = strlen(seqs[n].sam);
 
                                 next = tokenizer(seqs[n].sam,'\n', currentLine);
                                 currentCarac = currentLine;
@@ -2466,9 +2501,10 @@ int main(int argc, char *argv[]) {
                                 actual_size[sam_buff_dest[n]] += line_size_to_cpy[n];
 
                         }
+			
                         for (n = 0; n < reads; n++) free(seqs[n].sam);
                         free(sam_buff_dest);
-                        free(seqs);
+			free(seqs);
                         free(actual_size);
                         free(start_addr);
                         free(line_size_to_cpy);
@@ -3053,33 +3089,57 @@ int main(int argc, char *argv[]) {
 			char currentLine[MAX_CHAR_SIZE];
 
 			//first we cont how many sam line we have
-			size_t total_sam_line = 0;
 			
-                        for (n = 0; n < reads; n++) {
-			        next = tokenizer(seqs[n].sam,'\n', currentLine);
-				while (next) {
-					total_sam_line++;
-					next = tokenizer(NULL, '\n', currentLine);
-				}					
-			        for(i=0; i<MAX_CHAR_SIZE; i++){
-                	               currentLine[i]=0;
-		               }
-			}	
-	
+			size_t total_sam_line = 0;
+			int current_sam_line1 = 0;	
+			int current_sam_line2 = 0;
+			n = 0;
+                        
+			if (dofixmate) bef = MPI_Wtime();                      
+                        while ( n < reads){
+				current_sam_line1 = 0;
+                               	next = tokenizer(seqs[n].sam,'\n', currentLine);
+                               	while (next) {
+                                       	total_sam_line++;
+                                       	current_sam_line1++;
+                                       	next = tokenizer(NULL, '\n', currentLine);
+                               	}
+				for(i=0; i<MAX_CHAR_SIZE; i++) currentLine[i]=0;
+				current_sam_line2 = 0;
+                               	next = tokenizer(seqs[n+1].sam,'\n', currentLine);
+                               	while (next) {
+                                       	total_sam_line++;
+                                       	current_sam_line2++;
+                                       	next = tokenizer(NULL, '\n', currentLine);
+                        	}
+					
+				if (dofixmate) {
+					if ((current_sam_line1 + current_sam_line2) > 1)
+						fixmate (rank_num, &seqs[n], &seqs[n+1], current_sam_line1, current_sam_line2, &indix );
+					else {
+						fprintf(stderr, "we have a problem \n");
+						fprintf(stderr, "seqs1= %s \n seqs2 = %s \n", seqs[n].sam, seqs[n+1].sam);
+						assert ( 1 == 0);
+					}
+					
+				}
+                                for(i=0; i<MAX_CHAR_SIZE; i++) currentLine[i]=0;
+				n = n + 2;
+                        }
+
+			if (dofixmate){
+				 aft = MPI_Wtime();
+                                 fprintf(stderr, "rank: %d :: %s: time spend in fixmate (%.02f) \n", rank_num, __func__, aft - bef);
+			}
 
 			int *sam_buff_dest  	= calloc ( total_sam_line, sizeof(int) );
 			char **start_addr    	= malloc ( total_sam_line * sizeof(char*));
 			int *line_size_to_cpy   = malloc ( total_sam_line * sizeof(int));	
 			size_t incr_line =0;			
-
-			for(i=0; i< MAX_CHAR_SIZE; i++){
-                                currentLine[i]=0;
-                        }
-
+			for(i=0; i< MAX_CHAR_SIZE; i++) currentLine[i]=0;
+                        bef = MPI_Wtime();
 			for (n = 0; n < reads; n++) {
 				int total_sam_line_size = 0;					
-				seqs[n].l_seq = strlen(seqs[n].sam);
-			
 				next = tokenizer(seqs[n].sam,'\n', currentLine);
 				currentCarac = currentLine;
 				start_sam_line = seqs[n].sam;
@@ -3141,8 +3201,7 @@ int main(int argc, char *argv[]) {
 					incr_line++;				
 					next = tokenizer(NULL, '\n', currentLine);
 				}
-
-            			                        
+                
 			}        
 			
 			free(tmp_chr);
