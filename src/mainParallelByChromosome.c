@@ -1532,6 +1532,7 @@ int main(int argc, char *argv[]) {
 	uint8_t *a, *addr, *addr_map;
 	int fd_in1, fd_in2;
 	int proc_num, rank_num, rank_shr;
+	int fixed_chunk_size = 0;
 	int res, count;
 	int files, nargs;
 	int dofixmate = 0;
@@ -1597,7 +1598,7 @@ int main(int argc, char *argv[]) {
 	/* initialize the BWA-MEM parameters to the default values */
 	opt = mem_opt_init();
 	memset(&opt0, 0, sizeof(opt0));
-	while ((c = getopt(argc-1, argv+1, "1paMCSPVYjk:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:W:x:G:h:y:K:X:H:o:f")) >= 0) {
+	while ((c = getopt(argc-1, argv+1, "1paMCSPVYjk:K:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:W:x:G:h:y:K:X:H:o:f")) >= 0) {
 		if (c == 'k') opt->min_seed_len = atoi(optarg), opt0.min_seed_len = 1;
 		else if (c == '1') ; /* FIXME: unsupported */
 		else if (c == 'x') mode = optarg;
@@ -1645,7 +1646,7 @@ int main(int argc, char *argv[]) {
 		else if (c == 'W') opt->min_chain_weight = atoi(optarg), opt0.min_chain_weight = 1;
 		else if (c == 'y') opt->max_mem_intv = atol(optarg), opt0.max_mem_intv = 1;
 		else if (c == 'C') copy_comment = 1;
-		else if (c == 'K') ; /* FIXME: unsupported */
+		else if (c == 'K') fixed_chunk_size = atoi(optarg);
 		else if (c == 'X') opt->mask_level = atof(optarg);
 		else if (c == 'h') {
 			opt0.max_XA_hits = opt0.max_XA_hits_alt = 1;
@@ -1794,6 +1795,7 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "                     (4 sigma from the mean if absent) and min of the insert size distribution.\n");
 		fprintf(stderr, "                     FR orientation only. [inferred]\n");
 		fprintf(stderr, "\nExtra options:\n\n");
+		fprintf(stderr, "       -K INT        process INT input bases in each batch regardless of nThreads (for reproducibility) []\n");
 		fprintf(stderr, "       -o STR     the output file name\n");
 		fprintf(stderr, "\n");
 		fprintf(stderr, "Note: Please read the man page for detailed description of the command line and options.\n");
@@ -1912,11 +1914,14 @@ int main(int argc, char *argv[]) {
 
 	}
 
+	fixed_chunk_size = fixed_chunk_size > 0? fixed_chunk_size : opt->chunk_size * opt->n_threads;
+
+
 	char *output_path = malloc (mi * sizeof(char) + 1);
 	output_path[mi] = 0;
-    char *h = output_path;
-    memmove(h, file_out, mi);
-    assert(output_path);
+    	char *h = output_path;
+    	memmove(h, file_out, mi);
+    	assert(output_path);
 
 
 	//if ( mi == 0) getcwd( output_path, FILENAME_MAX );
@@ -2091,7 +2096,7 @@ int main(int argc, char *argv[]) {
 
 		local_num_reads = total_num_reads;
 		//now we estimate the number of chunk per rank
-		size_t chunck_num = (local_num_reads * blen) / (( opt->chunk_size * opt->n_threads) / 2);
+		size_t chunck_num = (local_num_reads * blen) / ( fixed_chunk_size / 2);
 		chunck_num += 2; //the last chunk hold the remain bases
 
 		size_t h=0;
@@ -2110,8 +2115,8 @@ int main(int argc, char *argv[]) {
 		assert( reads_in_chunk != NULL );
 	
 		size_t chunk_count = 0;
-
-		maxsiz = ( opt->chunk_size * opt->n_threads) / 2; 
+		fprintf(stderr,"rank %d ::: chunck size = %zu \n", rank_num, chunk_size);
+		maxsiz = ( fixed_chunk_size ) / 2; 
 		MPI_Barrier(MPI_COMM_WORLD);
 		fprintf(stderr,"rank %d ::: Call find_chunks_info \n", rank_num);
 		// the detail of he paramters is at the function definition
@@ -2589,6 +2594,8 @@ int main(int argc, char *argv[]) {
 		assert(stat_r1.st_size == total_size_global_1);
                 assert(stat_r2.st_size == total_size_global_2);
 
+		//opt->chunk_size=100000000;
+		//fprintf(stderr,"rank %d ::: chunck size = %zu \n", rank_num, opt->chunk_size);
 
 		///resources needed to find the offsets and size of each read.	
 		size_t grand_total_num_reads 	= 0; 
@@ -2696,7 +2703,7 @@ int main(int argc, char *argv[]) {
 
 			bases_tmp  += (local_read_size[i] + local_read_size_2[i]);
 
-			if ( bases_tmp > ( opt->chunk_size * opt->n_threads)){
+			if ( bases_tmp > fixed_chunk_size ){
 
 				bases_tmp = 0;
 				chunck_num++;
@@ -2749,7 +2756,7 @@ int main(int argc, char *argv[]) {
 
 		size_t chunk_count_2 = 0;
 
-		maxsiz = ( opt->chunk_size * opt->n_threads); 
+		maxsiz = ( fixed_chunk_size ); 
 		MPI_Barrier(MPI_COMM_WORLD);
 		fprintf(stderr,"rank %d ::: Call find_chunks_info \n", rank_num);
 		// the detail of he paramters is at the function definition
@@ -3367,7 +3374,7 @@ int main(int argc, char *argv[]) {
 
 			bases_tmp  += (local_read_size[i]);
 
-			if ( bases_tmp > ( opt->chunk_size * opt->n_threads)){
+			if ( bases_tmp > fixed_chunk_size ){
 
 				bases_tmp = 0;
 				chunck_num++;
