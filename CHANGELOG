@@ -1,10 +1,7 @@
 version-1.3
-    - review of mpiBWAByChr output (issue#31): we remove discordant.gz file now the fragment are written in the chromosome file it belong.
-      This in order to facilitate the fixmate and subsequent marking of duplicate. 
-      The header has also changed, we now include all chromosoms (samtools fixmate need it).   
-      We keep the unmapped.gz file.
     - Add an option -f to fixe the mate score, quality and cigar. Usefull for compatibility with samtools markdup.
-      A typycal workflow is mpiBWAByChr + mpiSort + samtools index + samtools markdup (issue#31)
+      When -f is set there is no more discordant.sam 	
+      A typycal workflow is mpiBWAByChr + mpiSort (u + b) + samtools index + samtools markdup (issue#31)
     - Add the option -K to set the number of bases to analyse (used for reproducibility) (issue#32).
 
 version-1.2
