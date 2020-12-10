@@ -1508,7 +1508,7 @@ static int getChr(char *str, char *chrNames[], int nbchr, char *tmp_chr) {
 
     tmp_chr[size - 1] = '\0';
     assert(strlen(tmp_chr) != 0);
-   
+  
     for (i = 0, found = 0; i < nbchr && !found; i++) {
         found = !strcmp(tmp_chr, chrNames[i]);
     }
@@ -2158,9 +2158,12 @@ int main(int argc, char *argv[]) {
 
 		//we create a vector with chromosom names 
 		int s;
-		MPI_File *fh_out          = malloc( (indix.bns->n_seqs + 1) * sizeof(MPI_File));
-		char *files_out_sam_name[indix.bns->n_seqs + 1];
-		char *file_map_by_chr[(indix.bns->n_seqs + 1)];
+		int incrmnt = 2;
+                if (dofixmate) incrmnt = 1;
+
+		MPI_File *fh_out          = malloc( (indix.bns->n_seqs + incrmnt) * sizeof(MPI_File));
+		char *files_out_sam_name[indix.bns->n_seqs + incrmnt];
+		char *file_map_by_chr[(indix.bns->n_seqs + incrmnt)];
 
 		for (s = 0; s < indix.bns->n_seqs; ++s){
 			files_out_sam_name[s] = malloc( (strlen( indix.bns->anns[s].name) + 1 ) * sizeof(char));
@@ -2169,11 +2172,16 @@ int main(int argc, char *argv[]) {
 		        memmove(p0, indix.bns->anns[s].name, strlen( indix.bns->anns[s].name));
 		}
 		
+		if (!dofixmate){
+                        char DISCORDANT[] = "discordant";
+                        files_out_sam_name[s++] = strdup(DISCORDANT);
+                }
+
 		char UNMAPPED[]   = "unmapped";
 		files_out_sam_name[s++] = strdup(UNMAPPED);
 		int file_name_len = 0;
 		
-		for (s = 0; s < (indix.bns->n_seqs + 1); ++s){
+		for (s = 0; s < (indix.bns->n_seqs + incrmnt); ++s){
 			/* Derived file names */
 		        file_name_len = strlen(output_path) + strlen(files_out_sam_name[s]) + 6;
 		        file_map_by_chr[s] = calloc( file_name_len, sizeof(char));		        
@@ -2190,7 +2198,7 @@ int main(int argc, char *argv[]) {
 		//we add the header in the discordant SAM
 		create_sam_header(file_map_by_chr[indix.bns->n_seqs], &indix, &count, hdr_line, rg_line, rank_num);
                 
-		for (s = 0; s < (indix.bns->n_seqs + 1); ++s){
+		for (s = 0; s < (indix.bns->n_seqs + incrmnt); ++s){
                         res = MPI_File_open(MPI_COMM_WORLD, file_map_by_chr[s], MPI_MODE_CREATE|MPI_MODE_WRONLY|MPI_MODE_APPEND, MPI_INFO_NULL, &fh_out[s]);
                         assert(res == MPI_SUCCESS);
                 }
@@ -2214,8 +2222,8 @@ int main(int argc, char *argv[]) {
 
 		buffer_r1 = buffer_r2 = NULL; seqs = NULL;
 		//localsize_vec contain the size of the buffer to write in the sam file
-		int *chr_buff_size  = calloc ( (indix.bns->n_seqs + 1), sizeof(int) );
-		char *buffer_out_vec[indix.bns->n_seqs + 1];
+		int *chr_buff_size  = calloc ( (indix.bns->n_seqs + incrmnt), sizeof(int) );
+		char *buffer_out_vec[indix.bns->n_seqs + incrmnt];
 		
 		// here we loop until there's nothing to read
 		// in the offset and size file
@@ -2356,8 +2364,8 @@ int main(int argc, char *argv[]) {
                         int chr, mchr, i;
                         size_t coord, sam_line_size;
                         unsigned char quality;
-                        int nbchr = indix.bns->n_seqs + 2;
-                        char sep[] = { ' ', '\t' };
+                        int nbchr = indix.bns->n_seqs + incrmnt;
+                        char sep[] = { '\t' };
 
                         char *tmp_chr = malloc( MAX_CHR_NAME_SIZE * sizeof(char));
                         tmp_chr[0] = 0;
@@ -2416,77 +2424,123 @@ int main(int argc, char *argv[]) {
                         for(i=0; i< MAX_CHAR_SIZE; i++){
                                 currentLine[i]=0;
                         }
+			if (dofixmate){
+                        	for (n = 0; n < reads; n++) {
+                                	int total_sam_line_size = 0;
+                                	//seqs[n].l_seq = strlen(seqs[n].sam);
+                                	next = tokenizer(seqs[n].sam,'\n', currentLine);
+                                	currentCarac = currentLine;
+                                	start_sam_line = seqs[n].sam;
+					while (next){
 
-                        for (n = 0; n < reads; n++) {
-                                int total_sam_line_size = 0;
-                                //seqs[n].l_seq = strlen(seqs[n].sam);
+        	                                start_sam_line = seqs[n].sam + total_sam_line_size;
+                	                        sam_line_size = strlen(currentLine) + 1;
+                        	                //we update the offset in the
+                                	        //source file
+                                        	currentLine[sam_line_size - 1] = '\n';
+                                        	currentLine[sam_line_size] = '\0';
+                                        	currentCarac = currentLine;
+                                        	//WE PASS READ NAME
+                                        	currentCarac = strstr (currentCarac, "\t");
+                                        	currentCarac++;
 
-                                next = tokenizer(seqs[n].sam,'\n', currentLine);
-                                currentCarac = currentLine;
-                                start_sam_line = seqs[n].sam;
+                                        	//WE PASS FLAG  
+						currentCarac = strstr (currentCarac, "\t");
+                                        	currentCarac++;
 
+                                        	if ( currentCarac[0] == '*') chr =  nbchr-1;
+                                        	else chr = getChr(currentCarac - 1, files_out_sam_name, nbchr-1, tmp_chr);
+      
 
-				while (next){
+                                        	if (chr < (nbchr - incrmnt)){
+							chr_buff_size[chr]              += sam_line_size;
+                                                	sam_buff_dest[incr_line]        = chr;
+                                                	start_addr[incr_line]           = start_sam_line;
 
-                                        start_sam_line = seqs[n].sam + total_sam_line_size;
-                                        sam_line_size = strlen(currentLine) + 1;
-                                        //we update the offset in the
-                                        //source file
-                                        currentLine[sam_line_size - 1] = '\n';
-                                        currentLine[sam_line_size] = '\0';
+                                        	}
+                                        	else {
+							chr_buff_size[nbchr - incrmnt]  += sam_line_size;
+                                                	sam_buff_dest[incr_line]        = nbchr-1;
+                                                	start_addr[incr_line]           = start_sam_line;
+                                        	}
+
+                                        	line_size_to_cpy[incr_line] = sam_line_size;
+                                        	total_sam_line_size += sam_line_size;
+                                        	incr_line++;
+                                        	next = tokenizer(NULL, '\n', currentLine);
+                                	}
+                        	}
+			}
+			else{
+				 for (n = 0; n < reads; n++) {
+                                        int total_sam_line_size = 0;
+                                        next = tokenizer(seqs[n].sam,'\n', currentLine);
                                         currentCarac = currentLine;
-                                        //WE PASS READ NAME
-                                        currentCarac = strpbrk (currentCarac, sep);
-                                        currentCarac++;
+                                        start_sam_line = seqs[n].sam;
 
-                                        //WE PASS FLAG  
-					currentCarac = strpbrk (currentCarac, sep);
-                                        currentCarac++;
+                                        while (next){
 
-                                        if ( currentCarac[0] == '*') chr =  nbchr-1;
-                                        else chr = getChr(currentCarac - 1, files_out_sam_name, nbchr-1, tmp_chr);
+                                                start_sam_line = seqs[n].sam + total_sam_line_size;
+                                                sam_line_size = strlen(currentLine) + 1;
+						currentLine[sam_line_size - 1] = '\n';
+                                                currentLine[sam_line_size] = '\0';
+                                                currentCarac = currentLine;
+                                                //READ NAME
+                                                currentCarac = strstr (currentCarac, "\t");
+                                                currentCarac++;
+                                                // FLAG
+                                                currentCarac = strstr (currentCarac, "\t");
+                                                currentCarac++;
+                                                // CHROMOSOM 
+						if ( currentCarac[0] == '*') chr =  nbchr - incrmnt;
+                                                else chr = getChr(currentCarac - 1, files_out_sam_name, nbchr - incrmnt, tmp_chr);
 
-					//PASS CHR
-                                        currentCarac = strpbrk (currentCarac, sep);
-                                        currentCarac++;
-					
-					//PASS COORD
-					currentCarac = strpbrk (currentCarac, sep);
-                                        currentCarac++;
+                                                // COORD
+                                                currentCarac = strstr (currentCarac + 1, "\t");
+                                                
+                                                // MAPQ
+                                                coord = strtoull(currentCarac, &currentCarac, 10);
 
-					//PASS MAPQ
-					currentCarac = strpbrk (currentCarac, sep);
-                                        currentCarac++;
-                                        //PASS CIGAR
-                                        currentCarac = strpbrk (currentCarac, sep);
-                                        currentCarac++;
+                                                quality = strtoull(currentCarac, &currentCarac, 10);                                               
 
-                                        if (currentCarac[0] == '=')             mchr = chr;
-                                        else if ( currentCarac[0] == '*')       mchr = nbchr-1;
-                                        else mchr = getChr(currentCarac - 1, files_out_sam_name, nbchr-1, tmp_chr);
+						currentCarac = strstr (currentCarac + 1, "\t");
+                                                currentCarac++;
 
-                                        if (chr < (nbchr - 1)){
-						chr_buff_size[chr]              += sam_line_size;
-                                                sam_buff_dest[incr_line]        = chr;
-                                                start_addr[incr_line]           = start_sam_line;
+                                                if ( currentCarac[0] == '=') mchr =  chr;
+                                                else if ( currentCarac[0] == '*') mchr =  nbchr - 2;
+                                                else mchr = getChr(currentCarac - 1, files_out_sam_name, nbchr - incrmnt, tmp_chr);
 
-                                        }
-                                        else {
-						chr_buff_size[nbchr - 1]        += sam_line_size;
-                                                sam_buff_dest[incr_line]        = nbchr-1;
-                                                start_addr[incr_line]           = start_sam_line;
-                                        }
+                                                if (chr < (nbchr - incrmnt)){
+                                                        chr_buff_size[chr]              += sam_line_size;
+                                                        sam_buff_dest[incr_line]        = chr;
+                                                        start_addr[incr_line]           = start_sam_line;
 
-                                        line_size_to_cpy[incr_line] = sam_line_size;
-                                        total_sam_line_size += sam_line_size;
-                                        incr_line++;
-                                        next = tokenizer(NULL, '\n', currentLine);
-                                }
-                        }
+                                                }
+                                                else {
+                                                        chr_buff_size[nbchr - 1] += sam_line_size;
+                                                        sam_buff_dest[incr_line]        = nbchr-1;
+                                                        start_addr[incr_line]           = start_sam_line;
+                                                }
+
+                                                if ( (chr < (nbchr - incrmnt)) && (mchr < (nbchr - incrmnt)) && (chr != mchr) ){
+                                                        chr_buff_size[nbchr - 2] += sam_line_size;
+                                                        sam_buff_dest[incr_line]        = nbchr - 2;
+                                                        start_addr[incr_line]           = start_sam_line;
+
+                                                }
+
+
+                                                line_size_to_cpy[incr_line] = sam_line_size;
+                                                total_sam_line_size += sam_line_size;
+                                                incr_line++;
+						next = tokenizer(NULL, '\n', currentLine);
+					}
+				}
+			}
 
 			free(tmp_chr);
 			//now we fill up the buffer_out_vec
-			for (n = 0; n < (indix.bns->n_seqs + 1); n++) {
+			for (n = 0; n < (indix.bns->n_seqs + incrmnt); n++) {
 
                                 assert(chr_buff_size[n] <= INT_MAX);
 
@@ -2496,7 +2550,7 @@ int main(int argc, char *argv[]) {
                                         buffer_out_vec[n][chr_buff_size[n]] = '\0';
                                 }
                         }
-                        size_t *actual_size = calloc(indix.bns->n_seqs + 1, sizeof(size_t));
+                        size_t *actual_size = calloc(indix.bns->n_seqs + incrmnt, sizeof(size_t));
                         char *p_temp2;
                         int u = 0;
                         for (n = 0; n < total_sam_line; n++) {
@@ -2515,7 +2569,7 @@ int main(int argc, char *argv[]) {
                         free(line_size_to_cpy);
   
 
-                      	for (n = 0; n < (indix.bns->n_seqs + 1); n++) {
+                      	for (n = 0; n < (indix.bns->n_seqs + incrmnt); n++) {
 
                                 if (chr_buff_size[n]) {
                                         res = MPI_File_write_shared(fh_out[n], buffer_out_vec[n], chr_buff_size[n], MPI_CHAR, &status);
@@ -2537,7 +2591,7 @@ int main(int argc, char *argv[]) {
 		} //end for (u1 = 0; u1 < chunk_count; u1++){
 	
 		//free data structures and close sam files 
-		for (n = 0; n < (indix.bns->n_seqs + 1); n++)  {
+		for (n = 0; n < (indix.bns->n_seqs + incrmnt); n++)  {
 			free(files_out_sam_name[n]);
                 	free(file_map_by_chr[n]);
                 	res = MPI_File_close(&fh_out[n]);
@@ -2855,29 +2909,35 @@ int main(int argc, char *argv[]) {
 
 		//we create a vector with chromosom names 
 		int s;
-		MPI_File *fh_out	= malloc( (indix.bns->n_seqs + 1) * sizeof(MPI_File));
-	        char *files_out_sam_name[indix.bns->n_seqs + 1];
-    		char *file_map_by_chr[indix.bns->n_seqs + 1];
-	
-		for (s = 0; s < indix.bns->n_seqs; ++s){
-			
-			files_out_sam_name[s] = malloc( (strlen( indix.bns->anns[s].name) + 1 ) * sizeof(char));
-			files_out_sam_name[s][strlen( indix.bns->anns[s].name)] = 0; 
-			char *p0 = files_out_sam_name[s];			
-   			memmove(p0, indix.bns->anns[s].name, strlen( indix.bns->anns[s].name));
-		}
+		int incrmnt = 2;
+		if (dofixmate) incrmnt = 1;
+		
+		MPI_File *fh_out        = malloc( (indix.bns->n_seqs + incrmnt) * sizeof(MPI_File));
+                char *files_out_sam_name[indix.bns->n_seqs + incrmnt];
+                char *file_map_by_chr[indix.bns->n_seqs + incrmnt];
 
-		char UNMAPPED[]   = "unmapped"; 
-    		files_out_sam_name[s++] = strdup(UNMAPPED);
-		//char *file_map_by_chr[(indix.bns->n_seqs + 2)];
-		size_t file_name_len = 0;
-		for (s = 0; s < (indix.bns->n_seqs + 1); ++s){
-			/* Derived file names */
-			file_name_len = strlen(output_path) + strlen(files_out_sam_name[s]) + 6;
-			file_map_by_chr[s] = calloc( file_name_len, sizeof(char));
-			sprintf(file_map_by_chr[s], "%s/%s.sam", output_path, files_out_sam_name[s]);
-		}		
+                for (s = 0; s < indix.bns->n_seqs; ++s){
+	                files_out_sam_name[s] = malloc( (strlen( indix.bns->anns[s].name) + 1 ) * sizeof(char));
+                        files_out_sam_name[s][strlen( indix.bns->anns[s].name)] = 0;
+                        char *p0 = files_out_sam_name[s];
+        	        memmove(p0, indix.bns->anns[s].name, strlen( indix.bns->anns[s].name));
+                }
+		if (!dofixmate){
+                        char DISCORDANT[] = "discordant";
+                        files_out_sam_name[s++] = strdup(DISCORDANT);
+                }
+                char UNMAPPED[]   = "unmapped";
+                files_out_sam_name[s++] = strdup(UNMAPPED);
 
+                //char *file_map_by_chr[(indix.bns->n_seqs + 2)];
+                size_t file_name_len = 0;
+                for (s = 0; s < (indix.bns->n_seqs + incrmnt); ++s){
+                     	/* Derived file names */
+                        file_name_len = strlen(output_path) + strlen(files_out_sam_name[s]) + 6;
+                        file_map_by_chr[s] = calloc( file_name_len, sizeof(char));
+                        sprintf(file_map_by_chr[s], "%s/%s.sam", output_path, files_out_sam_name[s]);
+                }
+                        
 		 ///Create SAM header
 		 //TODO: Add line for BWA version
 		create_sam_header_by_chr_file(file_map_by_chr, &indix, &count, hdr_line, rg_line, rank_num);
@@ -2889,11 +2949,19 @@ int main(int argc, char *argv[]) {
 		//we add the header in the discordant SAM
 		create_sam_header(file_map_by_chr[indix.bns->n_seqs], &indix, &count, hdr_line, rg_line, rank_num);
 		
-		for (s = 0; s < (indix.bns->n_seqs + 1); ++s){		
-			res = MPI_File_open(MPI_COMM_WORLD, file_map_by_chr[s], MPI_MODE_CREATE|MPI_MODE_WRONLY|MPI_MODE_APPEND, MPI_INFO_NULL, &fh_out[s]);
-			assert(res == MPI_SUCCESS);
+		if (dofixmate){
+			for (s = 0; s < (indix.bns->n_seqs + 1); ++s){		
+				res = MPI_File_open(MPI_COMM_WORLD, file_map_by_chr[s], MPI_MODE_CREATE|MPI_MODE_WRONLY|MPI_MODE_APPEND, MPI_INFO_NULL, &fh_out[s]);
+				assert(res == MPI_SUCCESS);
+			}
 		}
+		else{
+			for (s = 0; s < (indix.bns->n_seqs + 2); ++s){
+                                res = MPI_File_open(MPI_COMM_WORLD, file_map_by_chr[s], MPI_MODE_CREATE|MPI_MODE_WRONLY|MPI_MODE_APPEND, MPI_INFO_NULL, &fh_out[s]);
+                                assert(res == MPI_SUCCESS);
+                        }
 
+		}
 		//now we open fastq files backward and forward
 		if (file_r1 != NULL) {
 			//fprintf(stderr, "rank %d ::: open file %s \n",rank_num, file_r1);
@@ -2913,9 +2981,10 @@ int main(int argc, char *argv[]) {
 		//we loop the chunck_count
 		
 		 //localsize_vec contain the size of the buffer to write in the sam file
-		int *chr_buff_size  = calloc ( (indix.bns->n_seqs + 1), sizeof(int) );
-		char *buffer_out_vec[indix.bns->n_seqs + 1];
-                                                                                           
+		
+		int *chr_buff_size  = calloc ( (indix.bns->n_seqs + incrmnt), sizeof(int) );
+                char *buffer_out_vec[indix.bns->n_seqs + incrmnt];
+		              
 		size_t u1 = 0; 
 		for (u1 = 0; u1 < chunk_count; u1++){
 
@@ -3086,8 +3155,8 @@ int main(int argc, char *argv[]) {
 			int chr, mchr;
 			size_t coord, sam_line_size;
 			unsigned char quality;	
-			int nbchr = indix.bns->n_seqs + 1;
-			char sep[] = { ' ', '\t' };
+			int nbchr = indix.bns->n_seqs + incrmnt;
+			char sep[] = {'\t'};
 
 			char *tmp_chr = malloc( MAX_CHR_NAME_SIZE * sizeof(char));
 			tmp_chr[0] = 0;
@@ -3145,75 +3214,129 @@ int main(int argc, char *argv[]) {
 			size_t incr_line =0;			
 			for(i=0; i< MAX_CHAR_SIZE; i++) currentLine[i]=0;
                         bef = MPI_Wtime();
-			for (n = 0; n < reads; n++) {
-				int total_sam_line_size = 0;					
-				next = tokenizer(seqs[n].sam,'\n', currentLine);
-				currentCarac = currentLine;
-				start_sam_line = seqs[n].sam;
 
-				while (next){
-				
-					start_sam_line = seqs[n].sam + total_sam_line_size;	
-					sam_line_size = strlen(currentLine) + 1;
-                         		//we update the offset in the
-                                        //source file
-                                        currentLine[sam_line_size - 1] = '\n';
-                                        currentLine[sam_line_size] = '\0';
+			if (dofixmate){
+				for (n = 0; n < reads; n++) {
+					int total_sam_line_size = 0;					
+					next = tokenizer(seqs[n].sam,'\n', currentLine);
 					currentCarac = currentLine;
-					//WE PASS READ NAME
-					currentCarac = strpbrk (currentCarac, sep);
-					currentCarac++;
+					start_sam_line = seqs[n].sam;
+				
+					while (next){
+				
+						start_sam_line = seqs[n].sam + total_sam_line_size;	
+						sam_line_size = strlen(currentLine) + 1;
+                         			//we update the offset in the
+                                        	//source file
+                                        	currentLine[sam_line_size - 1] = '\n';
+                                        	currentLine[sam_line_size] = '\0';
+						currentCarac = currentLine;
+						//WE PASS READ NAME
+						currentCarac = strstr (currentCarac, "\t");
+						currentCarac++;
 					 				
-					//WE PASS FLAG					
-					currentCarac = strpbrk (currentCarac, sep);	
-					currentCarac++;
+						//WE PASS FLAG					
+						currentCarac = strstr (currentCarac, "\t");	
+						currentCarac++;
 					
-					if ( currentCarac[0] == '*') chr =  nbchr-1;
-					else chr = getChr(currentCarac - 1, files_out_sam_name, nbchr-1, tmp_chr);
-	
-					//PASS CHR
-					currentCarac = strpbrk (currentCarac, sep);
-					currentCarac++;
+						if ( currentCarac[0] == '*') chr =  nbchr-1;
+						else chr = getChr(currentCarac - 1, files_out_sam_name, nbchr - incrmnt , tmp_chr);
+
+						if (chr < (nbchr - incrmnt)){
+                                        		//the read goes in the SAM it belongs 
+                                        		chr_buff_size[chr]    		+= sam_line_size;
+                                         		sam_buff_dest[incr_line]       	= chr;
+							start_addr[incr_line]		= start_sam_line;
 						
-					//PASS COORD
-					currentCarac = strpbrk (currentCarac, sep);
-					currentCarac++;
-					//PASS MAPQ
-					currentCarac = strpbrk (currentCarac, sep);
-                                        currentCarac++;
-                                        //PASS CIGAR
-                                        currentCarac = strpbrk (currentCarac, sep);
-					currentCarac++;
+                                		}
+						else {
+							//the read goes in unmapped sam
+							chr_buff_size[nbchr - incrmnt] 	+= sam_line_size;
+                                        		sam_buff_dest[incr_line]        = nbchr - incrmnt ;
+							start_addr[incr_line]           = start_sam_line;
+						}
 					
-					if (currentCarac[0] == '=') 		mchr = chr;
-					else if ( currentCarac[0] == '*') 	mchr = nbchr-1;
-					else mchr = getChr(currentCarac - 1, files_out_sam_name, nbchr-1, tmp_chr);
-							
-					if (chr < (nbchr - 1)){
-                                        	//the read goes in the SAM it belongs 
-                                        	chr_buff_size[chr]    		+= sam_line_size;
-                                         	sam_buff_dest[incr_line]       	= chr;
-						start_addr[incr_line]		= start_sam_line;
-						
-                                	}
-					else {
-						//the read goes in unmapped sam
-						chr_buff_size[nbchr - 1] 	+= sam_line_size;
-                                        	sam_buff_dest[incr_line]        = nbchr-1;
-						start_addr[incr_line]           = start_sam_line;
+						line_size_to_cpy[incr_line] = sam_line_size;
+						total_sam_line_size += sam_line_size;
+						incr_line++;				
+						next = tokenizer(NULL, '\n', currentLine);
 					}
-					
-					line_size_to_cpy[incr_line] = sam_line_size;
-					total_sam_line_size += sam_line_size;
-					incr_line++;				
-					next = tokenizer(NULL, '\n', currentLine);
-				}
                 
-			}        
+				}
+			}
+			else{
+
+				for (n = 0; n < reads; n++) {
+                                        int total_sam_line_size = 0;
+                                        next = tokenizer(seqs[n].sam,'\n', currentLine);
+                                        currentCarac = currentLine;
+                                        start_sam_line = seqs[n].sam;
+
+                                        while (next){
+
+                                                start_sam_line = seqs[n].sam + total_sam_line_size;
+                                                sam_line_size = strlen(currentLine) + 1;
+						//we update the offset in the
+						//source file
+						currentLine[sam_line_size - 1] = '\n';
+                                                currentLine[sam_line_size] = '\0';
+                                                currentCarac = currentLine;
+						//READ NAME
+						currentCarac = strstr (currentCarac, "\t");
+                                                currentCarac++;
+						// FLAG
+						currentCarac = strstr (currentCarac, "\t");
+                                                currentCarac++;
+						// CHROMOSOM	
+						if ( currentCarac[0] == '*') chr =  nbchr - incrmnt;
+                                                else chr = getChr(currentCarac - 1, files_out_sam_name, nbchr - incrmnt, tmp_chr);
+						
+						// COORD
+						currentCarac = strstr (currentCarac + 1, "\t");
+                                                
+						// MAPQ
+          					coord = strtoull(currentCarac, &currentCarac, 10);
 			
+						quality = strtoull(currentCarac, &currentCarac, 10);			
+						// CIGAR					
+						currentCarac = strstr (currentCarac + 1, "\t");
+                  				currentCarac++;
+
+						if ( currentCarac[0] == '=') mchr =  chr;
+						else if ( currentCarac[0] == '*') mchr =  nbchr - 2;
+                                                else mchr = getChr(currentCarac - 1, files_out_sam_name, nbchr - incrmnt, tmp_chr);
+
+						if ( (chr < (nbchr - incrmnt))) {
+							chr_buff_size[chr]              += sam_line_size;
+                                                        sam_buff_dest[incr_line]        = chr;
+                                                        start_addr[incr_line]           = start_sam_line;
+
+                                                }
+                                                else {
+                                                        chr_buff_size[nbchr - 1] 	+= sam_line_size;
+                                                        sam_buff_dest[incr_line]        = nbchr - 1;
+                                                        start_addr[incr_line]           = start_sam_line;
+                                                }
+
+						if ( (chr < (nbchr - incrmnt)) && (mchr < (nbchr - incrmnt)) && (chr != mchr) ){
+							chr_buff_size[nbchr - 2] 	+= sam_line_size;
+                                                        sam_buff_dest[incr_line]        = nbchr - 2;
+                                                        start_addr[incr_line]           = start_sam_line;
+
+						}
+						
+                                                line_size_to_cpy[incr_line] = sam_line_size;
+                                                total_sam_line_size += sam_line_size;
+                                                incr_line++;
+                                                next = tokenizer(NULL, '\n', currentLine);
+
+					}
+				}        
+			}
+
 			free(tmp_chr);
          		//now we fill up the buffer_out_vec
-			for (n = 0; n < (indix.bns->n_seqs + 1); n++) {
+			for (n = 0; n < (indix.bns->n_seqs + incrmnt); n++) {
 
 				assert(chr_buff_size[n] <= INT_MAX);
 				
@@ -3223,7 +3346,7 @@ int main(int argc, char *argv[]) {
 					buffer_out_vec[n][chr_buff_size[n]] = '\0';
 				}
 			}
-                       	size_t *actual_size = calloc(indix.bns->n_seqs + 1, sizeof(size_t));
+                       	size_t *actual_size = calloc(indix.bns->n_seqs + incrmnt, sizeof(size_t));
 			char *p_temp2;
 			int u = 0;
 			for (n = 0; n < total_sam_line; n++) {
@@ -3241,7 +3364,7 @@ int main(int argc, char *argv[]) {
 			free(start_addr);
 			free(line_size_to_cpy);
 
-			for (n = 0; n < (indix.bns->n_seqs + 1); n++) {
+			for (n = 0; n < (indix.bns->n_seqs + incrmnt); n++) {
 				
 				if (chr_buff_size[n]) {
 					res = MPI_File_write_shared(fh_out[n], buffer_out_vec[n], chr_buff_size[n], MPI_CHAR, &status);
@@ -3263,7 +3386,7 @@ int main(int argc, char *argv[]) {
 
 		} //end for loop on chunks
 
-		for (n = 0; n < (indix.bns->n_seqs + 1); n++)  {
+		for (n = 0; n < (indix.bns->n_seqs + incrmnt); n++)  {
 			free(files_out_sam_name[n]);
 			free(file_map_by_chr[n]);
 			res = MPI_File_close(&fh_out[n]);
@@ -3483,9 +3606,10 @@ int main(int argc, char *argv[]) {
 
 		//we create a vector with chromosom names 
 		int s;
+		
 		MPI_File *fh_out          = malloc( (indix.bns->n_seqs + 2) * sizeof(MPI_File));
-		char *files_out_sam_name[indix.bns->n_seqs + 2];
-		char *file_map_by_chr[(indix.bns->n_seqs + 2)];
+		char *files_out_sam_name[indix.bns->n_seqs + 1];
+		char *file_map_by_chr[(indix.bns->n_seqs + 1)];
 		for (s = 0; s < indix.bns->n_seqs; ++s){
 			files_out_sam_name[s] = malloc( (strlen( indix.bns->anns[s].name) + 1 ) * sizeof(char));
 		        files_out_sam_name[s][strlen( indix.bns->anns[s].name)] = 0;
