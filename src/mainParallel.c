@@ -1910,17 +1910,17 @@ int main(int argc, char *argv[]) {
 		size_t siz2read = goff[ind+1]-goff[ind];
 		MPI_Barrier(MPI_COMM_WORLD);
 		
-        size_t local_num_reads          = 0;
-        size_t total_num_reads          = 0;
-        size_t u1						= 0;
-        size_t *local_read_offsets      = calloc(1 , sizeof(size_t));
-        size_t *local_read_bytes        = calloc(1, sizeof(size_t));
-        int *local_read_size            = calloc(1, sizeof(int));
+        	size_t local_num_reads          = 0;
+        	size_t total_num_reads          = 0;
+        	size_t u1			= 0;
+        	size_t *local_read_offsets      = calloc(1 , sizeof(size_t));
+        	size_t *local_read_bytes        = calloc(1, sizeof(size_t));
+        	int *local_read_size            = calloc(1, sizeof(int));
 
 
-        assert( local_read_bytes != NULL);
-        assert( local_read_offsets != NULL);
-        assert( local_read_size != NULL);
+        	assert( local_read_bytes != NULL);
+        	assert( local_read_offsets != NULL);
+        	assert( local_read_size != NULL);
 		bef = MPI_Wtime();
 
 		find_reads_size_and_offsets(goff[ind],
@@ -1961,7 +1961,7 @@ int main(int argc, char *argv[]) {
 
 		local_num_reads = total_num_reads;
 		//now we estimate the number of chunk per rank
-		size_t chunck_num = (local_num_reads * blen) / (( opt->chunk_size * opt->n_threads) / 2);
+		size_t chunck_num = (local_num_reads * blen) / (fixed_chunk_size / 2);
 		chunck_num += 2; //the last chunk hold the remain bases
 
 		size_t h=0;
@@ -2452,7 +2452,7 @@ int main(int argc, char *argv[]) {
 
 			bases_tmp  += (local_read_size[i] + local_read_size_2[i]);
 
-			if ( bases_tmp > ( fixed_chunk_size )){
+			if ( bases_tmp > fixed_chunk_size ){
 
 				bases_tmp = 0;
 				chunck_num++;
@@ -2486,7 +2486,7 @@ int main(int argc, char *argv[]) {
 
 		// we allocate vector for chunks offset
 		size_t *begin_offset_chunk 	= calloc(chunck_num, sizeof(size_t));
-		size_t *chunk_size 			= calloc(chunck_num, sizeof(size_t));
+		size_t *chunk_size 		= calloc(chunck_num, sizeof(size_t));
 		size_t *reads_in_chunk 		= calloc(chunck_num, sizeof(size_t));
 
 		assert( begin_offset_chunk != NULL );
