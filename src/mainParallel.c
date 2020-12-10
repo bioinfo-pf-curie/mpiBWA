@@ -2505,7 +2505,7 @@ int main(int argc, char *argv[]) {
 
 		size_t chunk_count_2 = 0;
 
-		maxsiz = ( opt->chunk_size * opt->n_threads); 
+		maxsiz = fixed_chunk_size; 
 		MPI_Barrier(MPI_COMM_WORLD);
 		fprintf(stderr,"rank %d ::: Call find_chunks_info \n", rank_num);
 		// the detail of he paramters is at the function definition
