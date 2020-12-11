@@ -2417,7 +2417,8 @@ int main(int argc, char *argv[]) {
 
 
 			int *sam_buff_dest      = calloc ( total_sam_line, sizeof(int) );
-                        char **start_addr       = malloc ( total_sam_line * sizeof(char*));
+                        int *add_in_disc        = calloc ( total_sam_line, sizeof(int) );
+			char **start_addr       = malloc ( total_sam_line * sizeof(char*));
                         int *line_size_to_cpy   = malloc ( total_sam_line * sizeof(int));
                         size_t incr_line =0;
 
@@ -2523,10 +2524,9 @@ int main(int argc, char *argv[]) {
                                                 }
 
                                                 if ( (chr < (nbchr - incrmnt)) && (mchr < (nbchr - incrmnt)) && (chr != mchr) ){
-                                                        chr_buff_size[nbchr - 2] += sam_line_size;
-                                                        sam_buff_dest[incr_line]        = nbchr - 2;
-                                                        start_addr[incr_line]           = start_sam_line;
-
+                                                        chr_buff_size[nbchr - 2]        += sam_line_size;
+                                                        add_in_disc[n]                  = 1;
+                                                        
                                                 }
 
 
@@ -2558,10 +2558,16 @@ int main(int argc, char *argv[]) {
                                 p_temp2 = buffer_out_vec[sam_buff_dest[n]] + actual_size[sam_buff_dest[n]];
                                 memmove(p_temp2, start_addr[n], line_size_to_cpy[n]);
                                 actual_size[sam_buff_dest[n]] += line_size_to_cpy[n];
+				if ( add_in_disc[n] ){
+                                        p_temp2 = buffer_out_vec[nbchr - 2 ] + actual_size[nbchr - 2 ];
+                                        memmove(p_temp2, start_addr[n], line_size_to_cpy[n]);
+                                        actual_size[nbchr -2] += line_size_to_cpy[n];
+                                }
 
                         }
 			
                         for (n = 0; n < reads; n++) free(seqs[n].sam);
+			free(add_in_disc);
                         free(sam_buff_dest);
 			free(seqs);
                         free(actual_size);
@@ -3209,6 +3215,7 @@ int main(int argc, char *argv[]) {
 			}
 
 			int *sam_buff_dest  	= calloc ( total_sam_line, sizeof(int) );
+			int *add_in_disc	= calloc ( total_sam_line, sizeof(int) );
 			char **start_addr    	= malloc ( total_sam_line * sizeof(char*));
 			int *line_size_to_cpy   = malloc ( total_sam_line * sizeof(int));	
 			size_t incr_line =0;			
@@ -3317,12 +3324,10 @@ int main(int argc, char *argv[]) {
                                                         sam_buff_dest[incr_line]        = nbchr - 1;
                                                         start_addr[incr_line]           = start_sam_line;
                                                 }
-
+							
 						if ( (chr < (nbchr - incrmnt)) && (mchr < (nbchr - incrmnt)) && (chr != mchr) ){
 							chr_buff_size[nbchr - 2] 	+= sam_line_size;
-                                                        sam_buff_dest[incr_line]        = nbchr - 2;
-                                                        start_addr[incr_line]           = start_sam_line;
-
+                                                        add_in_disc[n]			= 1;
 						}
 						
                                                 line_size_to_cpy[incr_line] = sam_line_size;
@@ -3354,10 +3359,15 @@ int main(int argc, char *argv[]) {
 				p_temp2 = buffer_out_vec[sam_buff_dest[n]] + actual_size[sam_buff_dest[n]];
 				memmove(p_temp2, start_addr[n], line_size_to_cpy[n]);
 				actual_size[sam_buff_dest[n]] += line_size_to_cpy[n];
-				
+				if ( add_in_disc[n] ){
+					p_temp2 = buffer_out_vec[nbchr - 2 ] + actual_size[nbchr - 2 ];
+					memmove(p_temp2, start_addr[n], line_size_to_cpy[n]);
+                                	actual_size[nbchr -2] += line_size_to_cpy[n];
+				}
 			}
 			for (n = 0; n < reads; n++) free(seqs[n].sam); 
 			
+			free(add_in_disc);
 			free(sam_buff_dest);
 			free(seqs);
 			free(actual_size);
