@@ -271,7 +271,7 @@ int readParsing (char *sam_buff, readInfo *read, bwaidx_t *indix) {
                 char *start = q;
                 char *end = strchr(q, '\n');
 		//replace  \n 
-		*end='\t';		
+		//*end='\n';		
                 asprintf(&(read->aux), start, end - start);
                 break;
 
@@ -377,7 +377,8 @@ int sam_write_supp_and_secondary(readInfo *read, char **final_buffer, bwaidx_t *
         assert(chr);
         assert(mchr);
 	*/
-        asprintf(&current_line, "%s\t%d\t%s\t%zu\t%d\t%s\t%s\t%zu\t%d\t%s\t%s\t%s\n", read->name,
+
+	asprintf(&current_line, "%s\t%d\t%s\t%zu\t%d\t%s\t%s\t%zu\t%d\t%s\t%s\t%s", read->name,
                                 read->flag, indix->bns->anns[read->tid].name, read->pos, read->mapq, 
 					read->cigar, indix->bns->anns[read->mtid].name, read->mpos, read->dist2mate,
                                                 read->seq,  read->qual, read->aux);
@@ -424,9 +425,9 @@ int sam_write_unmapped_and_munmapped(readInfo *read, char **final_buffer, bwaidx
 
 	assert(chr);
 	assert(mchr);
-        asprintf(&current_line, "%s\t%d\t%s\t%zu\t%d\t%s\t%s\t%zu\t%d\t%s\t%s\t%s\tms:i:%d\n", read->name,
+        asprintf(&current_line, "%s\t%d\t%s\t%zu\t%d\t%s\t%s\t%zu\t%d\t%s\t%s\tms:i:%d\t%s", read->name,
                                 read->flag, chr, read->pos, read->mapq, read->cigar, mchr, read->mpos, read->dist2mate,
-                                                read->seq,  read->qual, read->aux, read->mscore);
+                                                read->seq,  read->qual, read->mscore, read->aux);
 
 
 	//fprintf(stderr, "%s\n", current_line);
@@ -457,16 +458,16 @@ int sam_write_mate_unmapped(readInfo *read, char **final_buffer, bwaidx_t *indix
 
 
 	if ( read->flag&BAM_FUNMAP)
-        	asprintf(&current_line, "%s\t%d\t%s\t%zu\t%d\t%s\t%s\t%zu\t%d\t%s\t%s\t%sMQ:i:%d\tMC:Z:%s\tms:i:%d\n", read->name,
+        	asprintf(&current_line, "%s\t%d\t%s\t%zu\t%d\t%s\t%s\t%zu\t%d\t%s\t%s\tMQ:i:%d\tMC:Z:%s\tms:i:%d\t%s", read->name,
                                 read->flag, indix->bns->anns[read->tid].name, read->pos,
                                         read->mapq, read->cigar, mchr, read->mpos, read->dist2mate,
-                                                read->seq,  read->qual, read->aux, read->mmapq, read->mcigar, read->mscore);
+                                                read->seq,  read->qual, read->mmapq, read->mcigar, read->mscore, read->aux);
 
 	else 
-		asprintf(&current_line, "%s\t%d\t%s\t%zu\t%d\t%s\t%s\t%zu\t%d\t%s\t%s\t%sMC:Z:*\tms:i:%d\n", read->name,
+		asprintf(&current_line, "%s\t%d\t%s\t%zu\t%d\t%s\t%s\t%zu\t%d\t%s\t%s\tMC:Z:*\tms:i:%d\t%s", read->name,
                                 read->flag, indix->bns->anns[read->tid].name, read->pos,
                                         read->mapq, read->cigar, mchr, read->mpos, read->dist2mate,
-                                                read->seq,  read->qual, read->aux, read->mscore);
+                                                read->seq,  read->qual,  read->mscore, read->aux);
         assert(current_line);
         //char *s = *final_buffer;
         size_t len1 = 0;
@@ -495,10 +496,10 @@ int sam_write(readInfo *read, char **final_buffer, bwaidx_t *indix){
 	if ( read->tid == read->mtid ) mchr="=";
 	else mchr = indix->bns->anns[read->mtid].name;
 
-	asprintf(&current_line, "%s\t%d\t%s\t%zu\t%d\t%s\t%s\t%zu\t%d\t%s\t%s\t%sMQ:i:%d\tMC:Z:%s\tms:i:%d\n", read->name, 
+	asprintf(&current_line, "%s\t%d\t%s\t%zu\t%d\t%s\t%s\t%zu\t%d\t%s\t%s\tMQ:i:%d\tMC:Z:%s\tms:i:%d\t%s", read->name, 
 				read->flag, indix->bns->anns[read->tid].name, read->pos, 
 					read->mapq, read->cigar, mchr, read->mpos, read->dist2mate, 
-						read->seq,  read->qual, read->aux, read->mmapq, read->mcigar, read->mscore);
+						read->seq,  read->qual, read->mmapq, read->mcigar, read->mscore, read->aux);
 
 	//fprintf(stderr, "%s\n", current_line);
  
