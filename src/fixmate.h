@@ -31,6 +31,30 @@
 /*! @abstract supplementary alignment */
 #define BAM_FSUPPLEMENTARY 2048
 
+//use to encode quality like samtools
+//from htslib/hts.c
+/*
+const unsigned char seq_nt16_table2[256] = {
+    15,15,15,15, 15,15,15,15, 15,15,15,15, 15,15,15,15,
+    15,15,15,15, 15,15,15,15, 15,15,15,15, 15,15,15,15,
+    15,15,15,15, 15,15,15,15, 15,15,15,15, 15,15,15,15,
+     1, 2, 4, 8, 15,15,15,15, 15,15,15,15, 15, 0,15,15,
+    15, 1,14, 2, 13,15,15, 4, 11,15,15,12, 15, 3,15,15,
+    15,15, 5, 6,  8,15, 7, 9, 15,10,15,15, 15,15,15,15,
+    15, 1,14, 2, 13,15,15, 4, 11,15,15,12, 15, 3,15,15,
+    15,15, 5, 6,  8,15, 7, 9, 15,10,15,15, 15,15,15,15,
+
+    15,15,15,15, 15,15,15,15, 15,15,15,15, 15,15,15,15,
+    15,15,15,15, 15,15,15,15, 15,15,15,15, 15,15,15,15,
+    15,15,15,15, 15,15,15,15, 15,15,15,15, 15,15,15,15,
+    15,15,15,15, 15,15,15,15, 15,15,15,15, 15,15,15,15,
+    15,15,15,15, 15,15,15,15, 15,15,15,15, 15,15,15,15,
+    15,15,15,15, 15,15,15,15, 15,15,15,15, 15,15,15,15,
+    15,15,15,15, 15,15,15,15, 15,15,15,15, 15,15,15,15,
+    15,15,15,15, 15,15,15,15, 15,15,15,15, 15,15,15,15
+};
+*/
+
 
 typedef struct readInfo {
     
@@ -51,7 +75,7 @@ typedef struct readInfo {
     int l_seq;				 /**< read length >*/
     uint32_t score;                	 /**< read phred score */
     uint32_t mscore;             	 /**< paired-end phred score */
-    
+     
     char *name;                          /**< read name, TODO:we don't need to store Qname, we use it to compte physical location for optical duplicates */
     char *cigar;                         /**< cigar string, TODO:we don't need to store cigar, we use it to compute unclipped coordinate */
     char *mcigar;                        /**< mate cigar >**/
