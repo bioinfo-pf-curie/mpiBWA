@@ -58,11 +58,11 @@ const unsigned char seq_nt16_table2[256] = {
 
 typedef struct readInfo {
     
-    int64_t pos;                    	 /**< clipped read position (coordinate in sam file) */
-    int64_t isize;			
-    int64_t mpos;			 /**< mate coordinate >**/
-    int64_t unclippedPos;           	 /**< unclipped read position */
-    int64_t dist2mate;			 /**< the distance to the next read>**/ 	
+    size_t pos;                    	 /**< clipped read position (coordinate in sam file) */
+    size_t isize;			
+    size_t mpos;			 /**< mate coordinate >**/
+    size_t unclippedPos;           	 /**< unclipped read position */
+    size_t dist2mate;			 /**< the distance to the next read>**/ 	
     
     unsigned int flag;                   /**< flag of the read */
     unsigned int pair_num;               /**< tell if the read is first(1) or second in the pair(2) */    
@@ -85,7 +85,7 @@ typedef struct readInfo {
 
 } readInfo;
 
-int fixmate( int rank, bseq1_t *seqs_1, bseq1_t *seqs_2, int read_num_1, int read_num_2, bwaidx_t *indix );
+int fixmate( int rank, bseq1_t *seqs_1, bseq1_t *seqs_2, int *read_num_1, int *read_num_2, bwaidx_t *indix );
 int readParsing (char *sam_buff, readInfo *read, bwaidx_t *indix);
 int getTokenTab(char **offset, char **tokenTab);
 int sync_mq_mc(readInfo *src, readInfo *dest);

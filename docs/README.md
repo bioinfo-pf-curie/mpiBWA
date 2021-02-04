@@ -112,7 +112,7 @@ If you want to split the results of the alignment by chromosome, use `mpiBWAByCh
 example: `mpirun -n 2 mpiBWAByChr mem -t 8 -f -o SAM REF FASTQ1 FASTQ2`
 
 the -f option add CIGAR, quality, and base score to each mate. This is equivalent to "samtools fixmate -c -m".
-This option permits to mark the duplicates with samtools in downstream analisys. The overhead time is less than 10%. 
+This option permits to mark the duplicates with samtools in downstream analisys. The overhead is negligable as this part is multithread. 
 
 ### output
 

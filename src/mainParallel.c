@@ -36,7 +36,7 @@ The fact that you are presently reading this means that you have had knowledge o
 #include <string.h>
 #include <unistd.h>
 #include <zlib.h>
-
+#include <pthread.h>
 #include "bwa.h"
 #include "bwamem.h"
 #include "utils.h"
@@ -86,6 +86,8 @@ The fact that you are presently reading this means that you have had knowledge o
 #define DATA_SIEVING_READ "enable"
 #define min(a,b) (a>=b?b:a)
 #define MAX_CHAR_SIZE 2048
+#define MAX_CHR_NAME_SIZE 200
+#define SMALL_STACK (1024*1024)
 
 void init_goff(size_t *goff, MPI_File mpi_filed, size_t fsize,int numproc,int rank){
 
@@ -1419,6 +1421,68 @@ void create_sam_header(char *file_out, bwaidx_t *indix, int *count, char *hdr_li
 	xfprintf(stderr, "%s: synched processes (%.02f)\n", __func__, aft - bef);
 }
 
+/****************************************
+ *  
+ *       Thread Structures and functions
+ *  
+ ****************************************/
+
+struct thread_data
+{
+        int  job_rank;
+        int  thread_id;
+        int  total_thread;
+        int  total_lines;
+        size_t total_reads;
+        int start_index_seqs;
+        int final_index_seqs;
+        bseq1_t *seqs_thr;
+        bwaidx_t *indix_thr;
+};
+
+void *call_fixmate(void *threadarg){
+
+
+        struct thread_data *my_data;
+        my_data = (struct thread_data *) threadarg;
+        size_t total_sam_line = 0;
+        int next, i, n, m;
+        char currentLine[MAX_CHAR_SIZE];
+        bwaidx_t *indix_tmp = my_data->indix_thr;
+        int rank_num = my_data->job_rank;
+        bseq1_t *seqs =  my_data->seqs_thr;
+        int current_sam_line1 = 0;
+        int start = my_data->start_index_seqs;
+
+        int current_sam_line2=0;
+
+        n = my_data->thread_id * 2;
+        m = my_data->thread_id * 2 + 1;
+        int incr = my_data->total_thread * 2;
+        int total_reads_parsed = 0;
+	int total_reads_per_thread =  my_data->total_reads / my_data->total_thread;
+        int read_num_1 = 0;
+        int read_num_2 = 0;
+        int tmp = 0;
+        if ( my_data->thread_id == ( my_data->total_thread - 1 ))
+                total_reads_per_thread = my_data->total_reads - ( total_reads_per_thread * (my_data->total_thread - 1));
+
+        do {
+                read_num_1=0;
+                read_num_2=0;
+		fixmate (rank_num, &(seqs[n]), &(seqs[m]), &read_num_1, &read_num_2, indix_tmp);
+
+                tmp += read_num_1 + read_num_2;
+                n = n + incr;
+                m = m + incr;
+                current_sam_line1=0;
+                current_sam_line2=0;
+                total_reads_parsed = total_reads_parsed + 2;
+        } while ( ( m < my_data->total_reads) );
+        my_data->total_lines = tmp;
+        pthread_exit((void *)&my_data);
+
+}
 
 
 
@@ -1735,7 +1799,8 @@ int main(int argc, char *argv[]) {
 
 	 // some internal structures
 	char *p1, *q1, *e1, *p2, *q2, *e2;
-	int line_number, line_number2;	
+	int line_number, line_number2;
+	int NUM_THREADS = opt->n_threads;	
 	int64_t bases;
 	double local_time_spend_mapping = 0;
 	double before_local_mapping = 0;
@@ -1761,6 +1826,9 @@ int main(int argc, char *argv[]) {
 	size_t *begin_offset_chunk 	= NULL;
 	size_t *chunk_size 		        = NULL;
 	size_t *reads_in_chunk 		= NULL;
+
+	pthread_attr_t attr;
+        pthread_t threads[NUM_THREADS];
 
 	//MPI_Info finfo;
 	//MPI_Info_create(&finfo);
@@ -2223,47 +2291,42 @@ int main(int argc, char *argv[]) {
 			aft = MPI_Wtime();
 			fprintf(stderr, "%s: computed mappings (%.02f)\n", __func__, aft - bef);
 
+			total_time_mapping += (aft - bef);			
 
-			if (dofixmate) {
-
+                        if (dofixmate){
 				bef = MPI_Wtime();
-				int i,next;
-                        	char currentLine[MAX_CHAR_SIZE];
-				int current_sam_line1 = 0;
-                        	int current_sam_line2 = 0;
-                        	n = 0;
-                        	while ( n < reads){
-                                	current_sam_line1 = 0;
-                                	next = tokenizer(seqs[n].sam,'\n', currentLine);
-                                	while (next) {
-                                        	current_sam_line1++;
-                                        	next = tokenizer(NULL, '\n', currentLine);
-                                	}
-                                	for(i=0; i<MAX_CHAR_SIZE; i++) currentLine[i]=0;
-                                	current_sam_line2 = 0;
-                                	next = tokenizer(seqs[n+1].sam,'\n', currentLine);
-                                	while (next) {
-                                        	current_sam_line2++;
-                                        	next = tokenizer(NULL, '\n', currentLine);
-                                	}
+				int ret_code = 0;
+                                struct thread_data *td;
+                                td = malloc (NUM_THREADS * sizeof(struct thread_data));
+                                bef = MPI_Wtime();
+                                pthread_attr_init(&attr);
+                                pthread_attr_setstacksize(&attr, SMALL_STACK);
+                                pthread_attr_setdetachstate(&attr, 0);
 
-                                
-                                        if ((current_sam_line1 + current_sam_line2) > 1)
-                                                fixmate (rank_num, &seqs[n], &seqs[n+1], current_sam_line1, current_sam_line2, &indix );
-                                        else {
-                                                fprintf(stderr, "we have a problem \n");
-                                                fprintf(stderr, "seqs1= %s \n seqs2 = %s \n", seqs[n].sam, seqs[n+1].sam);
-                                                assert ( 1 == 0);
+                                for( n = 0; n < NUM_THREADS; n++ ){
+                                        td[n].total_thread = NUM_THREADS;
+                                        td[n].thread_id = n;
+                                        assert(seqs);
+                                        td[n].seqs_thr = seqs;
+                                        td[n].job_rank = rank_num;
+                                        td[n].total_reads = reads;
+                                        td[n].start_index_seqs = 0;
+                                        td[n].final_index_seqs = reads-1;
+                                        td[n].indix_thr = &indix;
+                                        td[n].total_lines = 0;
+                                        ret_code = pthread_create(&threads[n], &attr, call_fixmate, (void *)(&td[n]));
+                                        if (ret_code) {
+                                                fprintf(stderr, "ERROR; return code from pthread_create() is %d\n", ret_code);
                                         }
-                                                                         
-                                	for(i=0; i<MAX_CHAR_SIZE; i++) currentLine[i]=0;
-                                	n = n + 2;
-                        	}
-
+                                }
+                                for(n=0; n<NUM_THREADS; n++)
+                                        pthread_join(threads[n], (void *)(&td[n]));
+                                pthread_attr_destroy(&attr);
+                                free(td);
 				aft = MPI_Wtime();
                                 fprintf(stderr, "rank: %d :: %s: time spend in fixmate (%.02f) \n", rank_num, __func__, aft - bef);
-			}
 
+                        }
 
 
 			//MPI_Barrier(MPI_COMM_WORLD);
@@ -2782,44 +2845,39 @@ int main(int argc, char *argv[]) {
 
 			total_time_mapping += (aft - bef);
 
-
-			if (dofixmate) {
+			if (dofixmate){
                                 bef = MPI_Wtime();
-                                int i,next;
-                                char currentLine[MAX_CHAR_SIZE];
-                                int current_sam_line1 = 0;
-                                int current_sam_line2 = 0;
-                                n = 0;
-                                while ( n < reads){
-                                        current_sam_line1 = 0;
-                                        next = tokenizer(seqs[n].sam,'\n', currentLine);
-                                        while (next) {
-                                                current_sam_line1++;
-                                                next = tokenizer(NULL, '\n', currentLine);
-                                        }
-                                        for(i=0; i<MAX_CHAR_SIZE; i++) currentLine[i]=0;
-                                        current_sam_line2 = 0;
-                                        next = tokenizer(seqs[n+1].sam,'\n', currentLine);
-                                        while (next) {
-                                                current_sam_line2++;
-                                                next = tokenizer(NULL, '\n', currentLine);
-                                        }
+                                int ret_code = 0;
+                                struct thread_data *td;
+                                td = malloc (NUM_THREADS * sizeof(struct thread_data));
+                                bef = MPI_Wtime();
+                                pthread_attr_init(&attr);
+                                pthread_attr_setstacksize(&attr, SMALL_STACK);
+                                pthread_attr_setdetachstate(&attr, 0);
 
-
-                                        if ((current_sam_line1 + current_sam_line2) > 1)
-                                                fixmate (rank_num, &seqs[n], &seqs[n+1], current_sam_line1, current_sam_line2, &indix );
-                                        else {
-                                                fprintf(stderr, "we have a problem \n");
-                                                fprintf(stderr, "seqs1= %s \n seqs2 = %s \n", seqs[n].sam, seqs[n+1].sam);
-                                                assert ( 1 == 0);
+                                for( n = 0; n < NUM_THREADS; n++ ){
+                                        td[n].total_thread = NUM_THREADS;
+                                        td[n].thread_id = n;
+                                        assert(seqs);
+                                        td[n].seqs_thr = seqs;
+                                        td[n].job_rank = rank_num;
+                                        td[n].total_reads = reads;
+                                        td[n].start_index_seqs = 0;
+                                        td[n].final_index_seqs = reads-1;
+                                        td[n].indix_thr = &indix;
+                                        td[n].total_lines = 0;
+                                        ret_code = pthread_create(&threads[n], &attr, call_fixmate, (void *)(&td[n]));
+                                        if (ret_code) {
+                                                fprintf(stderr, "ERROR; return code from pthread_create() is %d\n", ret_code);
                                         }
-                                        
-                                for(i=0; i<MAX_CHAR_SIZE; i++) currentLine[i]=0;
-                                n = n + 2;
                                 }
+                                for(n=0; n<NUM_THREADS; n++)
+                                        pthread_join(threads[n], (void *)(&td[n]));
+                                pthread_attr_destroy(&attr);
+                                free(td);
+                                aft = MPI_Wtime();
+                                fprintf(stderr, "rank: %d :: %s: time spend in fixmate (%.02f) \n", rank_num, __func__, aft - bef);
 
-				 aft = MPI_Wtime();
-                                 fprintf(stderr, "rank: %d :: %s: time spend in fixmate (%.02f) \n", rank_num, __func__, aft - bef);
                         }
 
 			/* Write results ... */

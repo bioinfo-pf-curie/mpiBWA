@@ -203,7 +203,7 @@ int readParsing (char *sam_buff, readInfo *read, bwaidx_t *indix) {
 	    case 3: // The position chromosome wise
 		getTokenTab(&q, &tokenCar);
 		if (strcmp(tokenCar, "*") == 0) read->pos = -1;
-                else read->pos = atol(tokenCar);
+                else read->pos = atoll(tokenCar);
                 free(tokenCar);
                 break;
 
@@ -620,10 +620,7 @@ int sam_write(readInfo *read, char **final_buffer, bwaidx_t *indix){
 
 
 
-//int fixmate( int rank, bseq1_t *seqs_1, bseq1_t *seqs_2, int read_num_1, int read_num_2, char **final_seqs_fxmt1, char **final_seqs_fxmt2, bwaidx_t *indix ){
-
-int fixmate( int rank, bseq1_t *seqs_1, bseq1_t *seqs_2, int read_num_1, int read_num_2, bwaidx_t *indix ){
-
+int fixmate( int rank, bseq1_t *seqs_1, bseq1_t *seqs_2, int *reads_1, int *reads_2, bwaidx_t *indix ){
 		/*  First part of the algorithme */
 
 		/* number of ref chr : indix.bns->n_seqs
@@ -641,9 +638,27 @@ int fixmate( int rank, bseq1_t *seqs_1, bseq1_t *seqs_2, int read_num_1, int rea
 		char **seqs_fxmt2=malloc(sizeof(char *));
 		*seqs_fxmt2=malloc(sizeof(char));
 		*seqs_fxmt2[0]=0;
-	
+		
+		int d = 0;
+		char *m = seqs_1->sam;
+		int read_num_1 = 0;
+		while (d < strlen(seqs_1->sam)) {
+			if (*m++ == '\n') read_num_1++;
+			d++;
+		}
+		
+		d = 0;
+		m = seqs_2->sam;
+                int read_num_2 = 0;
+                while ( d < strlen(seqs_2->sam)  ) {
+			if (*m++ == '\n') read_num_2++;
+			d++;
+		}
+		*reads_1 = read_num_1;
+		*reads_2 = read_num_2;	
 		//we allocate a read_info
-		readInfo **reads = malloc ( (read_num_1 + read_num_2) * sizeof(readInfo *));
+		//read_num_1 = read_num_2 = 10;
+		readInfo **reads = calloc ( (read_num_1 + read_num_2), sizeof(readInfo *));
 		int i = 0;
 		//we parse the sam buffer original
 		//fprintf(stderr, " read_num1 : %d ## read_num2 : %d \n", read_num_1, read_num_2);
@@ -676,9 +691,14 @@ int fixmate( int rank, bseq1_t *seqs_1, bseq1_t *seqs_2, int read_num_1, int rea
                         assert (readParsing(tok2, reads[i], indix) == 0);
                         i++;
                       }
-               
-		//fprintf(stderr, " finish parsing line %d \n", ( read_num_1 + read_num_2));
+              
+		/*
+		if ( i != ( read_num_1 + read_num_2)){ 
+		    fprintf(stderr, " problem finish parsing line 1= %d :: 2 = %d :: i =%d \n", read_num_1, read_num_2, i);
+		    fprintf(stderr, " seqs1= %s \n seqs2 = %s \n ", seqs_1->sam, seqs_2->sam);	
+		}
 		assert(i == ( read_num_1 + read_num_2));
+		*/
 		int curr = 0; int has_prev = 0;
 		size_t pre_end, cur_end;
 		
@@ -807,9 +827,6 @@ int fixmate( int rank, bseq1_t *seqs_1, bseq1_t *seqs_2, int read_num_1, int rea
 
 		for  ( i=0; i< ( read_num_1 + read_num_2); i++ ) assert(reads[i] == NULL);
 		
-		//asprintf(final_seqs_fxmt1,"%s",*seqs_fxmt1);
-		//asprintf(final_seqs_fxmt2,"%s",*seqs_fxmt2);
-
 		free(seqs_1->sam);
 		seqs_1->sam = malloc(sizeof(char));		
 		asprintf(&(seqs_1->sam),"%s",*seqs_fxmt1);
