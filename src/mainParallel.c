@@ -158,8 +158,8 @@ void find_process_starting_offset(size_t *goff, size_t size, char* file_to_read,
 
                 while (p < e) {
                         if (*p != '+') { p++; continue; }
-                        if (p != buffer_r0 && *(p-1) != '\n' && *(p+1) != '\n') { p++; continue; }
-                        p++;
+                        if (p != buffer_r0 && *(p-1) != '\n') { p++; continue; }
+			while (p < e && *p != '\n') p++;
                         p++;
                         while (p < e && *p != '\n') p++;
                         p++;
@@ -263,7 +263,7 @@ void find_reads_size_and_offsets(size_t offset_in_file,
 		if ( read_buffer_sz == DEFAULT_INBUF_SIZE){
 			r--;
 			//go to last previous read
-			while (r != (b+1)){if (*r == '+' && *(r-1) == '\n' && *(r+1) == '\n') break; else r--;}
+			while (r != (b+1)){if (*r == '+' && *(r-1) == '\n') break; else r--;}
             while (r != b){if (*r == '\n') break; else r--;}
             while (r != b){if (*r == '@') break; else r--;}
             r--; //stop at \n
@@ -3277,7 +3277,6 @@ int main(int argc, char *argv[]) {
 			fprintf(stderr, "rank: %d :: %s: wrote results (%.02f) \n", rank_num, __func__, aft - bef);
 			total_time_writing += (aft - bef);
 			free(buffer_r1);
-			free(buffer_r2);
 			fprintf(stderr, "rank: %d :: finish for chunck %zu \n", rank_num, u1);
 
 		} //end for loop on chunks
