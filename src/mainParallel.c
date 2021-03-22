@@ -3491,7 +3491,7 @@ int main(int argc, char *argv[]) {
 			reads_r1 = all_reads_in_chunk[u1];
 			reads = reads_r1;
 			bases = 0;
-			total_local_reads_aligned += reads/2;
+			total_local_reads_aligned += reads;
 			assert(reads <= INT_MAX);
 
 			/* Parse sequences ... */
