@@ -3887,7 +3887,7 @@ int main(int argc, char *argv[]) {
 	
 		size_t chunk_count = 0;
 
-		maxsiz = ( opt->chunk_size * opt->n_threads); 
+		maxsiz = fixed_chunk_size; 
 		MPI_Barrier(MPI_COMM_WORLD);
 		fprintf(stderr,"rank %d ::: Call find_chunks_info \n", rank_num);
 		// the detail of he paramters is at the function definition
@@ -3897,19 +3897,18 @@ int main(int argc, char *argv[]) {
 		// fprintf(stderr, "rank %d ::: chunk_size_2 = %zu \n", rank_num, chunk_size_2);
 
 		bef = MPI_Wtime();
-		find_chunks_info(
-						begin_offset_chunk,
-						chunk_size,
-						reads_in_chunk,
-						local_read_size,
-						local_read_bytes,
-						local_read_offsets,
-						rank_num,
-						proc_num,
-						local_num_reads,
-						grand_total_num_reads,
-						maxsiz,
-						&chunk_count);
+		find_chunks_info(begin_offset_chunk,
+				 chunk_size,
+				 reads_in_chunk,
+				 local_read_size,
+				 local_read_bytes,
+				 local_read_offsets,
+				 rank_num,
+				 proc_num,
+				 local_num_reads,
+				 grand_total_num_reads,
+				 maxsiz,
+				 &chunk_count);
 
 		aft = MPI_Wtime();
 		fprintf(stderr, "%s ::: rank %d ::: evaluating offsets chuncks and sizes (%.02f) found %zu chuncks \n", __func__, rank_num, aft - bef, chunk_count);
@@ -3918,7 +3917,7 @@ int main(int argc, char *argv[]) {
 
 		if (local_read_offsets) 	free(local_read_offsets);
 		if (local_read_size) 		free(local_read_size);
-		
+		if (local_read_bytes)		free(local_read_bytes);	
 		//verify the number of reads
 
 		size_t num_reads_1 = 0;

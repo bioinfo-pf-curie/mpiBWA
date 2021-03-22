@@ -3305,7 +3305,7 @@ int main(int argc, char *argv[]) {
 
 		if (local_read_offsets) 	free(local_read_offsets);
 		if (local_read_size) 		free(local_read_size);
-		
+		if (local_read_bytes)		free(local_read_bytes);	
 		//verify the number of reads
 
 		size_t num_reads_1 = 0;
