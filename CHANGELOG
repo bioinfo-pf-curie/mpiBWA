@@ -1,7 +1,9 @@
 version-1.3
-    - Add an option -f to fixe the mate score, quality and cigar. Usefull for compatibility with samtools markdup.
-      When -f is set there is no more discordant.sam 	
-      A typycal workflow is mpiBWAByChr (f) + mpiSort (u + b) + samtools index + samtools markdup (issue#31)
+    - Add an option -f to fixe the mate score, quality and cigar (like samtools fixmate does). 
+      Usefull for compatibility with mpiMarkdup or samtools markdup.
+      When -f is set there is no more discordant.sam. 	
+      A typycal workflow is mpiBWAByChr (f) + mpiSort (u + b) + samtools index + samtools markdup
+      or mpiBWAByChr (f) + mpiMarkdup (issue#31)
     - Add the option -K to set the number of bases to analyse (used for reproducibility) (issue#32).
     - Fix a bug for offset read initialization and invalid free (issue #34)
     - Fix load balancing (issue#30)
