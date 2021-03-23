@@ -8,7 +8,7 @@ This software allows the alignment of high-throughput sequencing data from fastq
 * [Documentation](docs/README.md)
 * [Credits](#credits)
 * [Acknowledgements](#acknowledgements)
-* [Release notes](CHANGELOG.md)
+* [Release notes](CHANGELOG)
 * [Citation](#citation)
 
 ## Credits
