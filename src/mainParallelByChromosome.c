@@ -5,7 +5,7 @@ The project was developped by Frederic Jarlier from Institut Curie and Nicolas J
 
 NGS aligner inspired by BWA-MEM 
 
-Copyright (C) 2016-2020  Institut Curie / Institut Pasteur
+Copyright (C) 2016-2021  Institut Curie / Institut Pasteur
 
 You can use, modify and/ or redistribute the software under the terms of license (see the LICENSE file for more details).
    
