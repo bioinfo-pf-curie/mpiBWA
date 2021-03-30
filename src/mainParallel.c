@@ -1562,31 +1562,13 @@ int main(int argc, char *argv[]) {
 	/* initialize the BWA-MEM parameters to the default values */
 	opt = mem_opt_init();
 	memset(&opt0, 0, sizeof(opt0));
-	while ((c = getopt(argc-1, argv+1, "1paMCSPVYjk:K:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:W:x:G:h:y:K:X:H:o:f")) >= 0) {
+	while ((c = getopt(argc-1, argv+1, "51qpaMCSPVYjk:K:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:W:x:G:h:y:K:X:H:o:f")) >= 0) {
 		if (c == 'k') opt->min_seed_len = atoi(optarg), opt0.min_seed_len = 1;
 		else if (c == '1') ; /* FIXME: unsupported */
 		else if (c == 'x') mode = optarg;
 		else if (c == 'w') opt->w = atoi(optarg), opt0.w = 1;
 		else if (c == 'A') opt->a = atoi(optarg), opt0.a = 1;
 		else if (c == 'B') opt->b = atoi(optarg), opt0.b = 1;
-		else if (c == 'O') {
-			opt0.o_del = opt0.o_ins = 1;
-			opt->o_del = opt->o_ins = strtol(optarg, &p, 10);
-			if (*p != 0 && ispunct(*p) && isdigit(p[1]))
-				opt->o_ins = strtol(p+1, &p, 10);
-		}
-		else if (c == 'E') {
-			opt0.e_del = opt0.e_ins = 1;
-			opt->e_del = opt->e_ins = strtol(optarg, &p, 10);
-			if (*p != 0 && ispunct(*p) && isdigit(p[1]))
-				opt->e_ins = strtol(p+1, &p, 10);
-		}
-		else if (c == 'L') {
-			opt0.pen_clip5 = opt0.pen_clip3 = 1;
-			opt->pen_clip5 = opt->pen_clip3 = strtol(optarg, &p, 10);
-			if (*p != 0 && ispunct(*p) && isdigit(p[1]))
-				opt->pen_clip3 = strtol(p+1, &p, 10);
-		}
 		else if (c == 'T') opt->T = atoi(optarg), opt0.T = 1;
 		else if (c == 'U') opt->pen_unpaired = atoi(optarg), opt0.pen_unpaired = 1;
 		else if (c == 't') opt->n_threads = atoi(optarg), opt->n_threads = opt->n_threads > 1? opt->n_threads : 1;
@@ -1597,6 +1579,8 @@ int main(int argc, char *argv[]) {
 		else if (c == 'S') opt->flag |= MEM_F_NO_RESCUE;
 		else if (c == 'Y') opt->flag |= MEM_F_SOFTCLIP;
 		else if (c == 'V') opt->flag |= MEM_F_REF_HDR;
+		else if (c == '5') opt->flag |= MEM_F_PRIMARY5 | MEM_F_KEEP_SUPP_MAPQ; // always apply MEM_F_KEEP_SUPP_MAPQ with -5
+                else if (c == 'q') opt->flag |= MEM_F_KEEP_SUPP_MAPQ;
 		else if (c == 'c') opt->max_occ = atoi(optarg), opt0.max_occ = 1;
 		else if (c == 'd') opt->zdrop = atoi(optarg), opt0.zdrop = 1;
 		else if (c == 'v') bwa_verbose = atoi(optarg);
@@ -1623,6 +1607,22 @@ int main(int argc, char *argv[]) {
 			opt->mapQ_coef_len = atoi(optarg);
 			opt->mapQ_coef_fac = opt->mapQ_coef_len > 0? log(opt->mapQ_coef_len) : 0;
 		}
+		else if (c == 'O') {
+                        opt0.o_del = opt0.o_ins = 1;
+                        opt->o_del = opt->o_ins = strtol(optarg, &p, 10);
+                        if (*p != 0 && ispunct(*p) && isdigit(p[1]))
+                                opt->o_ins = strtol(p+1, &p, 10);
+                } else if (c == 'E') {
+                        opt0.e_del = opt0.e_ins = 1;
+                        opt->e_del = opt->e_ins = strtol(optarg, &p, 10);
+                        if (*p != 0 && ispunct(*p) && isdigit(p[1]))
+                                opt->e_ins = strtol(p+1, &p, 10);
+                } else if (c == 'L') {
+                        opt0.pen_clip5 = opt0.pen_clip3 = 1;
+                        opt->pen_clip5 = opt->pen_clip3 = strtol(optarg, &p, 10);
+                        if (*p != 0 && ispunct(*p) && isdigit(p[1]))
+                                opt->pen_clip3 = strtol(p+1, &p, 10);
+                }
 		else if (c == 'R') {
 			if ((rg_line = bwa_set_rg(optarg)) == 0) return 1;
 		}

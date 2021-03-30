@@ -380,9 +380,9 @@ int sam_write_supp_and_secondary(readInfo *read, char **final_buffer, bwaidx_t *
         char *current_line;
 
 	    asprintf(&current_line, "%s\t%d\t%s\t%zu\t%d\t%s\t%s\t%zu\t%d\t%s\t%s\t%s", read->name,
-                   read->flag, indix->bns->anns[read->tid].name, read->pos, read->mapq, 
-					    read->cigar, indix->bns->anns[read->mtid].name, read->mpos, read->dist2mate,
-                             read->seq,  read->qual, read->aux);
+                   	read->flag, indix->bns->anns[read->tid].name, read->pos, read->mapq, 
+				read->cigar, indix->bns->anns[read->mtid].name, read->mpos, read->dist2mate,
+                            		read->seq,  read->qual, read->aux);
 
 
         free(read->aux);
@@ -535,10 +535,10 @@ int sam_write(readInfo *read, char **final_buffer, bwaidx_t *indix){
 	if ( read->tid == read->mtid ) mchr="=";
 	else mchr = indix->bns->anns[read->mtid].name;
 
-	asprintf(&current_line, "%s\t%d\t%s\t%zu\t%d\t%s\t%s\t%zu\t%d\t%s\t%s\tMQ:i:%d\tMC:Z:%s\tms:i:%d\t%s", read->name, 
+	asprintf(&current_line, "%s\t%d\t%s\t%zu\t%d\t%s\t%s\t%zu\t%d\t%s\t%s\tMQ:i:%d\tms:i:%d\t%s", read->name, 
 				read->flag, indix->bns->anns[read->tid].name, read->pos, 
 					read->mapq, read->cigar, mchr, read->mpos, read->dist2mate, 
-						read->seq,  read->qual, read->mmapq, read->mcigar, read->mscore, read->aux);
+						read->seq,  read->qual, read->mmapq, read->mscore, read->aux);
 
     free(read->aux);
     free(read->cigar);
