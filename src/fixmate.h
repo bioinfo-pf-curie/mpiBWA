@@ -62,7 +62,7 @@ typedef struct readInfo {
     size_t isize;			
     size_t mpos;			 /**< mate coordinate >**/
     size_t unclippedPos;           	 /**< unclipped read position */
-    size_t dist2mate;			 /**< the distance to the next read>**/ 	
+    uint32_t dist2mate;			 /**< the distance to the next read>**/ 	
     
     unsigned int flag;                   /**< flag of the read */
     unsigned int pair_num;               /**< tell if the read is first(1) or second in the pair(2) */    
@@ -81,7 +81,7 @@ typedef struct readInfo {
     char *mcigar;                        /**< mate cigar >**/
     char *aux;				 /** < auxillary string that contains NM: XA: ZA:... > **/        
     char *seq;			         /** < nucleotids bases >**/
-    char *qual;			         /*  < nucleotids bases quality>*/
+    uint8_t *qual;			         /*  < nucleotids bases quality>*/
 
 } readInfo;
 
