@@ -384,7 +384,7 @@ int sam_write_supp_and_secondary(readInfo *read, char **final_buffer, bwaidx_t *
 
         char *current_line;
         int res = 0;
-	    res = asprintf(&current_line, "%s\t%d\t%s\t%zu\t%d\t%s\t%s\t%u\t%d\t%s\t%s\t%s", read->name,
+	    res = asprintf(&current_line, "%s\t%d\t%s\t%zu\t%d\t%s\t%s\t%lu\t%d\t%s\t%s\t%s", read->name,
                    	read->flag, indix->bns->anns[read->tid].name, read->pos, read->mapq, 
 				        read->cigar, indix->bns->anns[read->mtid].name, read->mpos, read->dist2mate,
                             read->seq,  read->qual, read->aux);
