@@ -81,7 +81,7 @@ typedef struct readInfo {
     char *mcigar;                        /**< mate cigar >**/
     char *aux;				 /** < auxillary string that contains NM: XA: ZA:... > **/        
     char *seq;			         /** < nucleotids bases >**/
-    char *qual;			         /*  < nucleotids bases quality>*/
+    uint8_t *qual;			         /*  < nucleotids bases quality>*/
 
 } readInfo;
 
