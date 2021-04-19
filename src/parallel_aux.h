@@ -1,9 +1,16 @@
 
 
+#define _GNU_SOURCE
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
 
 void init_goff(size_t *goff, MPI_File mpi_filed, size_t fsize,int numproc,int rank);
 void find_process_starting_offset(size_t *goff, size_t size, char* file_to_read, int proc_num, int rank_num);
+void find_process_starting_offset_mt(size_t *goff, size_t size, char* file_to_read, int proc_num, int rank_num, int nthreads);
+
+
 void find_reads_size_and_offsets(size_t offset_in_file,
 								size_t siz2read,
 								char *file_to_read,
@@ -58,8 +65,8 @@ void *compress_thread(void *threadarg);
 void *compress_thread_by_chr(void *threadarg);
 void *compress_thread_by_chr_single(void *threadarg);
 void *call_fixmate(void *threadarg);
-void copy_local_read_info_mt(void *thread_arg);
-void find_reads_size_and_offsets_mt(void *thread_arg);
+void *copy_local_read_info_mt(void *thread_arg);
+void *find_reads_size_and_offsets_mt(void *thread_arg);
 void copy_buffer_write_thr(void *thread_arg);
 void compute_buffer_size_thr(void *thread_arg);
 void create_bam_header(char *file_out, bwaidx_t *indix, int *count, 
@@ -163,7 +170,5 @@ struct struct_data_thread_1{
             int rank_num_mt;
             int thread_num_mt;
 };
-
-
 
 
