@@ -1526,7 +1526,7 @@ void map_indexes(char *file_map, int *count, bwaidx_t *indix, int *ignore_alt, M
 //			count of top level elements in the file
 //			header string
 //			rg = read group string
-void create_sam_header(char *file_out, bwaidx_t *indix, int *count, char *hdr_line, char *rg_line, int rank_num)
+void create_sam_header(char *file_out, bwaidx_t *indix, int *count, char *hdr_line, char *rg_line, char *pg_line, int rank_num)
 {
 
 	//MPI resources
@@ -1553,41 +1553,55 @@ void create_sam_header(char *file_out, bwaidx_t *indix, int *count, char *hdr_li
 		assert(res == MPI_SUCCESS);
 		/* Add reference sequence lines */
 		for (s = 0; s < (*indix).bns->n_seqs; ++s) {
-		len = asprintf(&buff, "@SQ\tSN:%s\tLN:%d\n", (*indix).bns->anns[s].name, (*indix).bns->anns[s].len);
-		res = MPI_File_write(fh_out, buff, len, MPI_CHAR, &status);
-		assert(res == MPI_SUCCESS);
-		res = MPI_Get_count(&status, MPI_CHAR, count);
-		assert(res == MPI_SUCCESS);
-		assert(*count == len);
-		free(buff);
+			len = asprintf(&buff, "@SQ\tSN:%s\tLN:%d\n", (*indix).bns->anns[s].name, (*indix).bns->anns[s].len);
+			res = MPI_File_write(fh_out, buff, len, MPI_CHAR, &status);
+			assert(res == MPI_SUCCESS);
+			res = MPI_Get_count(&status, MPI_CHAR, count);
+			assert(res == MPI_SUCCESS);
+			assert(*count == len);
+			free(buff);
 		}
 		/* Add header lines */
 		if (hdr_line != NULL) {
-		len = asprintf(&buff, "%s\n", hdr_line);
-		res = MPI_File_write(fh_out, buff, len, MPI_CHAR, &status);
-		assert(res == MPI_SUCCESS);
-		res = MPI_Get_count(&status, MPI_CHAR, count);
-		assert(res == MPI_SUCCESS);
-		assert(*count == len);
-		free(buff);
+			len = asprintf(&buff, "%s\n", hdr_line);
+			res = MPI_File_write(fh_out, buff, len, MPI_CHAR, &status);
+			assert(res == MPI_SUCCESS);
+			res = MPI_Get_count(&status, MPI_CHAR, count);
+			assert(res == MPI_SUCCESS);
+			assert(*count == len);
+			free(buff);
 		}
 		/* Add read group line */
 		if (rg_line != NULL) {
-		len = asprintf(&buff, "%s\n", rg_line);
-		res = MPI_File_write(fh_out, buff, len, MPI_CHAR, &status);
-		assert(res == MPI_SUCCESS);
-		res = MPI_Get_count(&status, MPI_CHAR, count);
-		assert(res == MPI_SUCCESS);
-		assert(*count == len);
-		free(buff);
+			len = asprintf(&buff, "%s\n", rg_line);
+			res = MPI_File_write(fh_out, buff, len, MPI_CHAR, &status);
+			assert(res == MPI_SUCCESS);
+			res = MPI_Get_count(&status, MPI_CHAR, count);
+			assert(res == MPI_SUCCESS);
+			assert(*count == len);
+			free(buff);
 		}
+		
+		/* Add programm line */
+        	if (pg_line != NULL) {
+        		len = asprintf(&buff, "%s\n", pg_line);
+        		res = MPI_File_write(fh_out, buff, len, MPI_CHAR, &status);
+        		assert(res == MPI_SUCCESS);
+        		res = MPI_Get_count(&status, MPI_CHAR, count);
+        		assert(res == MPI_SUCCESS);
+        		assert(*count == len);
+        		free(buff);
+        	}
+
+
+
 		res = MPI_File_close(&fh_out);
 		assert(res == MPI_SUCCESS);
 	
 }
 
 void create_bam_header(char *file_out, bwaidx_t *indix, int *count, 
-	char *hdr_line, char *rg_line, int rank_num, int compression_level){
+	char *hdr_line, char *rg_line, char *pg_line, int rank_num, int compression_level){
 
 			int s = 0;
 			int s1 = 0;
@@ -1609,6 +1623,11 @@ void create_bam_header(char *file_out, bwaidx_t *indix, int *count,
 				len += asprintf(&buff[s++], "%s\n", rg_line);			
 				s1++;
 			}
+			if (pg_line != NULL) {
+                                len += asprintf(&buff[s++], "%s\n", pg_line);
+                                s1++;
+                        }
+
 			char *buff_header = malloc(len + 1);
             		buff_header[len] = 0;
             		int disp = 0;
@@ -1689,7 +1708,7 @@ void create_bam_header(char *file_out, bwaidx_t *indix, int *count,
 
 }
 
-void create_bam_header_by_chr_file(char *file_out[], bwaidx_t *indix, int *count, char *hdr_line, char *rg_line, int rank_num, int compression_level, int dofixmate){
+void create_bam_header_by_chr_file(char *file_out[], bwaidx_t *indix, int *count, char *hdr_line, char *rg_line, char *pg_line, int rank_num, int compression_level, int dofixmate){
 
 
 		
@@ -1733,6 +1752,11 @@ void create_bam_header_by_chr_file(char *file_out[], bwaidx_t *indix, int *count
                         len += asprintf(&buff[s++], "%s\n", rg_line);
                         s1++;
                 }
+		if (pg_line != NULL) {
+                        len += asprintf(&buff[s++], "%s\n", pg_line);
+                        s1++;
+                }
+
                 char *buff_header = malloc(len + 1);
                 buff_header[len] = 0;
                 int disp = 0;
@@ -2083,6 +2107,74 @@ void *compress_thread_by_chr(void *threadarg){
 	//free(buffer_out_vec);
 }
 
+
+void *write_sam_thread_by_chr_single(void *threadarg){
+
+	struct thread_data_compress_by_chr_single *my_data;
+        my_data = (struct thread_data_compress_by_chr_single *) threadarg;
+        int compression_level = my_data->comp_level;
+        int rank_num = my_data->job_rank;
+        bwaidx_t *indix = my_data->indix_thr;
+        int total_thread = my_data->total_thread;
+        size_t total_sam_line = my_data->total_sam_line;
+        int comp_level = my_data->comp_level;
+        char **start_addr = my_data->start_addr;
+        int *line_size_to_cpy = my_data->line_size_to_cpy;
+        int *sam_buff_dest = my_data->sam_buff_dest;
+        int incrmnt = my_data->incrmnt;
+        MPI_File *fh_out = my_data->fh_out;
+        MPI_Status status;
+        int count;
+        int res;
+        double bef, aft;
+        int nbchr = indix->bns->n_seqs + incrmnt;
+        int start_index = (total_sam_line / total_thread) * my_data->thread_id;
+        int end_index = 0;
+        if (my_data->thread_id < my_data->total_thread)
+                end_index = (my_data->total_sam_line / my_data->total_thread) * (my_data->thread_id + 1) - 1;
+        else
+                end_index = my_data->total_sam_line;
+        int n = 0;
+        size_t *chr_buff_size = calloc( indix->bns->n_seqs + incrmnt, sizeof(size_t));
+        for (n = start_index; n < end_index; n++){
+                chr_buff_size[sam_buff_dest[n]] += line_size_to_cpy[n];
+        }
+        char *buffer_out_vec[indix->bns->n_seqs + incrmnt];
+        for (n = 0; n < (indix->bns->n_seqs + incrmnt); n++) {
+                 assert(chr_buff_size[n] <= INT_MAX);
+                 if (chr_buff_size[n]){
+                           buffer_out_vec[n] = calloc( chr_buff_size[n] + 1, sizeof(char));
+                           assert(buffer_out_vec[n] != NULL);
+                           buffer_out_vec[n][chr_buff_size[n]] = '\0';
+                 }
+        }
+        size_t *actual_size = calloc(nbchr, sizeof(size_t));
+        char *p_temp2;
+        int u = 0;
+        for (n = start_index; n < end_index; n++) {
+
+                p_temp2 = buffer_out_vec[sam_buff_dest[n]] + actual_size[sam_buff_dest[n]];
+                memmove(p_temp2, start_addr[n], line_size_to_cpy[n]);
+                actual_size[sam_buff_dest[n]] += line_size_to_cpy[n];
+        }
+        free(actual_size);
+
+	for (n = 0; n < (indix->bns->n_seqs + incrmnt); n++) {
+                if (chr_buff_size[n]){
+			res = MPI_File_write_shared(fh_out[n], buffer_out_vec[n], chr_buff_size[n], MPI_CHAR, &status);
+                        assert(res == MPI_SUCCESS);
+                        res = MPI_Get_count(&status, MPI_CHAR, &count);
+                        assert(res == MPI_SUCCESS);
+                        assert(count == (int)chr_buff_size[n]);
+                        free(buffer_out_vec[n]);
+                        chr_buff_size[n] = 0;
+		}
+	}
+}
+
+
+
+
 void *compress_thread_by_chr_single(void *threadarg){
 
         struct thread_data_compress_by_chr_single *my_data;
@@ -2235,7 +2327,7 @@ int getChr(char *str, char *chrNames[], int nbchr, char *tmp_chr) {
 }
 
 void create_sam_header_by_chr_file(char *file_out[], 
-		bwaidx_t *indix, int *count, char *hdr_line, char *rg_line, int rank_num)
+		bwaidx_t *indix, int *count, char *hdr_line, char *rg_line, char *pg_line, int rank_num)
 {
 
         //MPI resources
@@ -2262,38 +2354,48 @@ void create_sam_header_by_chr_file(char *file_out[],
 	     }
 
 	      for (i = 0; i < (*indix).bns->n_seqs; ++i) {	
-             	// Add reference sequence lines 
-             	for (s = 0; s < (*indix).bns->n_seqs; ++s) {
-             		len = asprintf(&buff, "@SQ\tSN:%s\tLN:%d\n", (*indix).bns->anns[s].name, (*indix).bns->anns[s].len);
-                	res = MPI_File_write(fh_out[i], buff, len, MPI_CHAR, &status);
-                	assert(res == MPI_SUCCESS);
-                	res = MPI_Get_count(&status, MPI_CHAR, count);
-                	assert(res == MPI_SUCCESS);
-                	assert(*count == len);
-                	free(buff);
-              	}
-	      	// Add header lines 
- 	      	if (hdr_line != NULL) {
-              		len = asprintf(&buff, "%s\n", hdr_line);
-                	res = MPI_File_write(fh_out[i], buff, len, MPI_CHAR, &status);
-                	assert(res == MPI_SUCCESS);
-                	res = MPI_Get_count(&status, MPI_CHAR, count);
-                	assert(res == MPI_SUCCESS);
-                	assert(*count == len);
-                	free(buff);
-               	}
-       	       	if (rg_line != NULL) {
-               		len = asprintf(&buff, "%s\n", rg_line);
-                        res = MPI_File_write(fh_out[i], buff, len, MPI_CHAR, &status);
-                        assert(res == MPI_SUCCESS);
-                        res = MPI_Get_count(&status, MPI_CHAR, count);
-                        assert(res == MPI_SUCCESS);
-                        assert(*count == len);
-                        free(buff);
-			res = MPI_File_close(&fh_out[i]);
-	                assert(res == MPI_SUCCESS);
-                	}
-		}
+             		// Add reference sequence lines 
+             		for (s = 0; s < (*indix).bns->n_seqs; ++s) {
+             			len = asprintf(&buff, "@SQ\tSN:%s\tLN:%d\n", (*indix).bns->anns[s].name, (*indix).bns->anns[s].len);
+                		res = MPI_File_write(fh_out[i], buff, len, MPI_CHAR, &status);
+                		assert(res == MPI_SUCCESS);
+                		res = MPI_Get_count(&status, MPI_CHAR, count);
+                		assert(res == MPI_SUCCESS);
+                		assert(*count == len);
+                		free(buff);
+              		}
+	      		// Add header lines 
+ 	      		if (hdr_line != NULL) {
+              			len = asprintf(&buff, "%s\n", hdr_line);
+                		res = MPI_File_write(fh_out[i], buff, len, MPI_CHAR, &status);
+                		assert(res == MPI_SUCCESS);
+                		res = MPI_Get_count(&status, MPI_CHAR, count);
+                		assert(res == MPI_SUCCESS);
+                		assert(*count == len);
+                		free(buff);
+               		}
+       	       		if (rg_line != NULL) {
+               			len = asprintf(&buff, "%s\n", rg_line);
+                        	res = MPI_File_write(fh_out[i], buff, len, MPI_CHAR, &status);
+                        	assert(res == MPI_SUCCESS);
+                        	res = MPI_Get_count(&status, MPI_CHAR, count);
+                        	assert(res == MPI_SUCCESS);
+                        	assert(*count == len);
+                        	free(buff);
+				}
+			if (pg_line != NULL) {
+                        	len = asprintf(&buff, "%s\n", pg_line);
+                        	res = MPI_File_write(fh_out[i], buff, len, MPI_CHAR, &status);
+                        	assert(res == MPI_SUCCESS);
+                        	res = MPI_Get_count(&status, MPI_CHAR, count);
+                        	assert(res == MPI_SUCCESS);
+                        	assert(*count == len);
+                        	free(buff);
+                        	res = MPI_File_close(&fh_out[i]);
+                        	assert(res == MPI_SUCCESS);
+                        }
+                }
+
         }
 
         bef = MPI_Wtime();
@@ -2302,7 +2404,7 @@ void create_sam_header_by_chr_file(char *file_out[],
         aft = MPI_Wtime();
         xfprintf(stderr, "%s: synched processes (%.02f)\n", __func__, aft - bef);
 }
-
+/*
 void compute_buffer_size_thr(void *thread_arg){
 
     struct struct_data_thread *my_data;
@@ -2340,6 +2442,333 @@ void copy_buffer_write_thr(void *thread_arg){
     assert(res == my_data->size_thr);
     free(my_data->buffer_out);
 }
+*/
+void *pread_fastq_chunck(void *thread_arg ){
+
+    struct struct_pread_fastq *my_data;
+    my_data = (struct struct_pread_fastq *) thread_arg;
+
+
+    int num_thread      = my_data->total_thread;
+    int thread_id       = my_data->thread_id;
+    size_t begin_offset = my_data->offset;
+    char* buffer        = my_data->buffer;
+    size_t total_size   = my_data->size;
+    MPI_File fd        = my_data->fd;
+    MPI_Status status;
+    int res, count;
+
+    size_t size2read = total_size / (size_t)num_thread;
+    size_t rest      = total_size % (size_t)size2read;
+
+    size_t offset_th_read   = begin_offset + (thread_id)*size2read;
+    size_t offset_in_buffer = (thread_id)*size2read;
+
+    size_t offset_thr = begin_offset + (thread_id)*size2read;
+    
+    if (thread_id == (num_thread - 1)) size2read +=rest;
+   
+    //pread(fd, buffer + offset_in_buffer, size2read, offset_thr);
+    res = MPI_File_read_at(fd, offset_thr, buffer + offset_in_buffer, size2read, MPI_CHAR, &status);      
+    assert(res == MPI_SUCCESS);
+    res = MPI_Get_count(&status, MPI_CHAR, &count);
+    assert(res == MPI_SUCCESS);
+    assert(count == (int)size2read);
+}
+
+void *write_sam_mt(void *thread_arg){
+
+    struct struct_data_thread *my_data;
+    my_data = (struct struct_data_thread *) thread_arg;
+    int i = 0;
+    int j = 0;
+    int count;
+    MPI_Status status;
+    size_t total_to_wrt = 0;
+    size_t *l_seq = malloc((my_data->end_index - my_data->begin_index + 1)*sizeof(size_t));
+
+    for (i = my_data->begin_index; i < my_data->end_index; i++)  {
+        l_seq[j]= strlen(my_data->seqs_thr[i].sam);
+        total_to_wrt += l_seq[j];
+        j++;
+    }    
+    char *buffer_out = malloc( total_to_wrt + 1);
+    buffer_out[total_to_wrt] = '0';
+    char *p = buffer_out;
+    j = 0;
+    for (i = my_data->begin_index; i < my_data->end_index; i++){
+   
+        memmove(p, my_data->seqs_thr[i].sam, l_seq[j] * sizeof(char));
+        p += l_seq[j];
+        j++;
+        free(my_data->seqs_thr[i].sam);
+    }
+ 
+    int res = MPI_File_write_shared(my_data->file_desc, buffer_out, total_to_wrt, MPI_CHAR, &status);
+    assert(res == MPI_SUCCESS);
+    res = MPI_Get_count(&status, MPI_CHAR, &count);
+    assert(res == MPI_SUCCESS);
+    assert(count == (int)total_to_wrt);
+
+    free(buffer_out);   
+    free(l_seq);
+
+}
+/*
+void *compress_and_write_bgzf_thread(void *threadarg){
+
+        struct thread_data_compress *my_data;
+        my_data = (struct thread_data_compress *) threadarg;
+        int compression_level = my_data->comp_level;
+        int rank_num = my_data->job_rank;
+        int res = 0;
+        int count = 0;
+        MPI_Status status;
+        bseq1_t *seqs =  my_data->seqs_thr;
+        MPI_File mpifh = my_data->fh_out;
+        int start_index = (my_data->total_reads / my_data->total_thread) * my_data->thread_id;
+        int end_index = 0;
+        if (my_data->thread_id < my_data->total_thread)
+                end_index = (my_data->total_reads / my_data->total_thread) * (my_data->thread_id + 1) - 1;
+        else
+                end_index = my_data->total_reads;
+}
+*/        
+void *compress_and_write_bgzf_thread(void *threadarg){
+
+        struct thread_data_compress *my_data;
+        my_data = (struct thread_data_compress *) threadarg;
+        int compression_level = my_data->comp_level;
+        int rank_num = my_data->job_rank;
+        int res = 0;
+        int count = 0;
+        MPI_Status status;
+        bseq1_t *seqs =  my_data->seqs_thr;
+        MPI_File mpifh = my_data->fh_out;
+        int start_index = (my_data->total_reads / my_data->total_thread) * my_data->thread_id;
+        int end_index = 0;
+        if (my_data->thread_id < my_data->total_thread)
+                end_index = (my_data->total_reads / my_data->total_thread) * (my_data->thread_id + 1) - 1;
+        else
+                end_index = my_data->total_reads;
+        
+	int n = 0;
+        size_t localsize = 0;
+        for (n = start_index; n < end_index; n++) {
+            seqs[n].l_seq = strlen(seqs[n].sam);
+            localsize += seqs[n].l_seq;
+        }
+        assert(localsize <= INT_MAX);
+
+        char *buffer_out_final = malloc(localsize * sizeof(char));
+        char *p3 = buffer_out_final;
+
+	size_t total_read = (end_index - start_index)+1;
+        size_t number_read = 0;
+        int curr_read = start_index;
+        size_t block_sz=0;
+        size_t total_comp_size = 0;
+        int total_block = 0;        
+        int copy_length = 0;
+        const bgzf_byte_t *input;
+        size_t numread1 = 0;
+        char *buffer_out;
+        char *p;
+
+        BGZF *fp;
+        fp = calloc(1, sizeof(BGZF));
+        int block_length = MAX_BLOCK_SIZE;
+        int bytes_written;
+        fp->open_mode = 'w';
+        fp->uncompressed_block_size = MAX_BLOCK_SIZE;
+        fp->uncompressed_block = malloc(MAX_BLOCK_SIZE);
+        fp->compressed_block_size = MAX_BLOCK_SIZE;
+        fp->compressed_block = malloc(MAX_BLOCK_SIZE);
+        fp->cache_size = 0;
+        fp->cache = kh_init(cache);
+        fp->block_address = 0;
+        fp->block_offset = 0;
+        fp->block_length = 0;
+        fp->compress_level = compression_level < 0 ? Z_DEFAULT_COMPRESSION : compression_level;
+        if (fp->compress_level > 9) {
+              fp->compress_level = Z_DEFAULT_COMPRESSION;
+        }
+
+        size_t compressed_size =0;
+
+        while ( curr_read < end_index){
+
+            block_sz = 0;
+            size_t curr_start = curr_read;
+	    block_sz += seqs[curr_read].l_seq;
+            while (1){
+                if (curr_read == end_index) break;
+                curr_read++;
+                numread1++;
+                block_sz += seqs[curr_read].l_seq;
+                if (block_sz > MAX_BLOCK_SIZE) break;
+                
+            }
+                   
+            if ( block_sz > MAX_BLOCK_SIZE) block_sz -=seqs[curr_read].l_seq;
+            else {curr_read++;numread1++;} 
+        
+            buffer_out = malloc((block_sz + 1)*sizeof(char));
+            assert(buffer_out != NULL);
+            buffer_out[block_sz] = 0;
+            p = buffer_out;
+            
+            for (n = curr_start; n < curr_read; n++) {
+                 memmove(p, seqs[n].sam, seqs[n].l_seq * sizeof(char));
+                 p += seqs[n].l_seq;
+            }
+             
+            copy_length = block_sz;
+            fp->cache_size = 0;
+            fp->block_address = 0;
+            fp->block_offset = 0;
+            fp->block_length = 0;
+            fp->compress_level = compression_level < 0 ? Z_DEFAULT_COMPRESSION : compression_level;
+            if (fp->compress_level > 9) {
+                fp->compress_level = Z_DEFAULT_COMPRESSION;
+            }
+            
+            input = (void *)buffer_out;
+                       
+            block_length = fp->uncompressed_block_size;
+            bytes_written = 0;
+
+            bgzf_byte_t *buffer = fp->uncompressed_block;
+            memcpy(buffer + fp->block_offset, input, copy_length);
+
+            fp->block_offset += copy_length;
+            input += copy_length;
+            bytes_written += copy_length;
+            block_length = deflate_block(fp, fp->block_offset);
+
+            memcpy(p3 + compressed_size, fp->compressed_block, block_length);
+            compressed_size += block_length;
+            fp->block_address += block_length;
+                         
+            free(buffer_out);
+	}
+
+ 	size_t compSize = compressed_size;
+        res = MPI_File_write_shared(mpifh, buffer_out_final, compSize, MPI_BYTE, &status);
+        assert(res == MPI_SUCCESS);
+        res = MPI_Get_count(&status, MPI_BYTE, &count);
+        assert(res == MPI_SUCCESS);
+        assert(count == (int)compSize);
+        
+        free(fp->uncompressed_block);
+        free(fp->compressed_block);
+        my_data->thr_comp_sz = compSize;
+        kh_destroy(cache, fp->cache);
+        free(buffer_out_final);
+            
+}
+
+void *compress_and_write_bam_thread(void *threadarg){
+
+        struct thread_data_compress *my_data;
+        my_data = (struct thread_data_compress *) threadarg;
+        int compression_level = my_data->comp_level;
+        int rank_num = my_data->job_rank;
+        int res = 0;
+        int count = 0;
+        MPI_Status status;
+        bseq1_t *seqs =  my_data->seqs_thr;
+        MPI_File mpifh = my_data->fh_out;
+        int start_index = (my_data->total_reads / my_data->total_thread) * my_data->thread_id;
+        int end_index = 0;
+        if (my_data->thread_id < my_data->total_thread)
+                end_index = (my_data->total_reads / my_data->total_thread) * (my_data->thread_id + 1) - 1;
+        else
+                end_index = my_data->total_reads;
+        int n = 0;
+        size_t localsize = 0;
+        for (n = start_index; n < end_index; n++) {
+                seqs[n].l_seq = strlen(seqs[n].sam);
+                localsize += seqs[n].l_seq;
+        }
+        assert(localsize <= INT_MAX);
+        char *buffer_out = malloc((localsize + 1)*sizeof(char));
+        assert(buffer_out != NULL);
+        buffer_out[localsize] = 0;
+        char *p = buffer_out;
+        for (n = start_index; n < end_index; n++) {
+                memmove(p, seqs[n].sam, seqs[n].l_seq);
+                p += seqs[n].l_seq;
+        }
+
+        uint8_t *p2 = buffer_out;
+        size_t compressed_size =0;
+        BGZF *fp;
+        fp = calloc(1, sizeof(BGZF));
+        int block_length = MAX_BLOCK_SIZE;
+        int bytes_written;
+        int length = strlen(buffer_out);
+        fp->open_mode = 'w';
+        fp->uncompressed_block_size = MAX_BLOCK_SIZE;
+        fp->uncompressed_block = malloc(MAX_BLOCK_SIZE);
+        fp->compressed_block_size = MAX_BLOCK_SIZE;
+        fp->compressed_block = malloc(MAX_BLOCK_SIZE);
+        fp->cache_size = 0;
+        fp->cache = kh_init(cache);
+        fp->block_address = 0;
+        fp->block_offset = 0;
+        fp->block_length = 0;
+        fp->compress_level = compression_level < 0 ? Z_DEFAULT_COMPRESSION : compression_level;
+        if (fp->compress_level > 9) {
+                fp->compress_level = Z_DEFAULT_COMPRESSION;
+        }
+
+        const bgzf_byte_t *input = (void *)buffer_out;
+
+        if (fp->uncompressed_block == NULL) {
+                fp->uncompressed_block = malloc(fp->uncompressed_block_size);
+        }
+        input = (void *)buffer_out;
+        block_length = fp->uncompressed_block_size;
+        bytes_written = 0;
+
+        while (bytes_written < length) {
+                int copy_length = bgzf_min(block_length - fp->block_offset, length - bytes_written);
+                bgzf_byte_t *buffer = fp->uncompressed_block;
+                memcpy(buffer + fp->block_offset, input, copy_length);
+                fp->block_offset += copy_length;
+                input += copy_length;
+                bytes_written += copy_length;
+
+                while (fp->block_offset > 0) {
+                        int block_length;
+                        block_length = deflate_block(fp, fp->block_offset);
+
+                        memcpy(p2 + compressed_size, fp->compressed_block, block_length);
+                        compressed_size += block_length;
+                        fp->block_address += block_length;
+                }
+        }
+
+        size_t compSize = compressed_size;
+        res = MPI_File_write_shared(mpifh, buffer_out, compSize, MPI_BYTE, &status);
+        assert(res == MPI_SUCCESS);
+        res = MPI_Get_count(&status, MPI_BYTE, &count);
+        assert(res == MPI_SUCCESS);
+        assert(count == (int)compSize);
+
+        free(fp->uncompressed_block);
+        free(fp->compressed_block);
+        my_data->thr_comp_sz = compressed_size;
+        kh_destroy(cache, fp->cache);
+        free(buffer_out);
+}
+
+
+
+
+
+
 /*
 void find_reads_size_and_offsets_mt(void *thread_arg){
 
