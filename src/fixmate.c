@@ -276,7 +276,7 @@ int readParsing (char *sam_buff, readInfo *read, bwaidx_t *indix) {
         	int i;
 		
     		for (i = 0; i < strlen(read->seq); i++) {
-        	    if (u[i] >= MD_MIN_QUALITY) read->score += u[i];
+        	    if (( u[i] -33 )>= MD_MIN_QUALITY) read->score += (u[i] - 33);
     		}
 
                 q = strchr(q, '\t') + 1;	
@@ -416,9 +416,17 @@ int sam_write_discordant(readInfo *read, char **final_buffer, bwaidx_t *indix){
 
     	char *current_line;
     	int res = 0;
-	res = asprintf(&current_line, "%s\t%d\t%s\t%zu\t%d\t%s\t%s\t%d\t%d\t%s\t%s\t%s", read->name,
-                                read->flag, indix->bns->anns[read->tid].name, read->pos, read->mapq,
-                                        read->cigar, "*", 0, 0, read->seq,  read->qual, read->aux);
+	//res = asprintf(&current_line, "%s\t%d\t%s\t%zu\t%d\t%s\t%s\t%d\t%d\t%s\t%s\t%s", read->name,
+        //                        read->flag, indix->bns->anns[read->tid].name, read->pos, read->mapq,
+        //                                read->cigar, "*", 0, 0, read->seq,  read->qual, read->aux);
+
+	char *mchr = indix->bns->anns[read->mtid].name;
+
+	res = asprintf(&current_line, "%s\t%d\t%s\t%zu\t%d\t%s\t%s\t%zu\t%d\t%s\t%s\tMQ:i:%d\tMC:Z:%s\tms:i:%u\t%s", read->name,
+                        read->flag, indix->bns->anns[read->tid].name, read->pos,
+                            read->mapq, read->cigar, mchr, read->mpos, read->dist2mate,
+                                read->seq,  read->qual, read->mmapq, read->mcigar, read->mscore, read->aux);
+
 
     	assert(res > 0);
     	free(read->aux);
@@ -735,14 +743,19 @@ int fixmate( int rank, bseq1_t *seqs_1, bseq1_t *seqs_2, int *reads_1, int *read
                                         if (have_pair1 == 2){
 
                                                 if ( (read1->tid != read1->mtid) && (read2->tid != read2->mtid)) {
-                                                        read1->flag &= ~BAM_FPAIRED;
-                                                        read2->flag &= ~BAM_FPAIRED;
-                                                        read1->mtid = -1;
-                                                        read2->mtid = -1;
-                                                        read1->mpos = 0;
-                                                        read2->mpos = 0;
-                                                        read1->dist2mate = 0;
-                                                        read2->dist2mate = 0;
+                                                        //read1->flag &= ~BAM_FPAIRED;
+                                                        //read2->flag &= ~BAM_FPAIRED;
+                                                        //read1->mtid = -1;
+                                                        //read2->mtid = -1;
+                                                        //read1->mpos = 0;
+                                                        //read2->mpos = 0;
+                                                        //read1->dist2mate = 0;
+                                                        //read2->dist2mate = 0;
+                                                        read1->flag |= BAM_FPAIRED;
+                                                        read2->flag |= BAM_FPAIRED;
+                                                        sync_mate( read1, read2);
+                                                        assert(add_mate_score(read1, read2) == 0);
+                                                        assert(add_mate_score(read2, read1) == 0);
                                                         assert ( sam_write_discordant( read1, &seqs_fxmt1, indix) == 0 );
                                                         assert ( sam_write_discordant( read2, &seqs_fxmt2, indix) == 0 );
                                                 }

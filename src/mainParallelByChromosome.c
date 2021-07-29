@@ -87,6 +87,7 @@ The fact that you are presently reading this means that you have had knowledge o
 #define MAX_CHAR_SIZE 2048
 #define MAX_CHR_NAME_SIZE 200
 #define SMALL_STACK (1024*1024)
+#define BIG_STACK (1024*1024*512)
 
 int main(int argc, char *argv[]) {
 	
@@ -98,7 +99,7 @@ int main(int argc, char *argv[]) {
 	char *file_out = NULL;
 	char *buffer_out;
 	char *file_ref = NULL;
-	char *rg_line = NULL, *hdr_line = NULL;
+	char *rg_line = NULL, *hdr_line = NULL, *pg_line = NULL;
 	char file_map[PATH_MAX], file_map_chr[PATH_MAX] ,file_tmp[PATH_MAX];
 	char *p, *q, *s, *e;
 	uint8_t *a, *addr, *addr_map;
@@ -171,6 +172,11 @@ int main(int argc, char *argv[]) {
 	if (strcmp(argv[1], "mem") != 0) {
 		fprintf(stderr, "%s: unsupported %s command\n", progname, argv[1]);
 		return 1; }
+	else {
+		 //create pg_line for create_sam_header
+		 asprintf(&pg_line, "@PG\tID:bwa\tPN:bwa\tVN:%s\tCL:%s", VERSION, argv[0]);
+		 for (int i = 1; i < argc; ++i) asprintf(&pg_line, "%s %s", pg_line, argv[i]);
+	}
 
 	/* initialize the BWA-MEM parameters to the default values */
 	opt = mem_opt_init();
@@ -618,38 +624,119 @@ int main(int argc, char *argv[]) {
 		size_t read_number=0;
 		assert(fd_in1 != -1);
 		size_t *goff = NULL; //global offset contain the start offset in the fastq
-		goff = malloc((proc_num + 1) * sizeof(size_t));
-		
+		goff = malloc((proc_num * NUM_THREADS + 1) * sizeof(size_t));
+		size_t *goff_inter = calloc( (proc_num * NUM_THREADS + 1) , sizeof(size_t));
+	
 		//we shall call 
-		find_process_starting_offset(goff, stat_r1.st_size, file_r1, proc_num, rank_num);
+		bef = MPI_Wtime();
+                find_process_starting_offset_mt(goff, stat_r1.st_size, file_r1, proc_num, rank_num, NUM_THREADS);
+                aft = MPI_Wtime();
+                fprintf(stderr, "%s: rank %d time spend in finding process start offset = (%.02f) \n", __func__, rank_num, aft - bef);
+
+                int i12=0;
+                for ( i12 = 0; i12 < proc_num * NUM_THREADS + 1; i12++ )  goff_inter[i12] = goff[i12];
 	
         	char *current_line = NULL;
 		//now we exchange the goff buffer between all proc
-		size_t goff_inter = goff[rank_num]; //avoid memcpy overlap
 		//rank 0 gather the vector
-		res = MPI_Allgather(&goff_inter, 1, MPI_LONG_LONG_INT, goff , 1, MPI_LONG_LONG_INT, MPI_COMM_WORLD);
+		res = MPI_Allgather(&goff_inter[rank_num*NUM_THREADS], NUM_THREADS, MPI_LONG_LONG_INT, goff , NUM_THREADS, MPI_LONG_LONG_INT, MPI_COMM_WORLD);
 		assert(res == MPI_SUCCESS);
+
+		free(goff_inter);
 
 		//we compute the new size according to the shift
 		//We calculate the size to read for each process
-		int ind = rank_num;
-		size_t siz2read = goff[ind+1]-goff[ind];
 		MPI_Barrier(MPI_COMM_WORLD);
 		
 		size_t local_num_reads          = 0;		
 		size_t total_num_reads          = 0;
-		size_t *local_read_offsets 	= calloc(1 , sizeof(size_t));
-		size_t *local_read_bytes    	= calloc(1, sizeof(size_t));
-		int *local_read_size    	= calloc(1, sizeof(int));
-
+		size_t *local_read_offsets 	= NULL;
+		size_t *local_read_bytes    	= NULL;
+		int *local_read_size    	= NULL;
 	
-		assert( local_read_bytes != NULL);
-		assert( local_read_offsets != NULL);
-		assert( local_read_size != NULL);
-
-
 		bef = MPI_Wtime();
+
+		pthread_attr_t attr;
+                pthread_attr_init(&attr);
+                pthread_attr_setstacksize(&attr, SMALL_STACK);
+                pthread_attr_setdetachstate(&attr, 0);
+
+                pthread_t threads_1[NUM_THREADS];
+
+                struct struct_data_thread_1 *td_1 =  malloc(NUM_THREADS * sizeof(struct struct_data_thread_1));
+
+                size_t *local_num_reads_t            = calloc(NUM_THREADS, sizeof(size_t));
+                size_t *total_num_reads_t            = calloc(NUM_THREADS, sizeof(size_t));
+                size_t **local_read_offsets_t        = calloc(NUM_THREADS, sizeof(size_t*));
+                size_t **local_read_bytes_t          = calloc(NUM_THREADS, sizeof(size_t*));
+                int **local_read_size_t              = calloc(NUM_THREADS, sizeof(int*));
+
+                int ret_code_1 = 0;
+                int goff_idx = 0;
+                for ( n = 0; n < NUM_THREADS; n++){
+
+                        goff_idx = (rank_num * NUM_THREADS) + n;
+                        td_1[n].offset_in_file_mt         = goff[goff_idx];
+                        td_1[n].size2read_mt              = goff[goff_idx + 1] - goff[goff_idx];
+                        td_1[n].file_r1_mt                = file_r1;
+                        td_1[n].local_num_reads_mt        = &local_num_reads_t[n];
+                        td_1[n].total_num_reads_mt        = &total_num_reads_t[n];
+                        td_1[n].local_read_offsets_mt     = &local_read_offsets_t[n];
+                        td_1[n].local_read_size_mt        = &local_read_size_t[n];
+                        td_1[n].local_read_bytes_mt       = &local_read_bytes_t[n];
+                        td_1[n].proc_num_mt               = proc_num;
+                        td_1[n].rank_num_mt               = rank_num;
+                        td_1[n].thread_num_mt             = n;
+                        td_1[n].previous_read_num         = 0;
+                        ret_code_1 = pthread_create(&threads_1[n], &attr, find_reads_size_and_offsets_mt, (void *)(&td_1[n]));
+
+                }
+
+                int g=0;
+                total_num_reads = 0;
+                for (n = 0; n < NUM_THREADS; n++){
+                        pthread_join(threads_1[n], (void *)(&td_1[n]));
+                        total_num_reads += *(td_1[n].total_num_reads_mt);
+                }
+
+		local_read_offsets  = calloc(total_num_reads, sizeof(size_t));
+                local_read_size     = calloc(total_num_reads, sizeof(int));
+                local_read_bytes    = calloc(total_num_reads, sizeof(size_t));
+
+                assert(local_read_offsets);
+                assert(local_read_size);
+                assert(local_read_bytes);
+
+                size_t tmp_var = 0;
+                for (n = 0; n < NUM_THREADS; n++){
+                        td_1[n].local_read_offsets     = local_read_offsets;
+                        td_1[n].local_read_size        = local_read_size;
+                        td_1[n].local_read_bytes       = local_read_bytes;
+                        td_1[n].previous_read_num      = tmp_var;
+                        tmp_var                        += *(td_1[n].total_num_reads_mt);
 		
+			ret_code_1 = pthread_create(&threads_1[n], &attr, copy_local_read_info_mt, (void *)(&td_1[n]));
+
+                }
+
+                for (n = 0; n < NUM_THREADS; n++){
+                        pthread_join(threads_1[n], (void *)(&td_1[n]));
+
+                        free(local_read_offsets_t[n]);
+                        free(local_read_bytes_t[n]);
+                        free(local_read_size_t[n]);
+                }
+
+                free(local_num_reads_t);
+                free(total_num_reads_t);
+
+                free(local_read_offsets_t);
+                free(local_read_bytes_t);
+                free(local_read_size_t);
+
+                pthread_attr_destroy(&attr);
+                free(td_1);
+		/*
 		find_reads_size_and_offsets(goff[ind],
                                                 siz2read,
                                                 file_r1,
@@ -661,7 +748,7 @@ int main(int argc, char *argv[]) {
                                                 proc_num,
                                                 rank_num);
 
-
+		*/
 
 		MPI_Barrier(MPI_COMM_WORLD);
 		aft = MPI_Wtime();
@@ -866,10 +953,10 @@ int main(int argc, char *argv[]) {
 		}
 		
 		if ( write_format == 2  )
-			create_sam_header_by_chr_file(file_map_by_chr, &indix, &count, hdr_line, rg_line, rank_num);
+			create_sam_header_by_chr_file(file_map_by_chr, &indix, &count, hdr_line, rg_line, pg_line, rank_num);
 		
 		if ( write_format == 1 || write_format == 0)
-			create_bam_header_by_chr_file(file_map_by_chr, &indix, &count, hdr_line, rg_line, rank_num, compression_level, dofixmate);
+			create_bam_header_by_chr_file(file_map_by_chr, &indix, &count, hdr_line, rg_line, pg_line, rank_num, compression_level, dofixmate);
 
 		//we create a file which contains only the header
 		//this file will be used by the sorting to get individual chromosom file
@@ -930,33 +1017,77 @@ int main(int argc, char *argv[]) {
 			buffer_r1 = malloc(size_chunk+1);
 			assert(buffer_r1 != NULL);
 			buffer_r1[size_chunk] = 0;
-		
-			// FOR TEST //
-			//MPI_Type_contiguous(size_chunk, MPI_CHAR, &arraytype_r1);
-			//MPI_Type_commit(&arraytype_r1);
-			//MPI_File_set_view(fh_r2, (MPI_Offset)offset_chunk, MPI_CHAR, MPI_CHAR, "native", finfo ) ; 
-			//res = MPI_File_read(fh_r2, buffer_r1, 1, arraytype_r1, &status);
-
-			res = MPI_File_read_at(fh_r1, offset_chunk, buffer_r1, size_chunk, MPI_CHAR, &status);		
-			assert(res == MPI_SUCCESS);
-			res = MPI_Get_count(&status, MPI_CHAR, &count);
-			assert(res == MPI_SUCCESS);
-			assert(count == (int)size_chunk && *buffer_r1 == '@');
 
 			buffer_r2 = malloc(size_chunk+1);
-			assert(buffer_r2 != NULL);
-			buffer_r2[size_chunk]=0;
+                        assert(buffer_r2 != NULL);
+                        buffer_r2[size_chunk]=0;
 
-			// FOR TEST //
-			//MPI_Type_contiguous(size_chunk, MPI_CHAR, &arraytype_r2);
-			//MPI_Type_commit(&arraytype_r2);
-			//MPI_File_set_view(fh_r1, (MPI_Offset)offset_chunk, MPI_CHAR, MPI_CHAR, "native", finfo ) ; 
-			//res = MPI_File_read(fh_r1, buffer_r2, 1, arraytype_r2, &status);		
-			res = MPI_File_read_at(fh_r2, offset_chunk, buffer_r2, size_chunk, MPI_CHAR, &status);		
-			assert(res == MPI_SUCCESS);
-			res = MPI_Get_count(&status, MPI_CHAR, &count);
-			assert(res == MPI_SUCCESS);
-			assert(count == (int) size_chunk && *buffer_r2 == '@');
+			struct struct_pread_fastq *td_pread1;
+                        td_pread1 = malloc (NUM_THREADS * sizeof(struct struct_pread_fastq));
+                        bef = MPI_Wtime();
+                        pthread_attr_t attr4;
+                        pthread_attr_init(&attr4);
+                        pthread_attr_setstacksize(&attr4, BIG_STACK);
+                        pthread_attr_setdetachstate(&attr4, 0);
+
+                        for( n = 0; n < NUM_THREADS; n++ ){
+                                td_pread1[n].total_thread = NUM_THREADS;
+                                td_pread1[n].thread_id = n;
+                                td_pread1[n].job_rank = rank_num;
+                                td_pread1[n].offset= offset_chunk;
+                                td_pread1[n].size = size_chunk;
+                                td_pread1[n].buffer = buffer_r1;
+                                td_pread1[n].fd  = fh_r1;
+                                int ret_code = pthread_create(&threads[n], &attr4, pread_fastq_chunck, (void *)(&td_pread1[n]));
+                                if (ret_code) {
+                                        fprintf(stderr, "ERROR; return code from pthread_create() is %d\n", ret_code);
+                                }
+                        }
+                        for(n=0; n<NUM_THREADS; n++)
+                        pthread_join(threads[n], (void *)(&td_pread1[n]));
+
+                        pthread_attr_destroy(&attr4);
+                        free(td_pread1);
+
+                        assert(strlen(buffer_r1) == size_chunk);
+                        assert(*buffer_r1 == '@');
+
+			struct struct_pread_fastq *td_pread2;
+                        td_pread2 = malloc (NUM_THREADS * sizeof(struct struct_pread_fastq));
+                        bef = MPI_Wtime();
+                        pthread_attr_t attr5;
+                        pthread_attr_init(&attr5);
+                        pthread_attr_setstacksize(&attr5, BIG_STACK);
+                        pthread_attr_setdetachstate(&attr5, 0);
+
+                        for( n = 0; n < NUM_THREADS; n++ ){
+                                td_pread2[n].total_thread = NUM_THREADS;
+                                td_pread2[n].thread_id = n;
+                                td_pread2[n].job_rank = rank_num;
+                                td_pread2[n].offset= offset_chunk;
+                                td_pread2[n].size = size_chunk;
+                                td_pread2[n].buffer = buffer_r2;
+                                td_pread2[n].fd  = fh_r2;
+
+                                int ret_code = pthread_create(&threads[n], &attr5, pread_fastq_chunck, (void *)(&td_pread2[n]));
+                                if (ret_code) {
+                                        fprintf(stderr, "ERROR; return code from pthread_create() is %d\n", ret_code);
+                                }
+                        }
+                        for(n=0; n<NUM_THREADS; n++)
+                                pthread_join(threads[n], (void *)(&td_pread2[n]));
+
+                        pthread_attr_destroy(&attr5);
+                        free(td_pread2);
+
+                        assert(strlen(buffer_r2) == size_chunk);
+                        assert(*buffer_r2 == '@');
+
+			if (u1 < total_chunks){
+                                MPI_File_seek(fh_r1, (MPI_Offset)all_begin_offset_chunk[u1 + proc_num], MPI_SEEK_CUR ) ;
+                                MPI_File_seek(fh_r2, (MPI_Offset)all_begin_offset_chunk[u1 + proc_num], MPI_SEEK_CUR ) ;
+                        }
+		
 
 			aft = MPI_Wtime();
 			fprintf(stderr, "%s: read sequences (%.02f)\n", __func__, aft - bef);
@@ -1397,40 +1528,43 @@ int main(int argc, char *argv[]) {
 		//TODO?: use only one vector for all the global offsets iot reduce communications
 		size_t *goff 	= NULL;
 		size_t *goff2 	= NULL;
-		goff 	= malloc((proc_num + 1) * sizeof(size_t));
-		goff2 	= malloc((proc_num + 1) * sizeof(size_t));
+		goff 	= malloc((proc_num * NUM_THREADS + 1) * sizeof(size_t));
+		goff2 	= malloc((proc_num * NUM_THREADS + 1) * sizeof(size_t));
 
 		//this function is used to fill the goff vectors
-		find_process_starting_offset(goff, stat_r1.st_size, file_r1, proc_num, rank_num);
-		find_process_starting_offset(goff2, stat_r2.st_size, file_r2, proc_num, rank_num);
+		 size_t *goff_inter = calloc( (proc_num * NUM_THREADS + 1) , sizeof(size_t));
+                size_t *goff_inter_2 = calloc( (proc_num * NUM_THREADS + 1) , sizeof(size_t));
+
+                //this function is used to fill the goff vectors
+                bef = MPI_Wtime();
+                find_process_starting_offset_mt(goff, stat_r1.st_size, file_r1, proc_num, rank_num, NUM_THREADS);
+                find_process_starting_offset_mt(goff2, stat_r2.st_size, file_r2, proc_num, rank_num, NUM_THREADS);
+                aft = MPI_Wtime();
+                fprintf(stderr, "%s: rank %d time spend in finding process start offset = (%.02f) \n", __func__, rank_num, aft - bef);
 
 		//now we exchange the goff buffer between all proc
 		//rank 0 gather the vector
-		size_t goff_inter   = goff[rank_num]; //avoid memcpy overlap
-		size_t goff_inter_2 = goff2[rank_num];
-		
-		res = MPI_Allgather(&goff_inter, 1, MPI_LONG_LONG_INT, goff , 1, MPI_LONG_LONG_INT, MPI_COMM_WORLD);
-		assert(res == MPI_SUCCESS);
-	
-		res = MPI_Allgather(&goff_inter_2, 1, MPI_LONG_LONG_INT, goff2 , 1, MPI_LONG_LONG_INT, MPI_COMM_WORLD);
-		assert(res == MPI_SUCCESS);
+		int i12=0;
+                for ( i12 = 0; i12 < proc_num * NUM_THREADS + 1; i12++ ){
+                        goff_inter[i12] = goff[i12];
+                        goff_inter_2[i12] = goff2[i12];
+                }
+
+                res = MPI_Allgather(&goff_inter[rank_num*NUM_THREADS], NUM_THREADS, MPI_LONG_LONG_INT, goff , NUM_THREADS, MPI_LONG_LONG_INT, MPI_COMM_WORLD);
+                assert(res == MPI_SUCCESS);
+
+                res = MPI_Allgather(&goff_inter_2[rank_num*NUM_THREADS], NUM_THREADS, MPI_LONG_LONG_INT, goff2 , NUM_THREADS, MPI_LONG_LONG_INT, MPI_COMM_WORLD);
+                assert(res == MPI_SUCCESS);
+
+                free(goff_inter);
+                free(goff_inter_2);
+
 	
 		//we compute the new size according to the shift
 		//We calculate the size to read for each process
-		int ind = rank_num;
-		size_t siz2read 	= goff[ind+1] - goff[ind];
-		size_t siz2read_2 	= goff2[ind+1] - goff2[ind];
-
+				
                 MPI_Barrier(MPI_COMM_WORLD);
 
-                size_t total_size_global_1 = 0;
-                size_t total_size_global_2 = 0;
-
-                MPI_Allreduce( &siz2read , &total_size_global_1, 1, MPI_LONG_LONG_INT, MPI_SUM, MPI_COMM_WORLD);
-                MPI_Allreduce( &siz2read_2 , &total_size_global_2, 1, MPI_LONG_LONG_INT, MPI_SUM, MPI_COMM_WORLD);
-                
-		assert(stat_r1.st_size == total_size_global_1);
-                assert(stat_r2.st_size == total_size_global_2);
 
 		//opt->chunk_size=100000000;
 		//fprintf(stderr,"rank %d ::: chunck size = %zu \n", rank_num, opt->chunk_size);
@@ -1444,22 +1578,105 @@ int main(int argc, char *argv[]) {
 		size_t total_num_reads_2	= 0;
 
 		//Here I decided to keep separated vectors because otherwise with all the reallocs they would be too big and take too much contiguous memory space
-		int *local_read_size    	= calloc(1, sizeof(int));
-		int *local_read_size_2  	= calloc(1, sizeof(int));
-		size_t *local_read_bytes    	= calloc(1, sizeof(size_t));
-		size_t *local_read_bytes_2    	= calloc(1, sizeof(size_t));
-		size_t *local_read_offsets 	= calloc(1, sizeof(size_t));
-		size_t *local_read_offsets_2 	= calloc(1, sizeof(size_t));
+		int *local_read_size    	= NULL;
+		int *local_read_size_2  	= NULL;
+		size_t *local_read_bytes    	= NULL;
+		size_t *local_read_bytes_2    	= NULL;
+		size_t *local_read_offsets 	= NULL;
+		size_t *local_read_offsets_2 	= NULL;
 
-		assert( local_read_offsets 	!= NULL);
-		assert( local_read_size 	!= NULL);
-		assert( local_read_bytes 	!= NULL);
-		assert( local_read_offsets_2 	!= NULL);
-		assert( local_read_size_2 	!= NULL);
-		assert( local_read_bytes_2 	!= NULL);
-	
 		///find offsets and sizes for the first file
 		bef = MPI_Wtime();
+
+		pthread_attr_t attr;
+                pthread_attr_init(&attr);
+                pthread_attr_setstacksize(&attr, SMALL_STACK);
+                pthread_attr_setdetachstate(&attr, 0);
+
+                pthread_t threads_1[NUM_THREADS];
+
+                struct struct_data_thread_1 *td_1;
+
+                size_t *local_num_reads_t            = calloc(NUM_THREADS, sizeof(size_t));
+                size_t *total_num_reads_t            = calloc(NUM_THREADS, sizeof(size_t));
+                size_t **local_read_offsets_t        = calloc(NUM_THREADS, sizeof(size_t*));
+                size_t **local_read_bytes_t          = calloc(NUM_THREADS, sizeof(size_t*));
+                int **local_read_size_t              = calloc(NUM_THREADS, sizeof(int*));
+
+                td_1 = calloc(NUM_THREADS, sizeof(struct struct_data_thread_1));
+
+                int ret_code_1 = 0;
+                int goff_idx = 0;
+                for ( n = 0; n < NUM_THREADS; n++){
+
+                        goff_idx = (rank_num * NUM_THREADS) + n;
+                        td_1[n].offset_in_file_mt         = goff[goff_idx];
+                        td_1[n].size2read_mt              = goff[goff_idx + 1] - goff[goff_idx];
+                        td_1[n].file_r1_mt                = file_r1;
+                        td_1[n].local_num_reads_mt        = &local_num_reads_t[n];
+                        td_1[n].total_num_reads_mt        = &total_num_reads_t[n];
+                        td_1[n].local_read_offsets_mt     = &local_read_offsets_t[n];
+                        td_1[n].local_read_size_mt        = &local_read_size_t[n];
+                        td_1[n].local_read_bytes_mt       = &local_read_bytes_t[n];
+                        td_1[n].proc_num_mt               = proc_num;
+                        td_1[n].rank_num_mt               = rank_num;
+                        td_1[n].thread_num_mt             = n;
+                        td_1[n].previous_read_num         = 0;
+                        ret_code_1 = pthread_create(&threads_1[n], &attr, find_reads_size_and_offsets_mt, (void *)(&td_1[n]));
+
+                }
+
+                total_num_reads = 0;
+                for (n = 0; n < NUM_THREADS; n++){
+                        pthread_join(threads_1[n], (void *)(&td_1[n]));
+                        total_num_reads += *(td_1[n].total_num_reads_mt);
+                }
+
+		local_read_offsets  = calloc(total_num_reads, sizeof(size_t));
+                local_read_size     = calloc(total_num_reads, sizeof(int));
+                local_read_bytes    = calloc(total_num_reads, sizeof(size_t));
+
+                assert(local_read_offsets);
+                assert(local_read_size);
+                assert(local_read_bytes);
+
+                size_t tmp_var = 0;
+                for (n = 0; n < NUM_THREADS; n++){
+                        td_1[n].local_read_offsets     = local_read_offsets;
+                        td_1[n].local_read_size        = local_read_size;
+                        td_1[n].local_read_bytes       = local_read_bytes;
+                        td_1[n].previous_read_num      = tmp_var;
+                        tmp_var                        += *(td_1[n].total_num_reads_mt);
+			ret_code_1 = pthread_create(&threads_1[n], &attr, copy_local_read_info_mt, (void *)(&td_1[n]));
+
+                }
+
+                for (n = 0; n < NUM_THREADS; n++){
+                        pthread_join(threads_1[n], (void *)(&td_1[n]));
+
+                        free(local_read_offsets_t[n]);
+                        free(local_read_bytes_t[n]);
+                        free(local_read_size_t[n]);
+                }
+
+                free(local_num_reads_t);
+                free(total_num_reads_t);
+
+                free(local_read_offsets_t);
+                free(local_read_bytes_t);
+                free(local_read_size_t);
+
+                pthread_attr_destroy(&attr);
+                free(td_1);
+
+                aft = MPI_Wtime();
+                fprintf(stderr, "%s: rank %d num reads parsed: %zu ::: time spend reading and parsing entire buffer 1 = (%.02f) \n", __func__, rank_num, total_num_reads, aft - bef);
+
+                if (goff) free(goff);
+
+
+
+		/*
 		find_reads_size_and_offsets(	goff[ind],
 				 		siz2read,
 						file_r1,
@@ -1471,12 +1688,8 @@ int main(int argc, char *argv[]) {
 						proc_num,
 						rank_num);
 
-
-		aft = MPI_Wtime();
-		fprintf(stderr, "%s: rank %d num reads parsed: %zu ::: time spend reading and parsing entire buffer = (%.02f) \n", __func__, rank_num, total_num_reads, aft - bef);
-
-		if (goff) free(goff);
-
+		*/
+	
 		//communications about the first file 
 		res = MPI_Reduce(&total_num_reads, &grand_total_num_reads, 1, MPI_LONG_LONG_INT, MPI_SUM, 0,MPI_COMM_WORLD);
 		assert ( res == MPI_SUCCESS);	
@@ -1486,12 +1699,13 @@ int main(int argc, char *argv[]) {
 
 		//we dispatch the previous result
 		if ( rank_num == 0 || rank_num ==1 )
-			fprintf(stderr, "rank %d ::: total_num_reads = %zu \n", rank_num, grand_total_num_reads);
+			fprintf(stderr, "rank %d ::: total_num_reads (1rst file)= %zu \n", rank_num, grand_total_num_reads);
 
 		MPI_Barrier(MPI_COMM_WORLD);
 
 		bef = MPI_Wtime();
 		///find offsets and sizes for second file + time the process
+		/*
 		find_reads_size_and_offsets(	goff2[ind],
 						siz2read_2,
 						file_r2,
@@ -1502,10 +1716,94 @@ int main(int argc, char *argv[]) {
 						&local_read_bytes_2,
 						proc_num,
 						rank_num);
-		aft = MPI_Wtime();
-		fprintf(stderr, "%s: rank %d time spent evaluating chunks = (%.02f) \n", __func__, rank_num, aft - bef);
-	
-		if (goff2) free (goff2);
+		*/
+
+		pthread_attr_t attr2;
+                pthread_attr_init(&attr2);
+                pthread_attr_setstacksize(&attr2, SMALL_STACK);
+                pthread_attr_setdetachstate(&attr2, 0);
+
+                pthread_t threads_2[NUM_THREADS];
+
+                struct struct_data_thread_1 *td_2;
+
+                size_t *local_num_reads_t2            = calloc(NUM_THREADS, sizeof(size_t));
+                size_t *total_num_reads_t2            = calloc(NUM_THREADS, sizeof(size_t));
+                size_t **local_read_offsets_t2        = calloc(NUM_THREADS, sizeof(size_t*));
+                size_t **local_read_bytes_t2          = calloc(NUM_THREADS, sizeof(size_t*));
+                int **local_read_size_t2              = calloc(NUM_THREADS, sizeof(int*));
+
+                td_2 = calloc(NUM_THREADS, sizeof(struct struct_data_thread_1));
+
+                int ret_code_2 = 0;
+                int goff_idx2 = 0;
+                for ( n = 0; n < NUM_THREADS; n++){
+
+                        goff_idx2 = (rank_num * NUM_THREADS) + n;
+                        td_2[n].offset_in_file_mt         = goff2[goff_idx2];
+                        td_2[n].size2read_mt              = goff2[goff_idx2 + 1] - goff2[goff_idx2];
+                        td_2[n].file_r1_mt                = file_r2;
+                        td_2[n].local_num_reads_mt        = &local_num_reads_t2[n];
+                        td_2[n].total_num_reads_mt        = &total_num_reads_t2[n];
+                        td_2[n].local_read_offsets_mt     = &local_read_offsets_t2[n];
+                        td_2[n].local_read_size_mt        = &local_read_size_t2[n];
+                        td_2[n].local_read_bytes_mt       = &local_read_bytes_t2[n];
+                        td_2[n].proc_num_mt               = proc_num;
+                        td_2[n].rank_num_mt               = rank_num;
+                        td_2[n].thread_num_mt             = n;
+                        td_2[n].previous_read_num         = 0;
+                        ret_code_2 = pthread_create(&threads_2[n], &attr2, find_reads_size_and_offsets_mt, (void *)(&td_2[n]));
+
+                }
+
+
+                total_num_reads_2 = 0;
+                for (n = 0; n < NUM_THREADS; n++){
+                        pthread_join(threads_1[n], (void *)(&td_2[n]));
+                        total_num_reads_2 += *(td_2[n].total_num_reads_mt);
+                }
+
+		local_read_offsets_2  = calloc(total_num_reads_2, sizeof(size_t));
+                local_read_size_2     = calloc(total_num_reads_2, sizeof(int));
+                local_read_bytes_2    = calloc(total_num_reads_2, sizeof(size_t));
+
+                assert(local_read_offsets_2);
+                assert(local_read_size_2);
+                assert(local_read_bytes_2);
+
+                size_t tmp_var2 = 0;
+                for (n = 0; n < NUM_THREADS; n++){
+                        td_2[n].local_read_offsets     = local_read_offsets_2;
+                        td_2[n].local_read_size        = local_read_size_2;
+                        td_2[n].local_read_bytes       = local_read_bytes_2;
+                        td_2[n].previous_read_num      = tmp_var2;
+                        tmp_var2                       += *(td_2[n].total_num_reads_mt);
+
+			ret_code_2 = pthread_create(&threads_2[n], &attr2, copy_local_read_info_mt, (void *)(&td_2[n]));
+                }
+
+                for (n = 0; n < NUM_THREADS; n++){
+                        pthread_join(threads_2[n], (void *)(&td_2[n]));
+
+                        free(local_read_offsets_t2[n]);
+                        free(local_read_bytes_t2[n]);
+                        free(local_read_size_t2[n]);
+                }
+
+                free(local_num_reads_t2);
+                free(total_num_reads_t2);
+
+                free(local_read_offsets_t2);
+                free(local_read_bytes_t2);
+                free(local_read_size_t2);
+
+                pthread_attr_destroy(&attr2);
+                free(td_2);
+
+                aft = MPI_Wtime();
+                fprintf(stderr, "%s: rank %d num reads parsed: %zu ::: time spend reading and parsing entire buffer 2 = (%.02f) \n", __func__, rank_num, total_num_reads_2, aft - bef);
+
+                if (goff2) free (goff2);
 
 		//commmunications about the second file
 		res = MPI_Reduce(&total_num_reads_2, &grand_total_num_reads_2, 1, MPI_LONG_LONG_INT, MPI_SUM, 0, MPI_COMM_WORLD);
@@ -1858,10 +2156,10 @@ int main(int argc, char *argv[]) {
                 }
 
 		if ( write_format == 2  )
-                        create_sam_header_by_chr_file(file_map_by_chr, &indix, &count, hdr_line, rg_line, rank_num);
+                        create_sam_header_by_chr_file(file_map_by_chr, &indix, &count, hdr_line, rg_line, pg_line, rank_num);
 
                 if ( write_format == 1 || write_format == 0)
-                        create_bam_header_by_chr_file(file_map_by_chr, &indix, &count, hdr_line, rg_line, rank_num, compression_level, dofixmate);
+                        create_bam_header_by_chr_file(file_map_by_chr, &indix, &count, hdr_line, rg_line, pg_line, rank_num, compression_level, dofixmate);
 
                         
 		 ///Create SAM header
@@ -1931,35 +2229,72 @@ int main(int argc, char *argv[]) {
 			buffer_r2 = malloc(size_chunk_2 + 1);
 			assert(buffer_r2 != NULL);
 			buffer_r2[size_chunk_2]=0;
+			
+			struct struct_pread_fastq *td_pread1;
+                        td_pread1 = malloc (NUM_THREADS * sizeof(struct struct_pread_fastq));
+                        bef = MPI_Wtime();
+                        pthread_attr_t attr4;
+                        pthread_attr_init(&attr4);
+                        pthread_attr_setstacksize(&attr4, BIG_STACK);
+                        pthread_attr_setdetachstate(&attr4, 0);
 
-			// FOR TEST //
-			//MPI_Type_contiguous(size_chunk, MPI_CHAR, &arraytype_r1);
-			//MPI_Type_commit(&arraytype_r1);
-			//MPI_File_set_view(fh_r2, (MPI_Offset)offset_chunk, MPI_CHAR, MPI_CHAR, "native", finfo ) ; 
-			//res = MPI_File_read(fh_r2, buffer_r1, 1, arraytype_r1, &status);
+                        for( n = 0; n < NUM_THREADS; n++ ){
+                                td_pread1[n].total_thread = NUM_THREADS;
+                                td_pread1[n].thread_id = n;
+                                td_pread1[n].job_rank = rank_num;
+                                td_pread1[n].offset= offset_chunk;
+                                td_pread1[n].size = size_chunk;
+                                td_pread1[n].buffer = buffer_r1;
+                                td_pread1[n].fd  = fh_r1;
+                                int ret_code = pthread_create(&threads[n], &attr4, pread_fastq_chunck, (void *)(&td_pread1[n]));
+                                if (ret_code) {
+                                        fprintf(stderr, "ERROR; return code from pthread_create() is %d\n", ret_code);
+                                }
+                        }
+                        for(n=0; n<NUM_THREADS; n++)
+                        pthread_join(threads[n], (void *)(&td_pread1[n]));
 
-			// FOR TEST //
-			//MPI_Type_contiguous(size_chunk, MPI_CHAR, &arraytype_r2);
-			//MPI_Type_commit(&arraytype_r2);
-			//MPI_File_set_view(fh_r1, (MPI_Offset)offset_chunk, MPI_CHAR, MPI_CHAR, "native", finfo ) ; 
-			//res = MPI_File_read(fh_r1, buffer_r2, 1, arraytype_r2, &status);		
+                        pthread_attr_destroy(&attr4);
+                        free(td_pread1);
 
-		
-			///Read the files and fill the buffers at the right offset and for the right size
-			res = MPI_File_read_at(fh_r1, (MPI_Offset)offset_chunk, buffer_r1, size_chunk, MPI_CHAR, &status);
-			assert(res == MPI_SUCCESS);
-			res = MPI_Get_count(&status, MPI_CHAR, &count);
-			assert(res == MPI_SUCCESS);
-			assert(count == (int)size_chunk && *buffer_r1 == '@');
+                        assert(strlen(buffer_r1) == size_chunk);
+                        assert(*buffer_r1 == '@');
 
-			res = MPI_File_read_at(fh_r2, (MPI_Offset)offset_chunk_2, buffer_r2, size_chunk_2, MPI_CHAR, &status);
-			assert(res == MPI_SUCCESS);
-			res = MPI_Get_count(&status, MPI_CHAR, &count);
-			assert(res == MPI_SUCCESS);
-			assert(count == (int) size_chunk_2 && *buffer_r2 == '@');
+                        struct struct_pread_fastq *td_pread2;
+                        td_pread2 = malloc (NUM_THREADS * sizeof(struct struct_pread_fastq));
+                        bef = MPI_Wtime();
+                        pthread_attr_t attr5;
+                        pthread_attr_init(&attr5);
+                        pthread_attr_setstacksize(&attr5, BIG_STACK);
+                        pthread_attr_setdetachstate(&attr5, 0);
 
-			assert(strlen( buffer_r2 ) == size_chunk_2);
-			assert(strlen( buffer_r1 ) == size_chunk);
+			for( n = 0; n < NUM_THREADS; n++ ){
+                                td_pread2[n].total_thread = NUM_THREADS;
+                                td_pread2[n].thread_id = n;
+                                td_pread2[n].job_rank = rank_num;
+                                td_pread2[n].offset= offset_chunk_2;
+                                td_pread2[n].size = size_chunk_2;
+                                td_pread2[n].buffer = buffer_r2;
+                                td_pread2[n].fd  = fh_r2;
+
+                                int ret_code = pthread_create(&threads[n], &attr5, pread_fastq_chunck, (void *)(&td_pread2[n]));
+                                if (ret_code) {
+                                        fprintf(stderr, "ERROR; return code from pthread_create() is %d\n", ret_code);
+                                }
+                        }
+                        for(n=0; n<NUM_THREADS; n++)
+                                pthread_join(threads[n], (void *)(&td_pread2[n]));
+
+                        pthread_attr_destroy(&attr5);
+                        free(td_pread2);
+
+                        assert(strlen(buffer_r2) == size_chunk_2);
+                        assert(*buffer_r2 == '@');
+
+                        if (u1 < total_chunks){
+                                MPI_File_seek(fh_r1, (MPI_Offset)all_begin_offset_chunk[u1 + proc_num], MPI_SEEK_CUR ) ;
+                                MPI_File_seek(fh_r2, (MPI_Offset)all_begin_offset_chunk[u1 + proc_num], MPI_SEEK_CUR ) ;
+                        }
 
 			///some stats
 			aft = MPI_Wtime();
@@ -2430,19 +2765,21 @@ int main(int argc, char *argv[]) {
 
 		//global offset contains the starting offset in the fastq for each process
 		//TODO?: use only one vector for all the global offsets iot reduce communications
-		size_t *goff 	= NULL;
-		goff 	= malloc((proc_num + 1) * sizeof(size_t));
-		
-		//this function is used to fill the goff vectors
-		find_process_starting_offset(goff, stat_r1.st_size, file_r1, proc_num, rank_num);
-		
-		//now we exchange the goff buffer between all proc
-		//rank 0 gather the vector
-		size_t goff_inter 	= goff[rank_num]; //avoid memcpy overlap
-				
-		res = MPI_Allgather(&goff_inter, 1, MPI_LONG_LONG_INT, goff , 1, MPI_LONG_LONG_INT, MPI_COMM_WORLD);
-		assert(res == MPI_SUCCESS);
-	
+		size_t *goff    = malloc((proc_num * NUM_THREADS + 1) * sizeof(size_t));
+                size_t *goff_inter = calloc( (proc_num * NUM_THREADS + 1) , sizeof(size_t));
+
+		 bef = MPI_Wtime();
+                find_process_starting_offset_mt(goff, stat_r1.st_size, file_r1, proc_num, rank_num, NUM_THREADS);
+                aft = MPI_Wtime();
+                fprintf(stderr, "%s: rank %d time spend in finding process start offset = (%.02f) \n", __func__, rank_num, aft - bef);
+
+                int i12=0;
+                for ( i12 = 0; i12 < proc_num * NUM_THREADS + 1; i12++ )  goff_inter[i12] = goff[i12];
+
+		res = MPI_Allgather(&goff_inter[rank_num*NUM_THREADS], NUM_THREADS, MPI_LONG_LONG_INT, goff , NUM_THREADS, MPI_LONG_LONG_INT, MPI_COMM_WORLD);
+                assert(res == MPI_SUCCESS);
+
+                free(goff_inter);	
 			
 		//we compute the new size according to the shift
 		//We calculate the size to read for each process
@@ -2457,16 +2794,13 @@ int main(int argc, char *argv[]) {
 		size_t total_num_reads 		= 0;
 		
 		//Here I decided to keep separated vectors because otherwise with all the reallocs they would be too big and take too much contiguous memory space
-		int *local_read_size    	= calloc(1, sizeof(int));
-		size_t *local_read_bytes    	= calloc(1, sizeof(size_t));
-		size_t *local_read_offsets	= calloc(1, sizeof(size_t));
-		
-		assert( local_read_offsets 	!= NULL);
-		assert( local_read_size 	!= NULL);
-		assert( local_read_bytes	!= NULL);
+		int *local_read_size    	= NULL;
+		size_t *local_read_bytes    	= NULL;
+		size_t *local_read_offsets	= NULL;
 		
 		///find offsets and sizes for the first file
 		bef = MPI_Wtime();
+		/*
 		find_reads_size_and_offsets(goff[ind],
 					    siz2read,
 					    file_r1,
@@ -2477,7 +2811,89 @@ int main(int argc, char *argv[]) {
 					    &local_read_bytes,
 					    proc_num,
 					    rank_num);
+		*/
 
+		pthread_attr_t attr;
+                pthread_attr_init(&attr);
+                pthread_attr_setstacksize(&attr, SMALL_STACK);
+                pthread_attr_setdetachstate(&attr, 0);
+
+                pthread_t threads_1[NUM_THREADS];
+
+                struct struct_data_thread_1 *td_1;
+
+                size_t *local_num_reads_t            = calloc(NUM_THREADS, sizeof(size_t));
+                size_t *total_num_reads_t            = calloc(NUM_THREADS, sizeof(size_t));
+                size_t **local_read_offsets_t        = calloc(NUM_THREADS, sizeof(size_t*));
+                size_t **local_read_bytes_t          = calloc(NUM_THREADS, sizeof(size_t*));
+                int **local_read_size_t              = calloc(NUM_THREADS, sizeof(int*));
+
+                td_1 = calloc(NUM_THREADS, sizeof( struct struct_data_thread_1));
+
+                int ret_code_1 = 0;
+                int goff_idx = 0;
+                for ( n = 0; n < NUM_THREADS; n++){
+
+                        goff_idx = (rank_num * NUM_THREADS) + n;
+                        td_1[n].offset_in_file_mt         = goff[goff_idx];
+                        td_1[n].size2read_mt              = goff[goff_idx + 1] - goff[goff_idx];
+                        td_1[n].file_r1_mt                = file_r1;
+                        td_1[n].local_num_reads_mt        = &local_num_reads_t[n];
+                        td_1[n].total_num_reads_mt        = &total_num_reads_t[n];
+                        td_1[n].local_read_offsets_mt     = &local_read_offsets_t[n];
+                        td_1[n].local_read_size_mt        = &local_read_size_t[n];
+                        td_1[n].local_read_bytes_mt       = &local_read_bytes_t[n];
+                        td_1[n].proc_num_mt               = proc_num;
+                        td_1[n].rank_num_mt               = rank_num;
+                        td_1[n].thread_num_mt             = n;
+                        td_1[n].previous_read_num         = 0;
+                        ret_code_1 = pthread_create(&threads_1[n], &attr, find_reads_size_and_offsets_mt, (void *)(&td_1[n]));
+
+                }
+
+                int g=0;
+                total_num_reads = 0;
+                for (n = 0; n < NUM_THREADS; n++){
+                        pthread_join(threads_1[n], (void *)(&td_1[n]));
+                        total_num_reads += *(td_1[n].total_num_reads_mt);
+                }
+
+		local_read_offsets  = calloc(total_num_reads, sizeof(size_t));
+                local_read_size     = calloc(total_num_reads, sizeof(int));
+                local_read_bytes    = calloc(total_num_reads, sizeof(size_t));
+
+                assert(local_read_offsets);
+                assert(local_read_size);
+                assert(local_read_bytes);
+
+                size_t tmp_var = 0;
+                for (n = 0; n < NUM_THREADS; n++){
+                        td_1[n].local_read_offsets     = local_read_offsets;
+                        td_1[n].local_read_size        = local_read_size;
+                        td_1[n].local_read_bytes       = local_read_bytes;
+                        td_1[n].previous_read_num      = tmp_var;
+                        tmp_var                        += *(td_1[n].total_num_reads_mt);
+			ret_code_1 = pthread_create(&threads_1[n], &attr, copy_local_read_info_mt, (void *)(&td_1[n]));
+
+                }
+
+                for (n = 0; n < NUM_THREADS; n++){
+                        pthread_join(threads_1[n], (void *)(&td_1[n]));
+
+                        free(local_read_offsets_t[n]);
+                        free(local_read_bytes_t[n]);
+                        free(local_read_size_t[n]);
+                }
+
+                free(local_num_reads_t);
+                free(total_num_reads_t);
+
+                free(local_read_offsets_t);
+                free(local_read_bytes_t);
+                free(local_read_size_t);
+
+                pthread_attr_destroy(&attr);
+                free(td_1);
 
 		aft = MPI_Wtime();
 		fprintf(stderr, "%s: rank %d num reads parsed: %zu ::: time spend reading and parsing entire buffer = (%.02f) \n", __func__, rank_num, total_num_reads, aft - bef);
@@ -2736,10 +3152,10 @@ int main(int argc, char *argv[]) {
 		}
 		
 		if ( write_format == 2  )
-                        create_sam_header_by_chr_file(file_map_by_chr, &indix, &count, hdr_line, rg_line, rank_num);
+                        create_sam_header_by_chr_file(file_map_by_chr, &indix, &count, hdr_line, rg_line, pg_line, rank_num);
 
                 if ( write_format == 1 || write_format == 0)
-                        create_bam_header_by_chr_file(file_map_by_chr, &indix, &count, hdr_line, rg_line, rank_num, compression_level, dofixmate);
+                        create_bam_header_by_chr_file(file_map_by_chr, &indix, &count, hdr_line, rg_line, pg_line, rank_num, compression_level, dofixmate);
 
 		//create_sam_header_by_chr_file(file_map_by_chr, &indix, &count, hdr_line, rg_line, rank_num);
 		
@@ -2784,27 +3200,36 @@ int main(int argc, char *argv[]) {
 			buffer_r1 = malloc(size_chunk + 1);
 			assert(buffer_r1 != NULL);
 			buffer_r1[size_chunk] = 0;
-		
-			// FOR TEST //
-			//MPI_Type_contiguous(size_chunk, MPI_CHAR, &arraytype_r1);
-			//MPI_Type_commit(&arraytype_r1);
-			//MPI_File_set_view(fh_r2, (MPI_Offset)offset_chunk, MPI_CHAR, MPI_CHAR, "native", finfo ) ; 
-			//res = MPI_File_read(fh_r2, buffer_r1, 1, arraytype_r1, &status);
 
-			// FOR TEST //
-			//MPI_Type_contiguous(size_chunk, MPI_CHAR, &arraytype_r2);
-			//MPI_Type_commit(&arraytype_r2);
-			//MPI_File_set_view(fh_r1, (MPI_Offset)offset_chunk, MPI_CHAR, MPI_CHAR, "native", finfo ) ; 
-			//res = MPI_File_read(fh_r1, buffer_r2, 1, arraytype_r2, &status);		
+			struct struct_pread_fastq *td_pread1;
+                        td_pread1 = malloc (NUM_THREADS * sizeof(struct struct_pread_fastq));
+                        bef = MPI_Wtime();
+                        pthread_attr_t attr4;
+                        pthread_attr_init(&attr4);
+                        pthread_attr_setstacksize(&attr4, BIG_STACK);
+                        pthread_attr_setdetachstate(&attr4, 0);
 
-		
-			///Read the files and fill the buffers at the right offset and for the right size
-			res = MPI_File_read_at(fh_r1, (MPI_Offset)offset_chunk, buffer_r1, size_chunk, MPI_CHAR, &status);
-			assert(res == MPI_SUCCESS);
-			res = MPI_Get_count(&status, MPI_CHAR, &count);
-			assert(res == MPI_SUCCESS);
-			assert(count == (int)size_chunk && *buffer_r1 == '@');
-			assert(strlen( buffer_r1 ) == size_chunk);
+                        for( n = 0; n < NUM_THREADS; n++ ){
+                                td_pread1[n].total_thread = NUM_THREADS;
+                                td_pread1[n].thread_id = n;
+                                td_pread1[n].job_rank = rank_num;
+                                td_pread1[n].offset= offset_chunk;
+                                td_pread1[n].size = size_chunk;
+                                td_pread1[n].buffer = buffer_r1;
+                                td_pread1[n].fd  = fh_r1;
+                                int ret_code = pthread_create(&threads[n], &attr4, pread_fastq_chunck, (void *)(&td_pread1[n]));
+                                if (ret_code) {
+                                        fprintf(stderr, "ERROR; return code from pthread_create() is %d\n", ret_code);
+                                }
+                        }
+                        for(n=0; n<NUM_THREADS; n++)
+                                pthread_join(threads[n], (void *)(&td_pread1[n]));
+
+                        pthread_attr_destroy(&attr4);
+                        free(td_pread1);
+
+                        assert(strlen(buffer_r1) == size_chunk);
+                        assert(*buffer_r1 == '@');
 
 			///some stats
 			aft = MPI_Wtime();
@@ -2961,45 +3386,52 @@ int main(int argc, char *argv[]) {
                         free(tmp_chr);                                                                                                                                        
 			//now we fill up the buffer_out_vec
 			if ( write_format == 2 ){
+
 				bef = MPI_Wtime();
-				for (n = 0; n < (indix.bns->n_seqs + 1); n++) {
 
-                                	assert(chr_buff_size[n] <= INT_MAX);
+                                int ret_code = 0;
+                                struct thread_data_compress_by_chr_single *tdc;
+                                tdc = malloc (NUM_THREADS * sizeof(struct thread_data_compress_by_chr_single));
 
-                                	if (chr_buff_size[n]){
-                                        	buffer_out_vec[n] = calloc( chr_buff_size[n] + 1, sizeof(char));
-                                        	assert(buffer_out_vec[n] != NULL);
-                                        	buffer_out_vec[n][chr_buff_size[n]] = '\0';
-                                	}
-                        	}
-                        	size_t *actual_size = calloc(reads, sizeof(size_t));
-                        	char *p_temp2;
-                        	for (n = 0; n < reads; n++) {
+                                pthread_attr_init(&attr);
+                                pthread_attr_setstacksize(&attr, SMALL_STACK);
+                                pthread_attr_setdetachstate(&attr, 0);
 
-                                	p_temp2 = buffer_out_vec[sam_buff_dest[n]] + actual_size[sam_buff_dest[n]];
-                                	memmove(p_temp2, seqs[n].sam, seqs[n].l_seq);
-                                	actual_size[sam_buff_dest[n]] += seqs[n].l_seq;
-                                	free(seqs[n].sam);
-                        	}
-				free(sam_buff_dest);
-                        	free(seqs);
-                        	free(actual_size);
-				for (n = 0; n < (indix.bns->n_seqs + 1); n++) {
+                                for( n = 0; n < NUM_THREADS; n++ ){
+                                        tdc[n].total_thread = NUM_THREADS;
+                                        tdc[n].thread_id = n;
+                                        tdc[n].indix_thr = &indix;
+                                        tdc[n].start_addr = start_addr;
+                                        tdc[n].line_size_to_cpy = line_size_to_cpy;
+                                        tdc[n].sam_buff_dest = sam_buff_dest;
+                                        tdc[n].total_sam_line = total_sam_line;
+                                        tdc[n].incrmnt = 1;
+                                        tdc[n].job_rank = rank_num;
+                                        tdc[n].comp_level = compression_level;
+                                        tdc[n].fh_out = fh_out;
+                                        ret_code = pthread_create(&threads[n], &attr, write_sam_thread_by_chr_single, (void *)(&tdc[n]));
+                                        if (ret_code) {
+                                                fprintf(stderr, "ERROR; return code from pthread_create() is %d\n", ret_code);
+                                        }
+                                }
+                                for(n=0; n<NUM_THREADS; n++)
+                                        pthread_join(threads[n], (void *)(&tdc[n]));
 
-                                	if (chr_buff_size[n]) {
-                                        	res = MPI_File_write_shared(fh_out[n], buffer_out_vec[n], chr_buff_size[n], MPI_CHAR, &status);
-                                        	assert(res == MPI_SUCCESS);
-                                        	res = MPI_Get_count(&status, MPI_CHAR, &count);
-                                        	assert(res == MPI_SUCCESS);
-                                        	assert(count == (int)chr_buff_size[n]);
-                                        	free(buffer_out_vec[n]);
-                                        	chr_buff_size[n] = 0;
-                                	}
-                        	}
-	
-                        	aft = MPI_Wtime();
-                        	fprintf(stderr, "rank: %d :: %s: wrote results (%.02f) \n", rank_num, __func__, aft - bef);
-                        	total_time_writing += (aft - bef);
+                                pthread_attr_destroy(&attr);
+                                free(tdc);
+
+                                for (n = 0; n < reads; n++) free(seqs[n].sam);
+
+                                free(sam_buff_dest);
+                                free(seqs);
+                                free(start_addr);
+                                free(line_size_to_cpy);
+                                aft = MPI_Wtime();
+                                fprintf(stderr, "rank: %d :: %s: wrote results (%.02f) \n", rank_num, __func__, aft - bef);
+                                total_time_writing += (aft - bef);
+
+
+
 			}
 			
 			if ( write_format == 0 || write_format == 1) {
@@ -3009,7 +3441,7 @@ int main(int argc, char *argv[]) {
                                 int ret_code = 0;
                                 struct thread_data_compress_by_chr_single *tdc;
                                 tdc = malloc (NUM_THREADS * sizeof(struct thread_data_compress_by_chr_single));
-                                bef = MPI_Wtime();
+                                
                                 pthread_attr_init(&attr);
                                 pthread_attr_setstacksize(&attr, SMALL_STACK);
                                 pthread_attr_setdetachstate(&attr, 0);
@@ -3036,15 +3468,13 @@ int main(int argc, char *argv[]) {
 
                                 pthread_attr_destroy(&attr);
                                 free(tdc);
-                                total_time_writing += (aft - bef);
-
+				                            
                                 for (n = 0; n < reads; n++) free(seqs[n].sam);
                                 
                                 free(sam_buff_dest);
                                 free(seqs);
                                 free(start_addr);
                                 free(line_size_to_cpy);
-
                                 aft = MPI_Wtime();
                                 fprintf(stderr, "rank: %d :: %s: wrote results (%.02f) \n", rank_num, __func__, aft - bef);
                                 total_time_writing += (aft - bef);
@@ -3081,6 +3511,10 @@ int main(int argc, char *argv[]) {
 	*   Print some statistics
 	*
 	*/
+
+	if (hdr_line) free(hdr_line);
+        if (rg_line) free(rg_line);
+        if (pg_line) free(pg_line);
 
 	free(output_path);
 	after_local_mapping	 = MPI_Wtime();

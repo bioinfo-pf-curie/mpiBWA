@@ -1,9 +1,16 @@
 
 
+#define _GNU_SOURCE
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
 
 void init_goff(size_t *goff, MPI_File mpi_filed, size_t fsize,int numproc,int rank);
 void find_process_starting_offset(size_t *goff, size_t size, char* file_to_read, int proc_num, int rank_num);
+void find_process_starting_offset_mt(size_t *goff, size_t size, char* file_to_read, int proc_num, int rank_num, int nthreads);
+
+
 void find_reads_size_and_offsets(size_t offset_in_file,
 								size_t siz2read,
 								char *file_to_read,
@@ -48,26 +55,30 @@ void find_chunks_info(  size_t *begin_offset_chunk,
 			size_t *chunk_count);
 
 void map_indexes(char *file_map, int *count, bwaidx_t *indix, int *ignore_alt, MPI_Win *win_shr);
-void create_sam_header(char *file_out, bwaidx_t *indix, int *count, char *hdr_line, char *rg_line, int rank_num);
+void create_sam_header(char *file_out, bwaidx_t *indix, int *count, char *hdr_line, char *rg_line, char *pg_line, int rank_num);
 
 int getChr(char *str, char *chrNames[], int nbchr, char *tmp_chr);
 void create_sam_header_by_chr_file(char *file_out[], 
-		bwaidx_t *indix, int *count, char *hdr_line, char *rg_line, int rank_num);
+		bwaidx_t *indix, int *count, char *hdr_line, char *rg_line, char *pg_line, int rank_num);
 
+void *compress_and_write_bam_thread(void *threadarg);
+void *compress_and_write_bgzf_thread(void *threadarg);
+void *write_sam_thread_by_chr_single(void *threadarg);
 void *compress_thread(void *threadarg);
 void *compress_thread_by_chr(void *threadarg);
 void *compress_thread_by_chr_single(void *threadarg);
 void *call_fixmate(void *threadarg);
-void copy_local_read_info_mt(void *thread_arg);
-void find_reads_size_and_offsets_mt(void *thread_arg);
+void *copy_local_read_info_mt(void *thread_arg);
+void *find_reads_size_and_offsets_mt(void *thread_arg);
 void copy_buffer_write_thr(void *thread_arg);
 void compute_buffer_size_thr(void *thread_arg);
 void create_bam_header(char *file_out, bwaidx_t *indix, int *count, 
-	char *hdr_line, char *rg_line, int rank_num, int compression_level);
+	char *hdr_line, char *rg_line, char *pg_line,int rank_num, int compression_level);
 void create_bam_header_by_chr_file(char *file_out[], bwaidx_t *indix, int *count, 
-	char *hdr_line, char *rg_line, int rank_num, int compression_level, int dofixmate);
+	char *hdr_line, char *rg_line, char *pg_line, int rank_num, int compression_level, int dofixmate);
+void *write_sam_mt(void *thread_arg);
 
-
+void *pread_fastq_chunck(void *thread_arg );
 
 
 /****************************************
@@ -139,11 +150,9 @@ struct struct_data_thread{
     bseq1_t *seqs_thr;
     int begin_index;
     int end_index;
-    int size_thr;
-    char *buffer_out;
-    int file_desc;
-    size_t offset_write;
+    MPI_File file_desc;
 };
+
 
 //struct used to find read size, offset, and bytes in multithread
 struct struct_data_thread_1{
@@ -164,6 +173,13 @@ struct struct_data_thread_1{
             int thread_num_mt;
 };
 
+struct struct_pread_fastq{
 
-
-
+            int total_thread;
+            int thread_id;
+            int job_rank;
+            size_t offset;
+            size_t size;
+            char *buffer;
+            MPI_File fd;
+};

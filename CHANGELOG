@@ -1,3 +1,8 @@
+version-1.5
+    - Multithread IO reading/writing (issue #40)
+    - Add PG line in header (issue #40) 
+    - Fix mate score computing (issue #41)    
+
 version-1.4 2021-04-13
     - Update bwa-mem to 0.7.17 (issue #38)
     - Add option to generate BAM, BGZF (issue #33)
