@@ -1532,7 +1532,7 @@ int main(int argc, char *argv[]) {
                 
                 total_num_reads_2 = 0;
                 for (n = 0; n < NUM_THREADS; n++){
-                        pthread_join(threads_1[n], (void *)(&td_2[n]));
+                        pthread_join(threads_2[n], (void *)(&td_2[n]));
                         total_num_reads_2 += *(td_2[n].total_num_reads_mt);
                 }
 
