@@ -523,21 +523,28 @@ int main(int argc, char *argv[]) {
                fprintf(stderr, "%s: controls are done. Start analyzing fastqs it could take few minutes...\n", __func__);
 
 
-    char* file_out_ext = (char*)malloc((strlen(file_out) + 40) * sizeof(char));
+    	char* file_out_ext = (char*)malloc((strlen(file_out) + 40) * sizeof(char));
 
 
-    if(write_format == 2){
-        sprintf(file_out_ext, "%s.sam", file_out);
-    }
-    else if (write_format == 1){
-    	sprintf(file_out_ext, "%s.bam", file_out);
-    }
-    else {
-        sprintf(file_out_ext,"%s.gz",file_out);
-    }
+    	if(write_format == 2){
+        	sprintf(file_out_ext, "%s.sam", file_out);
+    	}
+    	else if (write_format == 1){
+    		sprintf(file_out_ext, "%s.bam", file_out);
+    	}
+    	else {
+        	sprintf(file_out_ext,"%s.gz",file_out);
+    	}
 
+	//we create a RMA window to hold index chunk
+	MPI_Win win;
+	uint64_t *index_chunk;
+	uint64_t incr = 1;
+	uint64_t u1 = 0;
+	int rank_target=0;
+	MPI_Win_allocate(sizeof(uint64_t),  1, MPI_INFO_NULL, MPI_COMM_WORLD, &index_chunk, &win);
+	 
 
-	
 	if ( (file_r1 != NULL && file_r2 != NULL  && (stat_r1.st_size == stat_r2.st_size)))  {
 	
 		/*
@@ -945,14 +952,25 @@ int main(int argc, char *argv[]) {
 		buffer_r1 = buffer_r2 = NULL; seqs = NULL;
 
 
-		// here we loop until there's nothing to read
-		// in the offset and size file
-		
-		
-		before_local_mapping = MPI_Wtime();
 
+		bef = MPI_Wtime();
+		
+		MPI_Win_lock(MPI_LOCK_EXCLUSIVE, rank_target, 0, win);		
+		MPI_Request req;
+        	MPI_Rget(&index_chunk, 1, MPI_UINT64_T, rank_target, 0, 1, MPI_UINT64_T, win, &req);
+        	MPI_Wait(&req, MPI_STATUS_IGNORE);
+		u1 = (uint64_t)index_chunk;
+		MPI_Fetch_and_op(&incr, &index_chunk, MPI_UINT64_T, rank_target, 0, MPI_SUM, win);
+        	MPI_Win_flush(rank_target, win);
+        	MPI_Win_unlock(rank_target, win);
+				
+		aft = MPI_Wtime();
+		fprintf(stderr, "rank %d ::: initial u1 = %zu :: time %.02f \n",rank_num, u1, aft-bef);
+		
+
+		before_local_mapping = MPI_Wtime();
 		//we loop the chunck_count
-		size_t u1 = rank_num;
+		//size_t u1 = rank_num;
 		while ( u1 < total_chunks){
 
 			offset_chunk = all_begin_offset_chunk[u1];
@@ -1032,12 +1050,12 @@ int main(int argc, char *argv[]) {
 
             		assert(strlen(buffer_r2) == size_chunk);
             		assert(*buffer_r2 == '@');
-
+			/*
             		if (u1 < total_chunks){
                 		MPI_File_seek(fh_r1, (MPI_Offset)all_begin_offset_chunk[u1 + proc_num], MPI_SEEK_CUR ) ;
                 		MPI_File_seek(fh_r2, (MPI_Offset)all_begin_offset_chunk[u1 + proc_num], MPI_SEEK_CUR ) ;
             		}
-
+			*/
 
 			aft = MPI_Wtime();
 			fprintf(stderr, "%s: read sequences (%.02f)\n", __func__, aft - bef);
@@ -1273,8 +1291,23 @@ int main(int argc, char *argv[]) {
                     	}
             		fprintf(stderr, "%s: wrote results (%.02f)\n", __func__, aft - bef);
 
-			u1 += proc_num;
-
+			//u1 += proc_num;
+			
+			//we update u1
+			//get the index_chunk
+			bef = MPI_Wtime();
+			
+			MPI_Win_lock(MPI_LOCK_EXCLUSIVE, rank_target, 0, win);
+			MPI_Request req;
+			MPI_Rget(&index_chunk, 1, MPI_UINT64_T, rank_target, 0, 1, MPI_UINT64_T, win, &req);
+			MPI_Wait(&req, MPI_STATUS_IGNORE);
+			u1 = (uint64_t)index_chunk;
+			MPI_Fetch_and_op(&incr,&index_chunk, MPI_UINT64_T, rank_target, 0, MPI_SUM, win);
+			MPI_Win_flush(rank_target, win);
+			MPI_Win_unlock(rank_target, win);
+							
+			aft = MPI_Wtime();
+			fprintf(stderr, "rank %d ::: update u1 = %zu :: time %.02f \n",rank_num, u1, aft-bef);
 		} //end for (u1 = 0; u1 < chunk_count; u1++){
 
 		 MPI_Barrier(MPI_COMM_WORLD);
@@ -1286,7 +1319,7 @@ int main(int argc, char *argv[]) {
                         assert(res == MPI_SUCCESS);
                         assert(count == 28);
                 }
-
+		
 	} //end if (file_r2 != NULL && stat_r1.st_size == stat_r2.st_size)
 	
 	if (file_r1 != NULL && file_r2 != NULL && stat_r1.st_size != stat_r2.st_size) {
@@ -1913,12 +1946,27 @@ int main(int argc, char *argv[]) {
 
 	//	fprintf(stderr, "%s ::: rank %d ::: test1\n", __func__, rank_num);
 
+		bef = MPI_Wtime();
+                if (rank_num != rank_target){
+                        MPI_Win_lock(MPI_LOCK_EXCLUSIVE, rank_target, 0, win);
+                        MPI_Request req;
+                        MPI_Rget(&index_chunk, 1, MPI_UINT64_T, rank_target, 0, 1, MPI_UINT64_T, win, &req);
+                        MPI_Wait(&req, MPI_STATUS_IGNORE);
+                        u1 = (uint64_t)index_chunk;
+                        MPI_Fetch_and_op(&incr, &index_chunk, MPI_UINT64_T, rank_target, 0, MPI_SUM, win);
+                        MPI_Win_flush(rank_target, win);
+                        MPI_Win_unlock(rank_target, win);
+                }
+                else {u1 = index_chunk[0];index_chunk[0]++;}
+                aft = MPI_Wtime();
+                fprintf(stderr, "rank %d ::: initial u1 = %zu :: time %.02f \n",rank_num, u1, aft-bef);
+
 		buffer_r1 = buffer_r2 = NULL; seqs = NULL;
 		before_local_mapping = MPI_Wtime();
 
 		// here we loop until there's nothing to read
 		//we loop the chunck_count
-		size_t u1 = rank_num; 
+		
 		while ( u1 < total_chunks ){
 
 			offset_chunk 		= all_begin_offset_chunk[u1];
@@ -2263,9 +2311,21 @@ int main(int argc, char *argv[]) {
             		}
 
             		fprintf(stderr, "%s: wrote results (%.02f)\n", __func__, aft - bef);
-			u1 += proc_num;
+			bef = MPI_Wtime();
+                        
+                        MPI_Win_lock(MPI_LOCK_EXCLUSIVE, rank_target, 0, win);
+                        MPI_Request req;
+                        MPI_Rget(&index_chunk, 1, MPI_UINT64_T, rank_target, 0, 1, MPI_UINT64_T, win, &req);
+                        MPI_Wait(&req, MPI_STATUS_IGNORE);
+                        u1 = (uint64_t)index_chunk;
+                        MPI_Fetch_and_op(&incr,&index_chunk, MPI_UINT64_T, rank_target, 0, MPI_SUM, win);
+                        MPI_Win_flush(rank_target, win);
+                        MPI_Win_unlock(rank_target, win);
+                    
+                        aft = MPI_Wtime();
+			 fprintf(stderr, "rank %d ::: update u1 = %zu :: time %.02f \n",rank_num, u1, aft-bef);
 
-			} //end for loop on chunks
+		} //end for loop on chunks
 		
 		MPI_Barrier(MPI_COMM_WORLD);
 		//write magic number
@@ -2277,7 +2337,8 @@ int main(int argc, char *argv[]) {
                 	assert(res == MPI_SUCCESS);
                 	assert(count == 28);
 		}
-         
+	
+		 
 	}// end else case files are trimmed
 
 	if (file_r1 != NULL && file_r2 == NULL){
@@ -2682,12 +2743,26 @@ int main(int argc, char *argv[]) {
 			assert(res == MPI_SUCCESS);
 		}
 		
+		bef = MPI_Wtime();
+                
+                MPI_Win_lock(MPI_LOCK_EXCLUSIVE, rank_target, 0, win);
+                MPI_Request req;
+                MPI_Rget(&index_chunk, 1, MPI_UINT64_T, rank_target, 0, 1, MPI_UINT64_T, win, &req);
+                MPI_Wait(&req, MPI_STATUS_IGNORE);
+                u1 = (uint64_t)index_chunk;
+                MPI_Fetch_and_op(&incr, &index_chunk, MPI_UINT64_T, rank_target, 0, MPI_SUM, win);
+                MPI_Win_flush(rank_target, win);
+                MPI_Win_unlock(rank_target, win);
+                
+                aft = MPI_Wtime();
+                fprintf(stderr, "rank %d ::: initial u1 = %zu :: time %.02f \n",rank_num, u1, aft-bef);
+
 		buffer_r1 = NULL; seqs = NULL;
 		before_local_mapping = MPI_Wtime();
 
 		// here we loop until there's nothing to read
 		//we loop the chunck_count
-		size_t u1 = rank_num; 
+		 
 		while ( u1 < total_chunks){
 
 			offset_chunk 		= all_begin_offset_chunk[u1];
@@ -2908,7 +2983,20 @@ int main(int argc, char *argv[]) {
             		}
 			aft = MPI_Wtime();
             		fprintf(stderr, "%s: wrote results (%.02f)\n", __func__, aft - bef);
-			u1 += proc_num;
+
+			bef = MPI_Wtime();
+                        MPI_Win_lock(MPI_LOCK_EXCLUSIVE, rank_target, 0, win);
+                        MPI_Request req;
+                        MPI_Rget(&index_chunk, 1, MPI_UINT64_T, rank_target, 0, 1, MPI_UINT64_T, win, &req);
+                        MPI_Wait(&req, MPI_STATUS_IGNORE);
+                        u1 = (uint64_t)index_chunk;
+                        MPI_Fetch_and_op(&incr,&index_chunk, MPI_UINT64_T, rank_target, 0, MPI_SUM, win);
+                        MPI_Win_flush(rank_target, win);
+                        MPI_Win_unlock(rank_target, win);
+
+                        aft = MPI_Wtime();
+                        fprintf(stderr, "rank %d ::: update u1 = %zu :: time %.02f \n",rank_num, u1, aft-bef);
+			
 		} //end for loop on chunks
 
 		MPI_Barrier(MPI_COMM_WORLD);
@@ -2923,7 +3011,9 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-
+	//free the local window 
+	MPI_Win_free(&win);
+	                 
 
 	/*
 	*
