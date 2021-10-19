@@ -1,6 +1,7 @@
 version-1.5.1
-    - fix bug in trimmed fastq condition
-    
+    - fix bug in trimmed fastq condition  (issue #45)
+    - fix load balancing (thanks to Vasim) (issue #47)
+	    
 version-1.5
     - Multithread IO reading/writing (issue #40)
     - Add PG line in header (issue #40) 
