@@ -542,8 +542,13 @@ int main(int argc, char *argv[]) {
 	uint64_t incr = 1;
 	uint64_t u1 = 0;
 	int rank_target=0;
-	MPI_Win_allocate(sizeof(uint64_t),  1, MPI_INFO_NULL, MPI_COMM_WORLD, &index_chunk, &win);
-	 
+
+	if ( proc_num > 1) {
+            index_chunk = calloc(1,sizeof(uint64_t));
+
+            MPI_Win_allocate(sizeof(uint64_t),  1, MPI_INFO_NULL, MPI_COMM_WORLD, &index_chunk, &win);
+        }
+        else u1 = 0; 
 
 	if ( (file_r1 != NULL && file_r2 != NULL  && (stat_r1.st_size == stat_r2.st_size)))  {
 	
@@ -952,21 +957,21 @@ int main(int argc, char *argv[]) {
 		buffer_r1 = buffer_r2 = NULL; seqs = NULL;
 
 
-
-		bef = MPI_Wtime();
+		if (proc_num > 1){
+			bef = MPI_Wtime();
 		
-		MPI_Win_lock(MPI_LOCK_EXCLUSIVE, rank_target, 0, win);		
-		MPI_Request req;
-        	MPI_Rget(&index_chunk, 1, MPI_UINT64_T, rank_target, 0, 1, MPI_UINT64_T, win, &req);
-        	MPI_Wait(&req, MPI_STATUS_IGNORE);
-		u1 = (uint64_t)index_chunk;
-		MPI_Fetch_and_op(&incr, &index_chunk, MPI_UINT64_T, rank_target, 0, MPI_SUM, win);
-        	MPI_Win_flush(rank_target, win);
-        	MPI_Win_unlock(rank_target, win);
+			MPI_Win_lock(MPI_LOCK_EXCLUSIVE, rank_target, 0, win);		
+			MPI_Request req;
+        		MPI_Rget(&index_chunk, 1, MPI_UINT64_T, rank_target, 0, 1, MPI_UINT64_T, win, &req);
+        		MPI_Wait(&req, MPI_STATUS_IGNORE);
+			u1 = (uint64_t)index_chunk;
+			MPI_Fetch_and_op(&incr, &index_chunk, MPI_UINT64_T, rank_target, 0, MPI_SUM, win);
+        		MPI_Win_flush(rank_target, win);
+        		MPI_Win_unlock(rank_target, win);
 				
-		aft = MPI_Wtime();
-		fprintf(stderr, "rank %d ::: initial u1 = %zu :: time %.02f \n",rank_num, u1, aft-bef);
-		
+			aft = MPI_Wtime();
+			fprintf(stderr, "rank %d ::: initial u1 = %zu :: time %.02f \n",rank_num, u1, aft-bef);
+		}
 
 		before_local_mapping = MPI_Wtime();
 		//we loop the chunck_count
@@ -1291,33 +1296,34 @@ int main(int argc, char *argv[]) {
                     	}
             		fprintf(stderr, "%s: wrote results (%.02f)\n", __func__, aft - bef);
 
-			//u1 += proc_num;
-			
 			//we update u1
 			//get the index_chunk
-			bef = MPI_Wtime();
+			if ( proc_num > 1){
+				bef = MPI_Wtime();
 			
-			MPI_Win_lock(MPI_LOCK_EXCLUSIVE, rank_target, 0, win);
-			MPI_Request req;
-			MPI_Rget(&index_chunk, 1, MPI_UINT64_T, rank_target, 0, 1, MPI_UINT64_T, win, &req);
-			MPI_Wait(&req, MPI_STATUS_IGNORE);
-			u1 = (uint64_t)index_chunk;
-			MPI_Fetch_and_op(&incr,&index_chunk, MPI_UINT64_T, rank_target, 0, MPI_SUM, win);
-			MPI_Win_flush(rank_target, win);
-			MPI_Win_unlock(rank_target, win);
+				MPI_Win_lock(MPI_LOCK_EXCLUSIVE, rank_target, 0, win);
+				MPI_Request req;
+				MPI_Rget(&index_chunk, 1, MPI_UINT64_T, rank_target, 0, 1, MPI_UINT64_T, win, &req);
+				MPI_Wait(&req, MPI_STATUS_IGNORE);
+				u1 = (uint64_t)index_chunk;
+				MPI_Fetch_and_op(&incr,&index_chunk, MPI_UINT64_T, rank_target, 0, MPI_SUM, win);
+				MPI_Win_flush(rank_target, win);
+				MPI_Win_unlock(rank_target, win);
 							
-			aft = MPI_Wtime();
-			fprintf(stderr, "rank %d ::: update u1 = %zu :: time %.02f \n",rank_num, u1, aft-bef);
+				aft = MPI_Wtime();
+				fprintf(stderr, "rank %d ::: update u1 = %zu :: time %.02f \n",rank_num, u1, aft-bef);
+			}
+			else u1++;
 		} //end for (u1 = 0; u1 < chunk_count; u1++){
 
-		 MPI_Barrier(MPI_COMM_WORLD);
-		 if ( (write_format == 1) && (rank_num == 0)) {
-                        static uint8_t magic[28] =  "\x1f\x8b\x08\x04\x00\x00\x00\x00\x00\xff\x06\x00\x42\x43\x02\x00\x1b\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00";
-                        res = MPI_File_write_shared(fh_out, magic, 28, MPI_BYTE, &status);
-                        assert(res == MPI_SUCCESS);
-                        res = MPI_Get_count(&status, MPI_BYTE, &count);
-                        assert(res == MPI_SUCCESS);
-                        assert(count == 28);
+		MPI_Barrier(MPI_COMM_WORLD);
+		if ( (write_format == 1) && (rank_num == 0)) {
+                       static uint8_t magic[28] =  "\x1f\x8b\x08\x04\x00\x00\x00\x00\x00\xff\x06\x00\x42\x43\x02\x00\x1b\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00";
+                       res = MPI_File_write_shared(fh_out, magic, 28, MPI_BYTE, &status);
+                       assert(res == MPI_SUCCESS);
+                       res = MPI_Get_count(&status, MPI_BYTE, &count);
+                       assert(res == MPI_SUCCESS);
+                       assert(count == 28);
                 }
 		
 	} //end if (file_r2 != NULL && stat_r1.st_size == stat_r2.st_size)
@@ -2309,22 +2315,24 @@ int main(int argc, char *argv[]) {
                 		free(buffer_r1);
                 		free(buffer_r2);
             		}
-
-            		fprintf(stderr, "%s: wrote results (%.02f)\n", __func__, aft - bef);
-			bef = MPI_Wtime();
+					
+			if ( proc_num > 1){
+            			fprintf(stderr, "%s: wrote results (%.02f)\n", __func__, aft - bef);
+				bef = MPI_Wtime();
                         
-                        MPI_Win_lock(MPI_LOCK_EXCLUSIVE, rank_target, 0, win);
-                        MPI_Request req;
-                        MPI_Rget(&index_chunk, 1, MPI_UINT64_T, rank_target, 0, 1, MPI_UINT64_T, win, &req);
-                        MPI_Wait(&req, MPI_STATUS_IGNORE);
-                        u1 = (uint64_t)index_chunk;
-                        MPI_Fetch_and_op(&incr,&index_chunk, MPI_UINT64_T, rank_target, 0, MPI_SUM, win);
-                        MPI_Win_flush(rank_target, win);
-                        MPI_Win_unlock(rank_target, win);
+                        	MPI_Win_lock(MPI_LOCK_EXCLUSIVE, rank_target, 0, win);
+                        	MPI_Request req;
+                        	MPI_Rget(&index_chunk, 1, MPI_UINT64_T, rank_target, 0, 1, MPI_UINT64_T, win, &req);
+                        	MPI_Wait(&req, MPI_STATUS_IGNORE);
+                        	u1 = (uint64_t)index_chunk;
+                        	MPI_Fetch_and_op(&incr,&index_chunk, MPI_UINT64_T, rank_target, 0, MPI_SUM, win);
+                        	MPI_Win_flush(rank_target, win);
+                        	MPI_Win_unlock(rank_target, win);
                     
-                        aft = MPI_Wtime();
-			 fprintf(stderr, "rank %d ::: update u1 = %zu :: time %.02f \n",rank_num, u1, aft-bef);
-
+                        	aft = MPI_Wtime();
+				fprintf(stderr, "rank %d ::: update u1 = %zu :: time %.02f \n",rank_num, u1, aft-bef);
+			}
+			else u1++;
 		} //end for loop on chunks
 		
 		MPI_Barrier(MPI_COMM_WORLD);
@@ -2744,18 +2752,20 @@ int main(int argc, char *argv[]) {
 		}
 		
 		bef = MPI_Wtime();
+                if ( proc_num > 1){
+                	MPI_Win_lock(MPI_LOCK_EXCLUSIVE, rank_target, 0, win);
+                	MPI_Request req;
+                	MPI_Rget(&index_chunk, 1, MPI_UINT64_T, rank_target, 0, 1, MPI_UINT64_T, win, &req);
+                	MPI_Wait(&req, MPI_STATUS_IGNORE);
+                	u1 = (uint64_t)index_chunk;
+                	MPI_Fetch_and_op(&incr, &index_chunk, MPI_UINT64_T, rank_target, 0, MPI_SUM, win);
+                	MPI_Win_flush(rank_target, win);
+                	MPI_Win_unlock(rank_target, win);
                 
-                MPI_Win_lock(MPI_LOCK_EXCLUSIVE, rank_target, 0, win);
-                MPI_Request req;
-                MPI_Rget(&index_chunk, 1, MPI_UINT64_T, rank_target, 0, 1, MPI_UINT64_T, win, &req);
-                MPI_Wait(&req, MPI_STATUS_IGNORE);
-                u1 = (uint64_t)index_chunk;
-                MPI_Fetch_and_op(&incr, &index_chunk, MPI_UINT64_T, rank_target, 0, MPI_SUM, win);
-                MPI_Win_flush(rank_target, win);
-                MPI_Win_unlock(rank_target, win);
-                
-                aft = MPI_Wtime();
-                fprintf(stderr, "rank %d ::: initial u1 = %zu :: time %.02f \n",rank_num, u1, aft-bef);
+                	aft = MPI_Wtime();
+                	fprintf(stderr, "rank %d ::: initial u1 = %zu :: time %.02f \n",rank_num, u1, aft-bef);
+		}
+
 
 		buffer_r1 = NULL; seqs = NULL;
 		before_local_mapping = MPI_Wtime();
@@ -2983,20 +2993,23 @@ int main(int argc, char *argv[]) {
             		}
 			aft = MPI_Wtime();
             		fprintf(stderr, "%s: wrote results (%.02f)\n", __func__, aft - bef);
-
-			bef = MPI_Wtime();
-                        MPI_Win_lock(MPI_LOCK_EXCLUSIVE, rank_target, 0, win);
-                        MPI_Request req;
-                        MPI_Rget(&index_chunk, 1, MPI_UINT64_T, rank_target, 0, 1, MPI_UINT64_T, win, &req);
-                        MPI_Wait(&req, MPI_STATUS_IGNORE);
-                        u1 = (uint64_t)index_chunk;
-                        MPI_Fetch_and_op(&incr,&index_chunk, MPI_UINT64_T, rank_target, 0, MPI_SUM, win);
-                        MPI_Win_flush(rank_target, win);
-                        MPI_Win_unlock(rank_target, win);
-
-                        aft = MPI_Wtime();
-                        fprintf(stderr, "rank %d ::: update u1 = %zu :: time %.02f \n",rank_num, u1, aft-bef);
 			
+			if ( proc_num > 1){
+				bef = MPI_Wtime();
+                        	MPI_Win_lock(MPI_LOCK_EXCLUSIVE, rank_target, 0, win);
+                        	MPI_Request req;
+                        	MPI_Rget(&index_chunk, 1, MPI_UINT64_T, rank_target, 0, 1, MPI_UINT64_T, win, &req);
+                        	MPI_Wait(&req, MPI_STATUS_IGNORE);
+                        	u1 = (uint64_t)index_chunk;
+                        	MPI_Fetch_and_op(&incr,&index_chunk, MPI_UINT64_T, rank_target, 0, MPI_SUM, win);
+                        	MPI_Win_flush(rank_target, win);
+                        	MPI_Win_unlock(rank_target, win);
+
+                        	aft = MPI_Wtime();
+                        	fprintf(stderr, "rank %d ::: update u1 = %zu :: time %.02f \n",rank_num, u1, aft-bef);
+			}
+			else u1++;
+	
 		} //end for loop on chunks
 
 		MPI_Barrier(MPI_COMM_WORLD);
@@ -3012,7 +3025,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	//free the local window 
-	MPI_Win_free(&win);
+ 	 if ( proc_num > 1) { MPI_Win_free(&win); free(index_chunk);}
 	                 
 
 	/*
