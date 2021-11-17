@@ -175,7 +175,8 @@ int main(int argc, char *argv[]) {
 	else {
 		 //create pg_line for create_sam_header
 		 asprintf(&pg_line, "@PG\tID:bwa\tPN:bwa\tVN:%s\tCL:%s", VERSION, argv[0]);
-		 for (int i = 1; i < argc; ++i) asprintf(&pg_line, "%s %s", pg_line, argv[i]);
+		 int i = 0;
+		 for (i = 1; i < argc; ++i) asprintf(&pg_line, "%s %s", pg_line, argv[i]);
 	}
 
 	/* initialize the BWA-MEM parameters to the default values */
@@ -565,10 +566,9 @@ int main(int argc, char *argv[]) {
         uint64_t incr = 1;
         uint64_t u1 = 0;
         int rank_target=0;
-	if ( proc_num > 1) {
-            index_chunk = calloc(1,sizeof(uint64_t));
-            MPI_Win_allocate(sizeof(uint64_t),  1, MPI_INFO_NULL, MPI_COMM_WORLD, &index_chunk, &win);
-        }
+	if ( proc_num > 1) 
+        	MPI_Win_allocate(sizeof(uint64_t),  1, MPI_INFO_NULL, MPI_COMM_WORLD, &index_chunk, &win);
+        
         else u1 = 0;
 
 	if ( (file_r1 != NULL && file_r2 != NULL  && (stat_r1.st_size == stat_r2.st_size)))  {
@@ -3622,7 +3622,7 @@ int main(int argc, char *argv[]) {
         if (rg_line) free(rg_line);
         if (pg_line) free(pg_line);
 	
-	if ( proc_num > 1) { MPI_Win_free(&win); free(index_chunk);}
+	if ( proc_num > 1) MPI_Win_free(&win);
 
 	free(output_path);
 	after_local_mapping	 = MPI_Wtime();

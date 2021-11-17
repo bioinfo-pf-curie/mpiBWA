@@ -173,7 +173,8 @@ int main(int argc, char *argv[]) {
 	else {
 		//create pg_line for create_sam_header
 		asprintf(&pg_line, "@PG\tID:bwa\tPN:bwa\tVN:%s\tCL:%s", VERSION, argv[0]);
-		for (int i = 1; i < argc; ++i) asprintf(&pg_line, "%s %s", pg_line, argv[i]);
+		int i=0;
+		for (i = 1; i < argc; ++i) asprintf(&pg_line, "%s %s", pg_line, argv[i]);
 	}
 
 	/* initialize the BWA-MEM parameters to the default values */
@@ -543,12 +544,9 @@ int main(int argc, char *argv[]) {
 	uint64_t u1 = 0;
 	int rank_target=0;
 
-	if ( proc_num > 1) {
-            index_chunk = calloc(1,sizeof(uint64_t));
-
+	if ( proc_num > 1) 
             MPI_Win_allocate(sizeof(uint64_t),  1, MPI_INFO_NULL, MPI_COMM_WORLD, &index_chunk, &win);
-        }
-        else u1 = 0; 
+                
 
 	if ( (file_r1 != NULL && file_r2 != NULL  && (stat_r1.st_size == stat_r2.st_size)))  {
 	
@@ -1953,7 +1951,7 @@ int main(int argc, char *argv[]) {
 	//	fprintf(stderr, "%s ::: rank %d ::: test1\n", __func__, rank_num);
 
 		bef = MPI_Wtime();
-                if (rank_num != rank_target){
+                if (proc_num > 1 ){
                         MPI_Win_lock(MPI_LOCK_EXCLUSIVE, rank_target, 0, win);
                         MPI_Request req;
                         MPI_Rget(&index_chunk, 1, MPI_UINT64_T, rank_target, 0, 1, MPI_UINT64_T, win, &req);
@@ -1963,7 +1961,7 @@ int main(int argc, char *argv[]) {
                         MPI_Win_flush(rank_target, win);
                         MPI_Win_unlock(rank_target, win);
                 }
-                else {u1 = index_chunk[0];index_chunk[0]++;}
+                
                 aft = MPI_Wtime();
                 fprintf(stderr, "rank %d ::: initial u1 = %zu :: time %.02f \n",rank_num, u1, aft-bef);
 
@@ -3025,7 +3023,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	//free the local window 
- 	 if ( proc_num > 1) { MPI_Win_free(&win); free(index_chunk);}
+ 	 if ( proc_num > 1) { MPI_Win_free(&win);}
 	                 
 
 	/*
