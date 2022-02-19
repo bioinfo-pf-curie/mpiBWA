@@ -1188,8 +1188,7 @@ int main(int argc, char *argv[]) {
                 		pthread_attr_setstacksize(&attr, BIG_STACK);
                 		pthread_attr_setdetachstate(&attr, 0);
 
-                		struct struct_data_thread *td;
-                		td = calloc (opt->n_threads, sizeof(struct struct_data_thread));
+                		struct struct_data_thread *td = malloc (NUM_THREADS * sizeof(struct struct_data_thread));
 
                 		int rest = reads%NUM_THREADS;
                 		int quot = reads/NUM_THREADS;
@@ -1420,15 +1419,14 @@ int main(int argc, char *argv[]) {
 
                 pthread_t threads_1[NUM_THREADS];
 
-                struct struct_data_thread_1 *td_1;
-
+                
                 size_t *local_num_reads_t            = calloc(NUM_THREADS, sizeof(size_t));
                 size_t *total_num_reads_t            = calloc(NUM_THREADS, sizeof(size_t));
                 size_t **local_read_offsets_t        = calloc(NUM_THREADS, sizeof(size_t*));
                 size_t **local_read_bytes_t          = calloc(NUM_THREADS, sizeof(size_t*));
                 int **local_read_size_t              = calloc(NUM_THREADS, sizeof(int*));
 
-                td_1 = calloc(NUM_THREADS, sizeof(struct struct_data_thread_1));
+		struct struct_data_thread_1 *td_1 =  malloc(NUM_THREADS * sizeof(struct struct_data_thread_1));
 
                 int ret_code_1 = 0;
                 int goff_idx = 0;
@@ -1535,15 +1533,13 @@ int main(int argc, char *argv[]) {
 
                 pthread_t threads_2[NUM_THREADS];
 
-                struct struct_data_thread_1 *td_2;
-
                 size_t *local_num_reads_t2            = calloc(NUM_THREADS, sizeof(size_t));
                 size_t *total_num_reads_t2            = calloc(NUM_THREADS, sizeof(size_t));
                 size_t **local_read_offsets_t2        = calloc(NUM_THREADS, sizeof(size_t*));
                 size_t **local_read_bytes_t2          = calloc(NUM_THREADS, sizeof(size_t*));
                 int **local_read_size_t2              = calloc(NUM_THREADS, sizeof(int*));
 
-                td_2 = calloc(NUM_THREADS, sizeof(struct struct_data_thread_1));
+                struct struct_data_thread_1 *td_2 =  malloc(NUM_THREADS * sizeof(struct struct_data_thread_1));
 
                 int ret_code_2 = 0;
                 int goff_idx2 = 0;
@@ -2210,8 +2206,7 @@ int main(int argc, char *argv[]) {
                 		pthread_attr_setstacksize(&attr, BIG_STACK);
                 		pthread_attr_setdetachstate(&attr, 0);
 
-                		struct struct_data_thread *td;
-                		td = calloc (opt->n_threads, sizeof(struct struct_data_thread));
+                		struct struct_data_thread *td = malloc (opt->n_threads* sizeof(struct struct_data_thread));
                 
                 		int rest = reads%NUM_THREADS;
                 		int quot = reads/NUM_THREADS;
@@ -2408,15 +2403,13 @@ int main(int argc, char *argv[]) {
 
                 pthread_t threads_1[NUM_THREADS];
 
-                struct struct_data_thread_1 *td_1;
-
                 size_t *local_num_reads_t            = calloc(NUM_THREADS, sizeof(size_t));
                 size_t *total_num_reads_t            = calloc(NUM_THREADS, sizeof(size_t));
                 size_t **local_read_offsets_t        = calloc(NUM_THREADS, sizeof(size_t*));
                 size_t **local_read_bytes_t          = calloc(NUM_THREADS, sizeof(size_t*));
                 int **local_read_size_t              = calloc(NUM_THREADS, sizeof(int*));
 
-                td_1 = calloc(NUM_THREADS, sizeof( struct struct_data_thread_1));
+                struct struct_data_thread_1 *td_1 =  malloc(NUM_THREADS * sizeof(struct struct_data_thread_1));
 
                 int ret_code_1 = 0;
                 int goff_idx = 0;
@@ -2892,8 +2885,7 @@ int main(int argc, char *argv[]) {
                 		pthread_attr_setstacksize(&attr, BIG_STACK);
                 		pthread_attr_setdetachstate(&attr, 0);
 	
-                		struct struct_data_thread *td;
-                		td = calloc (opt->n_threads, sizeof(struct struct_data_thread));
+                		struct struct_data_thread *td = malloc (opt->n_threads* sizeof(struct struct_data_thread));
 
                 		int rest = reads%NUM_THREADS;
                 		int quot = reads/NUM_THREADS;
