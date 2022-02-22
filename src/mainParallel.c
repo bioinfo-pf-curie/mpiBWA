@@ -690,17 +690,6 @@ int main(int argc, char *argv[]) {
 		/*
 		 * Split sequence files in chunks
 		 */
-		MPI_File mpi_fd_in1; 
-		bef = MPI_Wtime();
-
-		res = MPI_File_open(MPI_COMM_WORLD, file_r1,  MPI_MODE_RDONLY , MPI_INFO_NULL, &mpi_fd_in1);
-		assert(res == MPI_SUCCESS);
-		
-		
-		/*
-		 * first we parse the buffer and see
-		 * how many reads we have
-		 */
 
 		size_t read_number=0;
 		assert(fd_in1 != -1);
@@ -718,7 +707,6 @@ int main(int argc, char *argv[]) {
 			//fprintf(stderr, "rank %d :: goff[%d] = %zu \n", rank_num, i12, goff[i12] );
 			goff_inter[i12] = goff[i12];
             	}
-		char *current_line = NULL;
 
 		//now we exchange the goff buffer between all proc
 		//rank 0 gather the vector

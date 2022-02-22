@@ -1,6 +1,7 @@
 version-1.5.1
-    - fix bug in trimmed fastq condition  (issue #45)
+    - fix bug in trimmed fastq condition  (thanks to Jianshu) (issue #45) (issue #51) 
     - fix load balancing (thanks to Vasim) (issue #47)
+    - Mask writing and computing (issue #48)
 	    
 version-1.5
     - Multithread IO reading/writing (issue #40)
