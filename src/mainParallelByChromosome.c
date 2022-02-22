@@ -113,7 +113,7 @@ int main(int argc, char *argv[]) {
 	int ignore_alt = 0;
 
 	int write_format = 2; //default is SAM
-    int compression_level = 3;
+    	int compression_level = 3;
 	
 	double bef, aft;
 	size_t localsize;
@@ -423,7 +423,8 @@ int main(int argc, char *argv[]) {
 	// some internal structures
 	char *p1, *q1, *e1, *p2, *q2, *e2;
 	int line_number, line_number2;
-	int NUM_THREADS = opt->n_threads;	
+	int NUM_THREADS = opt->n_threads;
+	int NUM_THREADS_2 = 1;	
 	int64_t bases;
 	double local_time_spend_mapping = 0;
 	double before_local_mapping = 0;
@@ -460,6 +461,8 @@ int main(int argc, char *argv[]) {
 
 	pthread_attr_t attr;
 	pthread_t threads[NUM_THREADS];
+        //pthread_t writter_threads[NUM_THREADS_2]; 
+	
 	//struct thread_data *td;//[NUM_THREADS];
 	//td = malloc (NUM_THREADS * sizeof(struct thread_data));
 
@@ -571,7 +574,7 @@ int main(int argc, char *argv[]) {
         
         else u1 = 0;
 
-	if ( (file_r1 != NULL && file_r2 != NULL  && (stat_r1.st_size == stat_r2.st_size)))  {
+	if ( (file_r1 != NULL && file_r2 != NULL  && (stat_r1.st_size != stat_r2.st_size)))  {
 	
 		/*
 	 	 * 
@@ -1560,7 +1563,7 @@ int main(int argc, char *argv[]) {
 
 	} //end if (file_r2 != NULL && stat_r1.st_size == stat_r2.st_size)
 	
-	if (file_r1 != NULL && file_r2 != NULL && stat_r1.st_size != stat_r2.st_size) {
+	if (file_r1 != NULL && file_r2 != NULL && stat_r1.st_size == stat_r2.st_size) {
 	   
 	   	/*
 		 *	We are in the case the reads are paired and trimmed
@@ -1648,7 +1651,7 @@ int main(int argc, char *argv[]) {
                 size_t **local_read_bytes_t          = calloc(NUM_THREADS, sizeof(size_t*));
                 int **local_read_size_t              = calloc(NUM_THREADS, sizeof(int*));
 
-                td_1 = calloc(NUM_THREADS, sizeof(struct struct_data_thread_1));
+                td_1 = malloc(NUM_THREADS * sizeof(struct struct_data_thread_1));
 
                 int ret_code_1 = 0;
                 int goff_idx = 0;
@@ -1778,7 +1781,7 @@ int main(int argc, char *argv[]) {
                 size_t **local_read_bytes_t2          = calloc(NUM_THREADS, sizeof(size_t*));
                 int **local_read_size_t2              = calloc(NUM_THREADS, sizeof(int*));
 
-                td_2 = calloc(NUM_THREADS, sizeof(struct struct_data_thread_1));
+                td_2 = malloc(NUM_THREADS * sizeof(struct struct_data_thread_1));
 
                 int ret_code_2 = 0;
                 int goff_idx2 = 0;
@@ -2903,7 +2906,7 @@ int main(int argc, char *argv[]) {
                 size_t **local_read_bytes_t          = calloc(NUM_THREADS, sizeof(size_t*));
                 int **local_read_size_t              = calloc(NUM_THREADS, sizeof(int*));
 
-                td_1 = calloc(NUM_THREADS, sizeof( struct struct_data_thread_1));
+                td_1 = malloc(NUM_THREADS * sizeof( struct struct_data_thread_1));
 
                 int ret_code_1 = 0;
                 int goff_idx = 0;

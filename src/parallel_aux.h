@@ -1,10 +1,36 @@
-
+#ifndef PARALLEL_AUX_H
+#define PARALLEL_AUX_H
 
 #define _GNU_SOURCE
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
+
+struct queue_item{
+    char *contents;
+    struct queue_item* next;
+};
+
+struct queue_root{
+    struct queue_item* head;
+    struct queue_item* tail;
+    int size;
+    size_t total_to_wrt;
+};
+
+/*extern struct queue_root *queue;
+extern pthread_mutex_t lock;
+extern size_t total_buffer_written_per_rank;
+extern size_t total_buffer_to_write_per_rank;
+extern int alignment_finish;
+*/
+
+void init_queue(struct queue_root* queue);
+void push_queue(struct queue_root* queue, char *contents);
+char* pop_queue(struct queue_root* queue);
+int size_queue(struct queue_root* queue);
+size_t size_to_write_queue(struct queue_root* queue);
 
 void init_goff(size_t *goff, MPI_File mpi_filed, size_t fsize,int numproc,int rank);
 void find_process_starting_offset(size_t *goff, size_t size, char* file_to_read, int proc_num, int rank_num);
@@ -70,12 +96,13 @@ void *compress_thread_by_chr_single(void *threadarg);
 void *call_fixmate(void *threadarg);
 void *copy_local_read_info_mt(void *thread_arg);
 void *find_reads_size_and_offsets_mt(void *thread_arg);
-void copy_buffer_write_thr(void *thread_arg);
+void *copy_buffer_write_thr(void *thread_arg);
 void compute_buffer_size_thr(void *thread_arg);
 void create_bam_header(char *file_out, bwaidx_t *indix, int *count, 
-	char *hdr_line, char *rg_line, char *pg_line,int rank_num, int compression_level);
+			char *hdr_line, char *rg_line, char *pg_line,int rank_num, int compression_level);
 void create_bam_header_by_chr_file(char *file_out[], bwaidx_t *indix, int *count, 
-	char *hdr_line, char *rg_line, char *pg_line, int rank_num, int compression_level, int dofixmate);
+				   char *hdr_line, char *rg_line, char *pg_line, int rank_num, int compression_level, int dofixmate);
+void *copy_buffer_thr(void *thread_arg);
 void *write_sam_mt(void *thread_arg);
 
 void *pread_fastq_chunck(void *thread_arg );
@@ -149,10 +176,16 @@ struct thread_data_compress_by_chr_single
 struct struct_data_thread{
     bseq1_t *seqs_thr;
     int begin_index;
+    int thread_id;
     int end_index;
+    char *buffer_out; 
+    size_t size_thr;
+    size_t buffer_written;
+    size_t chunck_number;
+    MPI_Request *request;
     MPI_File file_desc;
+    
 };
-
 
 //struct used to find read size, offset, and bytes in multithread
 struct struct_data_thread_1{
@@ -171,7 +204,9 @@ struct struct_data_thread_1{
             int proc_num_mt;
             int rank_num_mt;
             int thread_num_mt;
+            MPI_Comm comm_mt;
 };
+
 
 struct struct_pread_fastq{
 
@@ -183,3 +218,5 @@ struct struct_pread_fastq{
             char *buffer;
             MPI_File fd;
 };
+
+#endif
