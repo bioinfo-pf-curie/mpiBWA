@@ -80,7 +80,7 @@ void find_chunks_info(  size_t *begin_offset_chunk,
 			off_t maxsiz,
 			size_t *chunk_count);
 
-void map_indexes(char *file_map, int *count, bwaidx_t *indix, int *ignore_alt, MPI_Win *win_shr);
+void map_indexes(char *file_map, int *count, bwaidx_t *indix, int *ignore_alt, MPI_Win *win_shr, char* shared_mem);
 void create_sam_header(char *file_out, bwaidx_t *indix, int *count, char *hdr_line, char *rg_line, char *pg_line, int rank_num);
 
 int getChr(char *str, char *chrNames[], int nbchr, char *tmp_chr);

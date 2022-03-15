@@ -1506,7 +1506,7 @@ void find_chunks_info(  size_t *begin_offset_chunk,
 //			bwa parameter
 //			i don't know what this is
 //			pointer on he window of shared memory used to save the mapped indexes
-void map_indexes(char *file_map, int *count, bwaidx_t *indix, int *ignore_alt, MPI_Win *win_shr)
+void map_indexes(char *file_map, int *count, bwaidx_t *indix, int *ignore_alt, MPI_Win *win_shr, char *shared_mem)
 {
 	
 	//MPI resources
@@ -1540,7 +1540,23 @@ void map_indexes(char *file_map, int *count, bwaidx_t *indix, int *ignore_alt, M
 	assert(res == MPI_SUCCESS);
 	res = MPI_File_get_size(fh_map, &size_map);
 	assert(res == MPI_SUCCESS);
-	res = MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &comm_shr);
+	#ifdef OPEN_MPI
+                if (strcmp(shared_mem, "numa") == 0)
+                        res = MPI_Comm_split_type(MPI_COMM_WORLD, OMPI_COMM_TYPE_NUMA, 0, MPI_INFO_NULL, &comm_shr);
+                if (strcmp(shared_mem, "l1") == 0)
+                        res = MPI_Comm_split_type(MPI_COMM_WORLD, OMPI_COMM_TYPE_L1CACHE, 0, MPI_INFO_NULL, &comm_shr);
+                if (strcmp(shared_mem, "l2") == 0)
+                        res = MPI_Comm_split_type(MPI_COMM_WORLD, OMPI_COMM_TYPE_L2CACHE, 0, MPI_INFO_NULL, &comm_shr);
+                if (strcmp(shared_mem, "l3") == 0)
+                        res = MPI_Comm_split_type(MPI_COMM_WORLD, OMPI_COMM_TYPE_L3CACHE, 0, MPI_INFO_NULL, &comm_shr);
+                if (strcmp(shared_mem, "socket") == 0)
+                        res = MPI_Comm_split_type(MPI_COMM_WORLD, OMPI_COMM_TYPE_SOCKET, 0, MPI_INFO_NULL, &comm_shr);
+                if (strcmp(shared_mem, "shared") == 0)
+                        res = MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &comm_shr);
+        #endif
+        #ifndef OPEN_MPI
+                res = MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &comm_shr);
+        #endif
 	assert(res == MPI_SUCCESS);
 	res = MPI_Comm_rank(comm_shr, &rank_shr);
 	assert(res == MPI_SUCCESS);

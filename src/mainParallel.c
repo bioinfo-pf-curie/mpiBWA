@@ -88,6 +88,8 @@ The fact that you are presently reading this means that you have had knowledge o
 #endif
 
 pthread_mutex_t lock;
+pthread_mutex_t write_lock;
+
 size_t total_buffer_to_write_per_rank = 0;
 size_t total_buffer_written_per_rank = 0;
 int alignment_finish = 0;
@@ -133,6 +135,9 @@ void *write_sam_mt(void *thread_arg){
     MPI_Status status;
     int id;
     int core_id;
+    size_t tmp_size_buffer = 1024*1024*1024;
+    size_t tmp_size_buffer2 = tmp_size_buffer;
+
     //fprintf(stderr, "IN WRITE SAM MT :::: thread_id =  %d ::: alignment_finish = %d \n", my_data->thread_id ,alignment_finish);
 
     while (!alignment_finish){
@@ -147,30 +152,48 @@ void *write_sam_mt(void *thread_arg){
             assert(buffer_out);
             pthread_mutex_unlock(&lock);
 
-            size_t size = strlen(buffer_out);
+            size_t samSize = strlen(buffer_out);
             MPI_Status status;
 
+            if (samSize < tmp_size_buffer){
+		res = MPI_File_write_shared(my_data->file_desc, buffer_out, samSize, MPI_CHAR, &status);
+                assert(res == MPI_SUCCESS);
+                res = MPI_Get_count(&status, MPI_BYTE, (int *)&written);
+                assert(res == MPI_SUCCESS);
+                assert(written == (int)samSize);
+            }else{
+	        //fprintf(stderr, "IN WRITE SAM MT :::: thread_id =  %d ::: size queue = %d  ::::write_sam_mt size_to write = %zu \n",  my_data->thread_id, size_queue(queue) ,size);
+            	//clock_t begin = clock();
+ 
+		pthread_mutex_lock(&write_lock);
+                char *buff_tmp = buffer_out;
+                size_t tmp1 = 0;
+                size_t write_offset = 0;
 
-            //fprintf(stderr, "IN WRITE SAM MT :::: thread_id =  %d ::: size queue = %d  ::::write_sam_mt size_to write = %zu \n",  my_data->thread_id, size_queue(queue) ,size);
-            clock_t begin = clock();
-            res = MPI_File_write_shared(my_data->file_desc, buffer_out, size, MPI_CHAR, &status);
-            assert(res == MPI_SUCCESS);
-            res = MPI_Get_count(&status, MPI_BYTE, (int *)&written);
-            assert(res == MPI_SUCCESS);
-            assert(written == (int)size);
-            free(buffer_out);
-            clock_t end = clock();
-            unsigned long millis = (end -  begin) / CLOCKS_PER_SEC;
-            total_buffer_written_per_rank += 1;
-            //fprintf(stderr, "IN WRITE SAM MT ::: Thread ID = %d  : buffer to write = %d :::: buffer written = %d in %ld s\n", my_data->thread_id, total_buffer_to_write_per_rank, total_buffer_written_per_rank ,millis );
+                while (tmp_size_buffer2 > 0){
+                        res = MPI_File_write_shared(my_data->file_desc, buff_tmp, tmp_size_buffer2, MPI_CHAR, &status);
+                        assert(res == MPI_SUCCESS);
+                        res = MPI_Get_count(&status, MPI_BYTE, (int *)&written);
+                        assert(written == (int)samSize);
+                        buff_tmp += tmp_size_buffer2;
+                        tmp1 += tmp_size_buffer2;
+                        write_offset += tmp_size_buffer2;
+                        if ( (samSize - tmp1) > tmp_size_buffer ) tmp_size_buffer2 = tmp_size_buffer;
+                        else tmp_size_buffer2 = (samSize - tmp1);
 
+                }
+               pthread_mutex_unlock(&write_lock);
+            }
 
+	free(buffer_out);
+        //clock_t end = clock();
+        //unsigned long millis = (end -  begin) / CLOCKS_PER_SEC;
+        total_buffer_written_per_rank += 1;
+        //fprintf(stderr, "IN WRITE SAM MT ::: Thread ID = %d  : buffer to write = %d :::: buffer written = %d in %ld s\n", my_data->thread_id, total_buffer_to_write_per_rank, total_buffer_written_per_rank ,millis );
         }
         usleep(2000);
     }
-
     pthread_exit(0);
-
 }
 
 int main(int argc, char *argv[]) {
@@ -182,6 +205,7 @@ int main(int argc, char *argv[]) {
 	char *buffer_r1, *buffer_r2;
 	char *file_out = NULL;
 	char *buffer_out;
+	char *shared_mem = NULL;
 	char *file_ref = NULL;
 	char *rg_line = NULL, *hdr_line = NULL, *pg_line = NULL;
 	char file_map[PATH_MAX], file_tmp[PATH_MAX];
@@ -233,6 +257,7 @@ int main(int argc, char *argv[]) {
 	    	"\t-f to fix the mate on the fly for compatibility with samtools markdup (optional)\n"
 	    	"\t-b to write output in BAM format (optional)\n"
 	    	"\t-g to write output in BGZF format (optional)\n"
+		"\t-z to tell where to place the reference genome (available with openMPI: socket, numa, l1, l2, l3, shared) (optional)\n"
             "\tREFERENCE_GENOME: reference genome name (e.g. myReferenceGenome.fa).\n"
             "\t\tDo not provide the '.map' extension of the file genareted with 'mpiBWAIdx'\n"
             "\n\tFASTQ_R1: fastq file for R1\n"
@@ -241,7 +266,7 @@ int main(int argc, char *argv[]) {
             "\noptions: 'bwa mem' options can be passed from command line (e.g. mpiBWA mem -t 8 -k 18)\n"
             "\nFor more detailed documentation visit:\n"
             "\thttps://github.com/bioinfo-pf-curie/mpiBWA\n"
-            "\nCopyright (C) 2020  Institut Curie <http://www.curie.fr> \n"
+            "\nCopyright (C) 2022  Institut Curie <http://www.curie.fr> \n"
             "\nThis program comes with ABSOLUTELY NO WARRANTY. \n"
             "This is free software, and you are welcome to redistribute it \n"
             "under the terms of the CeCILL License. \n"
@@ -263,7 +288,7 @@ int main(int argc, char *argv[]) {
 	/* initialize the BWA-MEM parameters to the default values */
 	opt = mem_opt_init();
 	memset(&opt0, 0, sizeof(opt0));
-	while ((c = getopt(argc-1, argv+1, "bg51qpaMCSPVYjk:K:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:W:x:G:h:y:K:X:H:o:f")) >= 0) {
+	while ((c = getopt(argc-1, argv+1, "bg51qpaMCSPVYjk:K:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:W:x:G:h:y:K:X:H:o:f:z:")) >= 0) {
 		if (c == 'k') opt->min_seed_len = atoi(optarg), opt0.min_seed_len = 1;
 		else if (c == '1') ; /* FIXME: unsupported */
 		else if (c == 'x') mode = optarg;
@@ -271,7 +296,8 @@ int main(int argc, char *argv[]) {
 		else if (c == 'A') opt->a = atoi(optarg), opt0.a = 1;
 		else if (c == 'B') opt->b = atoi(optarg), opt0.b = 1;
 		else if (c == 'b') write_format = 1;
-        else if (c == 'g') write_format = 0;
+        	else if (c == 'g') write_format = 0;
+		else if (c == 'z') shared_mem = optarg;
 		else if (c == 'T') opt->T = atoi(optarg), opt0.T = 1;
 		else if (c == 'U') opt->pen_unpaired = atoi(optarg), opt0.pen_unpaired = 1;
 		else if (c == 't') opt->n_threads = atoi(optarg), opt->n_threads = opt->n_threads > 1? opt->n_threads : 1;
@@ -605,6 +631,36 @@ int main(int argc, char *argv[]) {
 
 	fixed_chunk_size = fixed_chunk_size > 0? fixed_chunk_size : opt->chunk_size * opt->n_threads;
 
+	//check shared_mem argument
+	if (shared_mem != NULL){
+                if (OPEN_MPI) {
+                        if ((strcmp(shared_mem, "numa") == 0 ||
+                                strcmp(shared_mem, "l1") == 0 || strcmp(shared_mem, "l2") == 0 ||
+                                        strcmp(shared_mem, "l3") == 0  || strcmp(shared_mem, "socket") == 0 || strcmp(shared_mem, "shared") == 0)){
+
+                                        if (rank_num == 0)
+                                                fprintf(stderr, "%s: shared memory is set to : %s \n", __func__, shared_mem);
+                        }
+                        else{
+                                if (rank_num == 0){
+                                        fprintf(stderr, "%s: shared memory options %s not recognized. \n", __func__, shared_mem);
+                                        fprintf(stderr, "%s: available options are numa, l1, l2, l3, socket, shared(default) \n", __func__);
+                                        shared_mem = "shared";
+                                }
+                        }
+                }
+                else{
+
+                         if (rank_num == 0){
+                                        fprintf(stderr, "%s: shared memory is set to SHARED \n", __func__);
+                                        shared_mem = "shared";
+                         }
+                }
+        }
+        else {
+                shared_mem = "shared";
+                fprintf(stderr, "%s: shared memory is set to shared \n", __func__);
+        }
 
 	if (rank_num == 0)
                fprintf(stderr, "%s: controls are done. Start analyzing fastqs it could take few minutes...\n", __func__);
@@ -628,6 +684,7 @@ int main(int argc, char *argv[]) {
 	struct struct_data_thread *td1=NULL;
         int total_to_write_by_rank = 0;
         pthread_mutex_init(&lock, NULL);
+	pthread_mutex_init(&write_lock, NULL);
 	queue = malloc(sizeof(struct queue_root));
         init_queue(queue);    
 
@@ -700,7 +757,8 @@ int main(int argc, char *argv[]) {
 		bef = MPI_Wtime();
         	find_process_starting_offset_mt(goff, stat_r1.st_size, file_r1, proc_num, rank_num, NUM_THREADS);
         	aft = MPI_Wtime();
-		fprintf(stderr, "%s: rank %d time spend in finding process start offset = (%.02f) \n", __func__, rank_num, aft - bef);
+		if (rank_num == 0)
+			fprintf(stderr, "%s: rank %d time spend in finding process start offset = (%.02f) \n", __func__, rank_num, aft - bef);
 
 		int i12=0;
         	for ( i12 = 0; i12 < proc_num * NUM_THREADS + 1; i12++ )  {
@@ -877,7 +935,8 @@ int main(int argc, char *argv[]) {
 
 		maxsiz = fixed_chunk_size / 2; 
 		MPI_Barrier(MPI_COMM_WORLD);
-		fprintf(stderr,"rank %d ::: Call find_chunks_info \n", rank_num);
+		if (rank_num == 0)
+			fprintf(stderr,"rank %d ::: Call find_chunks_info \n", rank_num);
 		// the detail of he paramters is at the function definition
 		// fprintf(stderr, "rank %d ::: begin_offset_chunk = %zu \n", rank_num, begin_offset_chunk[0]);
 		// fprintf(stderr, "rank %d ::: begin_offset_chunk_2 = %zu \n", rank_num, begin_offset_chunk_2[0]);
@@ -899,7 +958,8 @@ int main(int argc, char *argv[]) {
 				 &chunk_count);		
 
 		aft = MPI_Wtime();
-		fprintf(stderr, "%s: rank %d time spend evaluating chunks = (%.02f) \n", __func__, rank_num, aft - bef);
+		if (rank_num == 0)
+			fprintf(stderr, "%s: rank %d time spend evaluating chunks = (%.02f) \n", __func__, rank_num, aft - bef);
 
 		free(local_read_offsets);
 		free(local_read_size);
@@ -988,10 +1048,10 @@ int main(int argc, char *argv[]) {
 		 * Map reference genome indexes in shared memory (by host)
 		 */
         	bef = MPI_Wtime();
-        	map_indexes(file_map, &count, &indix, &ignore_alt, &win_shr);
+        	map_indexes(file_map, &count, &indix, &ignore_alt, &win_shr, shared_mem);
         	aft = MPI_Wtime();
-	
-		fprintf(stderr, "%s: mapped indexes (%.02f)\n", __func__, aft - bef);
+		if (rank_num == 0)
+			fprintf(stderr, "%s: mapped indexes (%.02f)\n", __func__, aft - bef);
 
 		/*
 		 * Create SAM header
@@ -1469,7 +1529,8 @@ int main(int argc, char *argv[]) {
 		bef = MPI_Wtime();
 		find_process_starting_offset_mt(goff, stat_r1.st_size, file_r1, proc_num, rank_num, NUM_THREADS);
 		aft = MPI_Wtime();
-                fprintf(stderr, "%s: rank %d time spend in finding process start offset = (%.02f) \n", __func__, rank_num, aft - bef);
+		if (rank_num == 0)
+                	fprintf(stderr, "%s: rank %d time spend in finding process start offset = (%.02f) \n", __func__, rank_num, aft - bef);
 
 		
 		int i12=0;
@@ -1765,8 +1826,8 @@ int main(int argc, char *argv[]) {
 		size_t bases_tmp 	= 0;
 		size_t chunck_num 	= 0;
 		size_t chunck_num_2	= 0;
-
-		fprintf(stderr,"Rank %d :: fixed chunk size = %zu\n", rank_num, fixed_chunk_size);
+		if (rank_num == 0)
+			fprintf(stderr,"Rank %d :: fixed chunk size = %zu\n", rank_num, fixed_chunk_size);
 
 		for(i=0; i < min_num_read; i++)   {
 			bases_tmp  += (local_read_size[i] + local_read_size_2[i]);
@@ -2034,9 +2095,10 @@ int main(int argc, char *argv[]) {
 
 		/// Map reference genome indexes in shared memory (by host)
 		bef = MPI_Wtime();
-		map_indexes(file_map, &count, &indix, &ignore_alt, &win_shr);
+		map_indexes(file_map, &count, &indix, &ignore_alt, &win_shr, shared_mem);
 		aft = MPI_Wtime();
-		fprintf(stderr, "%s ::: rank %d ::: mapped indexes (%.02f)\n", __func__, rank_num, aft - bef);
+		if (rank_num == 0)
+			fprintf(stderr, "%s ::: rank %d ::: mapped indexes (%.02f)\n", __func__, rank_num, aft - bef);
 
 		///Create SAM header
 		//TODO: Add line for BWA version
@@ -2531,7 +2593,8 @@ int main(int argc, char *argv[]) {
 		bef = MPI_Wtime();
 		find_process_starting_offset_mt(goff, stat_r1.st_size, file_r1, proc_num, rank_num, NUM_THREADS);
 		aft = MPI_Wtime();
-                fprintf(stderr, "%s: rank %d time spend in finding process start offset = (%.02f) \n", __func__, rank_num, aft - bef);
+		if (rank_num == 0)
+                	fprintf(stderr, "%s: rank %d time spend in finding process start offset = (%.02f) \n", __func__, rank_num, aft - bef);
 
 		int i12=0;
                 for ( i12 = 0; i12 < proc_num * NUM_THREADS + 1; i12++ )  goff_inter[i12] = goff[i12];
@@ -2881,7 +2944,7 @@ int main(int argc, char *argv[]) {
 
 		/// Map reference genome indexes in shared memory (by host)
 		bef = MPI_Wtime();
-		map_indexes(file_map, &count, &indix, &ignore_alt, &win_shr);
+		map_indexes(file_map, &count, &indix, &ignore_alt, &win_shr, shared_mem);
 		aft = MPI_Wtime();
 		fprintf(stderr, "%s ::: rank %d ::: mapped indexes (%.02f)\n", __func__, rank_num, aft - bef);
 
