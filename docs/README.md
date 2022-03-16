@@ -120,7 +120,7 @@ This option permits to mark the duplicates with samtools markdup in downstream a
 example2: `mpirun -n 2 --map-by numa mpiBWA mem -t 8 -z numa -o SAM REF FASTQ1 FASTQ2`
 the -z will place the reference genome in the NUMA domain called NUMA-node.
 Each mpi job are placed in a NUMA node (--map-by numa) and the reference genome is loaded in the memory of this domain.
-NUMA domains are important for memory bandwidth optimizations. 
+NUMA domains are important for memory bandwidth optimizations(see memory section in Informatics ressources). 
 
 ### output
 
@@ -152,7 +152,7 @@ To optimize the access to reference genome you can put the reference in a NUMA d
 
 For instance AMD milan architecture:
 
-lstopo | grep NUMA
+lstopo | grep NUMA<br/>
       NUMANode L#0 (P#0 31GB)<br/>
       NUMANode L#1 (P#1 31GB)<br/>
       NUMANode L#2 (P#2 31GB)<br/>
@@ -162,7 +162,7 @@ lstopo | grep NUMA
       NUMANode L#6 (P#6 31GB)<br/>
       NUMANode L#7 (P#7 31GB)<br/>
 
-and each NAMENode has 16 cores associated.
+and each NUMANode has 16 cores associated.
   
 We have then 8 NUMANodes with each 31GB on the same node, enough for the human genome reference.
 Then place each MPI job in a NUMANode (mpirun -n 8 --map-by numa) and the reference genome in the memory associated ($MPIBWA mem -t 16 -z numa -o $OUTPUT $REF $FASTQ1 $FASTQ2).
