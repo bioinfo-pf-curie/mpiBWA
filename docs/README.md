@@ -153,17 +153,22 @@ To optimize the access to reference genome you can put the reference in a NUMA d
 For instance AMD milan architecture:
 
 lstopo | grep NUMA
-      NUMANode L#0 (P#0 31GB)
-      NUMANode L#1 (P#1 31GB)
-      NUMANode L#2 (P#2 31GB)
-      NUMANode L#3 (P#3 31GB)
-      NUMANode L#4 (P#4 31GB)
-      NUMANode L#5 (P#5 31GB)
-      NUMANode L#6 (P#6 31GB)
-      NUMANode L#7 (P#7 31GB)
+      NUMANode L#0 (P#0 31GB)<br/>
+      NUMANode L#1 (P#1 31GB)<br/>
+      NUMANode L#2 (P#2 31GB)<br/>
+      NUMANode L#3 (P#3 31GB)<br/>
+      NUMANode L#4 (P#4 31GB)<br/>
+      NUMANode L#5 (P#5 31GB)<br/>
+      NUMANode L#6 (P#6 31GB)<br/>
+      NUMANode L#7 (P#7 31GB)<br/>
+
+and each NAMENode has 16 cores associated.
   
 We have then 8 NUMANodes with each 31GB on the same node, enough for the human genome reference.
 Then place each MPI job in a NUMANode (mpirun -n 8 --map-by numa) and the reference genome in the memory associated ($MPIBWA mem -t 16 -z numa -o $OUTPUT $REF $FASTQ1 $FASTQ2).
+
+NB: This feature has only been tested with openMPI. 
+
  
 ### Cpu
 
@@ -357,4 +362,6 @@ This work is based on the original bwa aligner ([Burrow-Wheeler Aligner for shor
 Shared memory with MPI:
 
 * Latham R. et al. [Implementing MPI-IO Atomic Mode and Shared File Pointers Using MPI One-Sided Communication](https://journals.sagepub.com/doi/abs/10.1177/1094342007077859), 2007.
+
+
 
