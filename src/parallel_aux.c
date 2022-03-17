@@ -1552,10 +1552,22 @@ void map_indexes(char *file_map, int *count, bwaidx_t *indix, int *ignore_alt, M
                 if (strcmp(shared_mem, "socket") == 0)
                         res = MPI_Comm_split_type(MPI_COMM_WORLD, OMPI_COMM_TYPE_SOCKET, 0, MPI_INFO_NULL, &comm_shr);
                 if (strcmp(shared_mem, "shared") == 0)
-                        res = MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &comm_shr);
+			res = MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &comm_shr);
+		//default option is core 
+		if (strcmp(shared_mem, "core") == 0)
+                        res = MPI_Comm_split_type(MPI_COMM_WORLD, OMPI_COMM_TYPE_CORE, 0, MPI_INFO_NULL, &comm_shr);
+
         #endif
         #ifndef OPEN_MPI
-                res = MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &comm_shr);
+		if (strcmp(shared_mem, "core") == 0){
+			//we create a communicator by rank
+			int rank_num = 0;
+			res = MPI_Comm_rank(MPI_COMM_WORLD, &rank_num);
+        		assert(res == MPI_SUCCESS);
+			res = MPI_Comm_split(MPI_COMM_WORLD, rank_num, 0, &comm_shr);
+		}
+		if (strcmp(shared_mem, "shared") == 0)	
+                	res = MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &comm_shr);
         #endif
 	assert(res == MPI_SUCCESS);
 	res = MPI_Comm_rank(comm_shr, &rank_shr);

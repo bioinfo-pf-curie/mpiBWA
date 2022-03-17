@@ -576,21 +576,46 @@ int main(int argc, char *argv[]) {
                                 if (rank_num == 0){
                                         fprintf(stderr, "%s: shared memory options %s not recognized. \n", __func__, shared_mem);
                                         fprintf(stderr, "%s: available options are numa, l1, l2, l3, socket, shared(default) \n", __func__);
-                                        shared_mem = "shared";
+                                        res = MPI_Finalize();
+                			assert(res == MPI_SUCCESS);
+                			exit(2);
+
                                 }
                         }
                 }
                 else{
-                         if (rank_num == 0){
+			 if ((strcmp(shared_mem, "numa") == 0 ||
+                                strcmp(shared_mem, "l1") == 0 || strcmp(shared_mem, "l2") == 0 ||
+                                        strcmp(shared_mem, "l3") == 0  || strcmp(shared_mem, "socket") == 0 )){
+                                
+                                if (rank_num == 0){
+                                        fprintf(stderr, "%s: shared memory options %s not recognized. \n", __func__, shared_mem);
+                                        fprintf(stderr, "%s: you are not using openMPI only available options are shrared or core \n", __func__);
+                                        res = MPI_Finalize();
+                                        assert(res == MPI_SUCCESS);
+                                        exit(2);
+                                
+                                }
+                        }
+                        if (strcmp(shared_mem, "core") == 0){
+                                if (rank_num == 0){
+                                        fprintf(stderr, "%s: shared memory is set to core \n", __func__);
+                                        shared_mem = "core";
+                                }
+                        }
+
+                        if (strcmp(shared_mem, "shared") == 0){
+                                if (rank_num == 0){
                                         fprintf(stderr, "%s: shared memory is set to shared \n", __func__);
                                         shared_mem = "shared";
-                         }
+                                }
+                        }
                 }
         }
-        else {
-                shared_mem = "shared";
-                fprintf(stderr, "%s: shared memory is set to shared \n", __func__);
-        }
+	else{
+		fprintf(stderr, "%s: shared memory is set to core \n", __func__);
+		shared_mem = "core";	
+	} 
 
 	if (rank_num == 0)
 		fprintf(stderr, "%s: controls are done. Start analyzing fastqs it could take few minutes...\n", __func__);	

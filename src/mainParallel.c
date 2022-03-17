@@ -137,7 +137,7 @@ void *write_sam_mt(void *thread_arg){
     int core_id;
     size_t tmp_size_buffer = 1024*1024*1024;
     size_t tmp_size_buffer2 = tmp_size_buffer;
-
+    clock_t begin;
     //fprintf(stderr, "IN WRITE SAM MT :::: thread_id =  %d ::: alignment_finish = %d \n", my_data->thread_id ,alignment_finish);
 
     while (!alignment_finish){
@@ -156,25 +156,27 @@ void *write_sam_mt(void *thread_arg){
             MPI_Status status;
 
             if (samSize < tmp_size_buffer){
+		//begin = clock();    
 		res = MPI_File_write_shared(my_data->file_desc, buffer_out, samSize, MPI_CHAR, &status);
                 assert(res == MPI_SUCCESS);
                 res = MPI_Get_count(&status, MPI_BYTE, (int *)&written);
                 assert(res == MPI_SUCCESS);
                 assert(written == (int)samSize);
             }else{
-	        //fprintf(stderr, "IN WRITE SAM MT :::: thread_id =  %d ::: size queue = %d  ::::write_sam_mt size_to write = %zu \n",  my_data->thread_id, size_queue(queue) ,size);
-            	//clock_t begin = clock();
+	        //fprintf(stderr, "IN WRITE SAM MT :::: thread_id =  %d ::: size queue = %d  ::::write_sam_mt size_to write = %zu \n",  my_data->thread_id, size_queue(queue) ,samSize);
+            	//begin = clock();
  
 		pthread_mutex_lock(&write_lock);
                 char *buff_tmp = buffer_out;
                 size_t tmp1 = 0;
                 size_t write_offset = 0;
+		tmp_size_buffer2 = tmp_size_buffer;
 
                 while (tmp_size_buffer2 > 0){
                         res = MPI_File_write_shared(my_data->file_desc, buff_tmp, tmp_size_buffer2, MPI_CHAR, &status);
                         assert(res == MPI_SUCCESS);
                         res = MPI_Get_count(&status, MPI_BYTE, (int *)&written);
-                        assert(written == (int)samSize);
+                        assert(written == (int)tmp_size_buffer2);
                         buff_tmp += tmp_size_buffer2;
                         tmp1 += tmp_size_buffer2;
                         write_offset += tmp_size_buffer2;
@@ -183,12 +185,15 @@ void *write_sam_mt(void *thread_arg){
 
                 }
                pthread_mutex_unlock(&write_lock);
+
             }
 
 	free(buffer_out);
         //clock_t end = clock();
         //unsigned long millis = (end -  begin) / CLOCKS_PER_SEC;
+	pthread_mutex_lock(&lock);
         total_buffer_written_per_rank += 1;
+	pthread_mutex_unlock(&lock);
         //fprintf(stderr, "IN WRITE SAM MT ::: Thread ID = %d  : buffer to write = %d :::: buffer written = %d in %ld s\n", my_data->thread_id, total_buffer_to_write_per_rank, total_buffer_written_per_rank ,millis );
         }
         usleep(2000);
@@ -636,7 +641,8 @@ int main(int argc, char *argv[]) {
                 if (OPEN_MPI) {
                         if ((strcmp(shared_mem, "numa") == 0 ||
                                 strcmp(shared_mem, "l1") == 0 || strcmp(shared_mem, "l2") == 0 ||
-                                        strcmp(shared_mem, "l3") == 0  || strcmp(shared_mem, "socket") == 0 || strcmp(shared_mem, "shared") == 0)){
+                                        strcmp(shared_mem, "l3") == 0  || strcmp(shared_mem, "socket") == 0 || 
+						strcmp(shared_mem, "shared") == 0  || strcmp(shared_mem, "core") == 0)){
 
                                         if (rank_num == 0)
                                                 fprintf(stderr, "%s: shared memory is set to : %s \n", __func__, shared_mem);
@@ -645,21 +651,46 @@ int main(int argc, char *argv[]) {
                                 if (rank_num == 0){
                                         fprintf(stderr, "%s: shared memory options %s not recognized. \n", __func__, shared_mem);
                                         fprintf(stderr, "%s: available options are numa, l1, l2, l3, socket, shared(default) \n", __func__);
-                                        shared_mem = "shared";
+                                        res = MPI_Finalize();
+                			assert(res == MPI_SUCCESS);
+                			exit(2);
+
                                 }
                         }
                 }
                 else{
 
-                         if (rank_num == 0){
-                                        fprintf(stderr, "%s: shared memory is set to SHARED \n", __func__);
+			if ((strcmp(shared_mem, "numa") == 0 ||
+                                strcmp(shared_mem, "l1") == 0 || strcmp(shared_mem, "l2") == 0 ||
+                                        strcmp(shared_mem, "l3") == 0  || strcmp(shared_mem, "socket") == 0 )){
+
+				if (rank_num == 0){
+                                        fprintf(stderr, "%s: shared memory options %s not recognized. \n", __func__, shared_mem);
+					fprintf(stderr, "%s: you are not using openMPI only available options are shrared or core \n", __func__);
+                                        res = MPI_Finalize();
+                                        assert(res == MPI_SUCCESS);
+                                        exit(2);
+
+                                }
+			}
+			if (strcmp(shared_mem, "core") == 0){
+			 	if (rank_num == 0){
+                                        fprintf(stderr, "%s: shared memory is set to core \n", __func__);
+                                        shared_mem = "core";
+                         	}
+			}
+
+			if (strcmp(shared_mem, "shared") == 0){
+                                if (rank_num == 0){
+                                        fprintf(stderr, "%s: shared memory is set to shared \n", __func__);
                                         shared_mem = "shared";
-                         }
+                                }
+                        }        
                 }
         }
-        else {
-                shared_mem = "shared";
-                fprintf(stderr, "%s: shared memory is set to shared \n", __func__);
+	else{
+                fprintf(stderr, "%s: shared memory is set to core \n", __func__);  
+                shared_mem = "core";
         }
 
 	if (rank_num == 0)
