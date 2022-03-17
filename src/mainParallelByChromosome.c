@@ -97,6 +97,7 @@ int main(int argc, char *argv[]) {
 	char *file_r1 = NULL, *file_r2 = NULL;
 	char *buffer_r1, *buffer_r2;
 	char *file_out = NULL;
+	char *shared_mem = NULL;
 	char *buffer_out;
 	char *file_ref = NULL;
 	char *rg_line = NULL, *hdr_line = NULL, *pg_line = NULL;
@@ -113,7 +114,7 @@ int main(int argc, char *argv[]) {
 	int ignore_alt = 0;
 
 	int write_format = 2; //default is SAM
-    int compression_level = 3;
+    	int compression_level = 3;
 	
 	double bef, aft;
 	size_t localsize;
@@ -146,7 +147,9 @@ int main(int argc, char *argv[]) {
 			"\tIt creates a .map file that will be used in shared memory as reference genome.\n"
             "\ninput:\n"
 	    	"\t-f to fix the mate on the fly for compatibility with samtools markdup (optional)\n"
-	    	"\t-b to write output in bam format (optional)\n"		
+	    	"\t-b to write output in bam format (optional)\n"
+		"\t-g to write output in BGZF format (optional)\n"
+		"\t-z to tell where to place the reference genome (available with openMPI: socket, numa, l1, l2, l3, shared) (optional)\n"		
             "\tREFERENCE_GENOME: reference genome name (e.g. myReferenceGenome.fa).\n"
             "\t\tDo not provide the '.map' extension of the file genareted with 'mpiBWAIdx'\n"
             "\n\tFASTQ_R1: fastq file for R1\n"
@@ -161,7 +164,7 @@ int main(int argc, char *argv[]) {
             "\noptions: 'bwa mem' options can be passed from command line (e.g. mpiBWA mem -t 8 -k 18)\n"
             "\nFor more detailed documentation visit:\n"
             "\thttps://github.com/bioinfo-pf-curie/mpiBWA\n"
-            "\nCopyright (C) 2020  Institut Curie <http://www.curie.fr> \n"
+            "\nCopyright (C) 2022  Institut Curie <http://www.curie.fr> \n"
             "\nThis program comes with ABSOLUTELY NO WARRANTY. \n"
             "This is free software, and you are welcome to redistribute it \n"
             "under the terms of the CeCILL License. \n"
@@ -175,13 +178,14 @@ int main(int argc, char *argv[]) {
 	else {
 		 //create pg_line for create_sam_header
 		 asprintf(&pg_line, "@PG\tID:bwa\tPN:bwa\tVN:%s\tCL:%s", VERSION, argv[0]);
-		 for (int i = 1; i < argc; ++i) asprintf(&pg_line, "%s %s", pg_line, argv[i]);
+		 int i = 0;
+		 for (i = 1; i < argc; ++i) asprintf(&pg_line, "%s %s", pg_line, argv[i]);
 	}
 
 	/* initialize the BWA-MEM parameters to the default values */
 	opt = mem_opt_init();
 	memset(&opt0, 0, sizeof(opt0));
-	while ((c = getopt(argc-1, argv+1, "bg51qpaMCSPVYjk:K:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:W:x:G:h:y:K:X:H:o:f")) >= 0) {
+	while ((c = getopt(argc-1, argv+1, "bg51qpaMCSPVYjk:K:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:W:x:G:h:y:K:X:H:o:f:z:")) >= 0) {
 		if (c == 'k') opt->min_seed_len = atoi(optarg), opt0.min_seed_len = 1;
 		else if (c == '1') ; /* FIXME: unsupported */
 		else if (c == 'x') mode = optarg;
@@ -190,6 +194,7 @@ int main(int argc, char *argv[]) {
 		else if (c == 'B') opt->b = atoi(optarg), opt0.b = 1;
 		else if (c == 'b') write_format = 1;
         	else if (c == 'g') write_format = 0;
+		else if (c == 'z') shared_mem = optarg;
 		else if (c == 'T') opt->T = atoi(optarg), opt0.T = 1;
 		else if (c == 'U') opt->pen_unpaired = atoi(optarg), opt0.pen_unpaired = 1;
 		else if (c == 't') opt->n_threads = atoi(optarg), opt->n_threads = opt->n_threads > 1? opt->n_threads : 1;
@@ -422,7 +427,8 @@ int main(int argc, char *argv[]) {
 	// some internal structures
 	char *p1, *q1, *e1, *p2, *q2, *e2;
 	int line_number, line_number2;
-	int NUM_THREADS = opt->n_threads;	
+	int NUM_THREADS = opt->n_threads;
+	int NUM_THREADS_2 = 1;	
 	int64_t bases;
 	double local_time_spend_mapping = 0;
 	double before_local_mapping = 0;
@@ -459,6 +465,8 @@ int main(int argc, char *argv[]) {
 
 	pthread_attr_t attr;
 	pthread_t threads[NUM_THREADS];
+        //pthread_t writter_threads[NUM_THREADS_2]; 
+	
 	//struct thread_data *td;//[NUM_THREADS];
 	//td = malloc (NUM_THREADS * sizeof(struct thread_data));
 
@@ -555,11 +563,76 @@ int main(int argc, char *argv[]) {
 		exit(2);
 	}
 
+	 if (shared_mem != NULL){
+                 if (OPEN_MPI) {
+                        if ((strcmp(shared_mem, "numa") == 0 ||
+                                strcmp(shared_mem, "l1") == 0 || strcmp(shared_mem, "l2") == 0 ||
+                                        strcmp(shared_mem, "l3") == 0  || strcmp(shared_mem, "socket") == 0 || strcmp(shared_mem, "shared") == 0)){
+
+                                        if (rank_num == 0)
+                                                fprintf(stderr, "%s: shared memory is set to : %s \n", __func__, shared_mem);
+                        }
+                        else{
+                                if (rank_num == 0){
+                                        fprintf(stderr, "%s: shared memory options %s not recognized. \n", __func__, shared_mem);
+                                        fprintf(stderr, "%s: available options are numa, l1, l2, l3, socket, shared(default) \n", __func__);
+                                        res = MPI_Finalize();
+                			assert(res == MPI_SUCCESS);
+                			exit(2);
+
+                                }
+                        }
+                }
+                else{
+			 if ((strcmp(shared_mem, "numa") == 0 ||
+                                strcmp(shared_mem, "l1") == 0 || strcmp(shared_mem, "l2") == 0 ||
+                                        strcmp(shared_mem, "l3") == 0  || strcmp(shared_mem, "socket") == 0 )){
+                                
+                                if (rank_num == 0){
+                                        fprintf(stderr, "%s: shared memory options %s not recognized. \n", __func__, shared_mem);
+                                        fprintf(stderr, "%s: you are not using openMPI only available options are shrared or core \n", __func__);
+                                        res = MPI_Finalize();
+                                        assert(res == MPI_SUCCESS);
+                                        exit(2);
+                                
+                                }
+                        }
+                        if (strcmp(shared_mem, "core") == 0){
+                                if (rank_num == 0){
+                                        fprintf(stderr, "%s: shared memory is set to core \n", __func__);
+                                        shared_mem = "core";
+                                }
+                        }
+
+                        if (strcmp(shared_mem, "shared") == 0){
+                                if (rank_num == 0){
+                                        fprintf(stderr, "%s: shared memory is set to shared \n", __func__);
+                                        shared_mem = "shared";
+                                }
+                        }
+                }
+        }
+	else{
+		fprintf(stderr, "%s: shared memory is set to core \n", __func__);
+		shared_mem = "core";	
+	} 
+
 	if (rank_num == 0)
 		fprintf(stderr, "%s: controls are done. Start analyzing fastqs it could take few minutes...\n", __func__);	
 
 
-	if ( (file_r1 != NULL && file_r2 != NULL  && (stat_r1.st_size == stat_r2.st_size)))  {
+	 //we create a RMA window to hold index chunk
+	MPI_Win win;
+        uint64_t *index_chunk;
+        uint64_t incr = 1;
+        uint64_t u1 = 0;
+        int rank_target=0;
+	if ( proc_num > 1) 
+        	MPI_Win_allocate(sizeof(uint64_t),  1, MPI_INFO_NULL, MPI_COMM_WORLD, &index_chunk, &win);
+        
+        else u1 = 0;
+
+	if ( (file_r1 != NULL && file_r2 != NULL  && (stat_r1.st_size != stat_r2.st_size)))  {
 	
 		/*
 	 	 * 
@@ -907,8 +980,8 @@ int main(int argc, char *argv[]) {
 		/*
 		 * Map reference genome indexes in shared memory (by host)
 		 */
-		 bef = MPI_Wtime();
-                map_indexes(file_map, &count, &indix, &ignore_alt, &win_shr);
+		bef = MPI_Wtime();
+                map_indexes(file_map, &count, &indix, &ignore_alt, &win_shr, shared_mem);
                 aft = MPI_Wtime();
 	
 		fprintf(stderr, "%s: mapped indexes (%.02f)\n", __func__, aft - bef);
@@ -996,13 +1069,29 @@ int main(int argc, char *argv[]) {
 		int *chr_buff_size  = calloc ( (indix.bns->n_seqs + incrmnt), sizeof(int) );
 		char *buffer_out_vec[indix.bns->n_seqs + incrmnt];
 		
+		bef = MPI_Wtime();
+
+		if ( proc_num > 1) {
+
+                	MPI_Win_lock(MPI_LOCK_EXCLUSIVE, rank_target, 0, win);
+                	MPI_Request req;
+                	MPI_Rget(&index_chunk, 1, MPI_UINT64_T, rank_target, 0, 1, MPI_UINT64_T, win, &req);
+                	MPI_Wait(&req, MPI_STATUS_IGNORE);
+                	u1 = (uint64_t)index_chunk;
+                	MPI_Fetch_and_op(&incr, &index_chunk, MPI_UINT64_T, rank_target, 0, MPI_SUM, win);
+                	MPI_Win_flush(rank_target, win);
+                	MPI_Win_unlock(rank_target, win);
+
+                	aft = MPI_Wtime();
+                	fprintf(stderr, "rank %d ::: initial u1 = %zu :: time %.02f \n",rank_num, u1, aft-bef);
+		}
 		// here we loop until there's nothing to read
 		// in the offset and size file
 		
 		before_local_mapping = MPI_Wtime();
 
 		//we loop the chunck_count
-		size_t u1 = rank_num;
+		
 		while ( u1 < total_chunks ){
 
 			offset_chunk = all_begin_offset_chunk[u1];
@@ -1487,7 +1576,24 @@ int main(int argc, char *argv[]) {
                         free(buffer_r2);
                         fprintf(stderr, "rank: %d :: finish for chunck %zu \n", rank_num, u1);
 
-			u1 += proc_num;	
+			 //we update u1
+			 //get the index_chunk
+			if ( proc_num > 1) {	 
+				bef = MPI_Wtime();
+
+                        	MPI_Win_lock(MPI_LOCK_EXCLUSIVE, rank_target, 0, win);
+                        	MPI_Request req;
+                        	MPI_Rget(&index_chunk, 1, MPI_UINT64_T, rank_target, 0, 1, MPI_UINT64_T, win, &req);
+                        	MPI_Wait(&req, MPI_STATUS_IGNORE);
+                        	u1 = (uint64_t)index_chunk;
+                        	MPI_Fetch_and_op(&incr,&index_chunk, MPI_UINT64_T, rank_target, 0, MPI_SUM, win);
+                        	MPI_Win_flush(rank_target, win);
+                        	MPI_Win_unlock(rank_target, win);
+
+                        	aft = MPI_Wtime();
+                        	fprintf(stderr, "rank %d ::: update u1 = %zu :: time %.02f \n",rank_num, u1, aft-bef);
+			}
+			else u1++;
 		} //end for (u1 = 0; u1 < chunk_count; u1++){
 
 
@@ -1515,7 +1621,7 @@ int main(int argc, char *argv[]) {
 
 	} //end if (file_r2 != NULL && stat_r1.st_size == stat_r2.st_size)
 	
-	if (file_r1 != NULL && file_r2 != NULL && stat_r1.st_size != stat_r2.st_size) {
+	if (file_r1 != NULL && file_r2 != NULL && stat_r1.st_size == stat_r2.st_size) {
 	   
 	   	/*
 		 *	We are in the case the reads are paired and trimmed
@@ -1603,7 +1709,7 @@ int main(int argc, char *argv[]) {
                 size_t **local_read_bytes_t          = calloc(NUM_THREADS, sizeof(size_t*));
                 int **local_read_size_t              = calloc(NUM_THREADS, sizeof(int*));
 
-                td_1 = calloc(NUM_THREADS, sizeof(struct struct_data_thread_1));
+                td_1 = malloc(NUM_THREADS * sizeof(struct struct_data_thread_1));
 
                 int ret_code_1 = 0;
                 int goff_idx = 0;
@@ -1733,7 +1839,7 @@ int main(int argc, char *argv[]) {
                 size_t **local_read_bytes_t2          = calloc(NUM_THREADS, sizeof(size_t*));
                 int **local_read_size_t2              = calloc(NUM_THREADS, sizeof(int*));
 
-                td_2 = calloc(NUM_THREADS, sizeof(struct struct_data_thread_1));
+                td_2 = malloc(NUM_THREADS * sizeof(struct struct_data_thread_1));
 
                 int ret_code_2 = 0;
                 int goff_idx2 = 0;
@@ -1759,7 +1865,7 @@ int main(int argc, char *argv[]) {
 
                 total_num_reads_2 = 0;
                 for (n = 0; n < NUM_THREADS; n++){
-                        pthread_join(threads_1[n], (void *)(&td_2[n]));
+                        pthread_join(threads_2[n], (void *)(&td_2[n]));
                         total_num_reads_2 += *(td_2[n].total_num_reads_mt);
                 }
 
@@ -2108,7 +2214,7 @@ int main(int argc, char *argv[]) {
 
 		/// Map reference genome indexes in shared memory (by host)
 		bef = MPI_Wtime();
-		map_indexes(file_map, &count, &indix, &ignore_alt, &win_shr);
+		map_indexes(file_map, &count, &indix, &ignore_alt, &win_shr, shared_mem);
 		aft = MPI_Wtime();
 		fprintf(stderr, "%s ::: rank %d ::: mapped indexes (%.02f)\n", __func__, rank_num, aft - bef);
 
@@ -2199,6 +2305,22 @@ int main(int argc, char *argv[]) {
 		}
 
 		buffer_r1 = buffer_r2 = NULL; seqs = NULL;
+		
+		bef = MPI_Wtime();
+                if ( proc_num > 1) {
+                        MPI_Win_lock(MPI_LOCK_EXCLUSIVE, rank_target, 0, win);
+                        MPI_Request req;
+                        MPI_Rget(&index_chunk, 1, MPI_UINT64_T, rank_target, 0, 1, MPI_UINT64_T, win, &req);
+                        MPI_Wait(&req, MPI_STATUS_IGNORE);
+                        u1 = (uint64_t)index_chunk;
+                        MPI_Fetch_and_op(&incr, &index_chunk, MPI_UINT64_T, rank_target, 0, MPI_SUM, win);
+                        MPI_Win_flush(rank_target, win);
+                        MPI_Win_unlock(rank_target, win);
+                }
+                
+                aft = MPI_Wtime();
+                fprintf(stderr, "rank %d ::: initial u1 = %zu :: time %.02f \n",rank_num, u1, aft-bef);
+
 		before_local_mapping = MPI_Wtime();
 
 		// here we loop until there's nothing to read
@@ -2208,8 +2330,7 @@ int main(int argc, char *argv[]) {
 		
 		int *chr_buff_size  = calloc ( (indix.bns->n_seqs + incrmnt), sizeof(int) );
                 //char *buffer_out_vec[indix.bns->n_seqs + incrmnt];
-		              
-		size_t u1 = rank_num; 
+ 
 		while ( u1 < total_chunks ){
 
 			offset_chunk 		= all_begin_offset_chunk[u1];
@@ -2725,7 +2846,22 @@ int main(int argc, char *argv[]) {
 			free(buffer_r2);
 			fprintf(stderr, "rank: %d :: finish for chunck %zu \n", rank_num, u1);
 
-			u1 += proc_num;	
+
+			if ( proc_num > 1) {
+		        	bef = MPI_Wtime();
+	                       	MPI_Win_lock(MPI_LOCK_EXCLUSIVE, rank_target, 0, win);
+         		        MPI_Request req;
+                        	MPI_Rget(&index_chunk, 1, MPI_UINT64_T, rank_target, 0, 1, MPI_UINT64_T, win, &req);
+                        	MPI_Wait(&req, MPI_STATUS_IGNORE);
+                        	u1 = (uint64_t)index_chunk;
+                        	MPI_Fetch_and_op(&incr,&index_chunk, MPI_UINT64_T, rank_target, 0, MPI_SUM, win);
+                        	MPI_Win_flush(rank_target, win);
+                        	MPI_Win_unlock(rank_target, win);
+
+                        	aft = MPI_Wtime();
+                        	fprintf(stderr, "rank %d ::: update u1 = %zu :: time %.02f \n",rank_num, u1, aft-bef);
+			}
+			else u1++;
 
 		} //end for loop on chunks
 		
@@ -2828,7 +2964,7 @@ int main(int argc, char *argv[]) {
                 size_t **local_read_bytes_t          = calloc(NUM_THREADS, sizeof(size_t*));
                 int **local_read_size_t              = calloc(NUM_THREADS, sizeof(int*));
 
-                td_1 = calloc(NUM_THREADS, sizeof( struct struct_data_thread_1));
+                td_1 = malloc(NUM_THREADS * sizeof( struct struct_data_thread_1));
 
                 int ret_code_1 = 0;
                 int goff_idx = 0;
@@ -3120,7 +3256,7 @@ int main(int argc, char *argv[]) {
 
 		/// Map reference genome indexes in shared memory (by host)
 		bef = MPI_Wtime();
-		map_indexes(file_map, &count, &indix, &ignore_alt, &win_shr);
+		map_indexes(file_map, &count, &indix, &ignore_alt, &win_shr, shared_mem);
 		aft = MPI_Wtime();
 		fprintf(stderr, "%s ::: rank %d ::: mapped indexes (%.02f)\n", __func__, rank_num, aft - bef);
 
@@ -3183,11 +3319,26 @@ int main(int argc, char *argv[]) {
 		int *chr_buff_size  = calloc ( (indix.bns->n_seqs + 1), sizeof(int) );
 		char *buffer_out_vec[indix.bns->n_seqs + 1];
 
-		before_local_mapping = MPI_Wtime();
+		if ( proc_num > 1) {
+			bef = MPI_Wtime();
 
+                	MPI_Win_lock(MPI_LOCK_EXCLUSIVE, rank_target, 0, win);
+                	MPI_Request req;
+                	MPI_Rget(&index_chunk, 1, MPI_UINT64_T, rank_target, 0, 1, MPI_UINT64_T, win, &req);
+                	MPI_Wait(&req, MPI_STATUS_IGNORE);
+                	u1 = (uint64_t)index_chunk;
+                	MPI_Fetch_and_op(&incr, &index_chunk, MPI_UINT64_T, rank_target, 0, MPI_SUM, win);
+                	MPI_Win_flush(rank_target, win);
+                	MPI_Win_unlock(rank_target, win);
+
+                	aft = MPI_Wtime();
+                	fprintf(stderr, "rank %d ::: initial u1 = %zu :: time %.02f \n",rank_num, u1, aft-bef);
+
+			before_local_mapping = MPI_Wtime();
+		}
 		// here we loop until there's nothing to read
 		//we loop the chunck_count
-		size_t u1 = rank_num; 
+	 
 		while ( u1 < total_chunks ){
 
 			offset_chunk 		= all_begin_offset_chunk[u1];
@@ -3482,7 +3633,23 @@ int main(int argc, char *argv[]) {
                         }
                         free(buffer_r1);
                         fprintf(stderr, "rank: %d :: finish for chunck %zu \n", rank_num, u1);
-			u1 += proc_num;
+			
+
+			if ( proc_num > 1) {
+                        	bef = MPI_Wtime();
+                        	MPI_Win_lock(MPI_LOCK_EXCLUSIVE, rank_target, 0, win);
+                        	MPI_Request req;
+                        	MPI_Rget(&index_chunk, 1, MPI_UINT64_T, rank_target, 0, 1, MPI_UINT64_T, win, &req);
+                        	MPI_Wait(&req, MPI_STATUS_IGNORE);
+                        	u1 = (uint64_t)index_chunk;
+                        	MPI_Fetch_and_op(&incr,&index_chunk, MPI_UINT64_T, rank_target, 0, MPI_SUM, win);
+                        	MPI_Win_flush(rank_target, win);
+                        	MPI_Win_unlock(rank_target, win);
+			
+                        	aft = MPI_Wtime();
+                        	fprintf(stderr, "rank %d ::: update u1 = %zu :: time %.02f \n",rank_num, u1, aft-bef);
+			}
+			else u1++;
                 } //end for (u1 = 0; u1 < chunk_count; u1++){
 
 		MPI_Barrier(MPI_COMM_WORLD);
@@ -3515,6 +3682,8 @@ int main(int argc, char *argv[]) {
 	if (hdr_line) free(hdr_line);
         if (rg_line) free(rg_line);
         if (pg_line) free(pg_line);
+	
+	if ( proc_num > 1) MPI_Win_free(&win);
 
 	free(output_path);
 	after_local_mapping	 = MPI_Wtime();

@@ -110,11 +110,17 @@ If you want to split the results of the alignment by chromosome, use `mpiBWAByCh
 * `-f` add this option if you want to fix the mates during the mapping (optionnal)
 * `-b` add this option to write output files in BAM format
 * `-g` add this option to write output files in BGZF format
+* `-z` add this option to place the reference genome in NUMA domain. Options are shared(default), socket, numa, l1, l2, l3 
 
-example: `mpirun -n 2 mpiBWAByChr mem -t 8 -b -f -o SAM REF FASTQ1 FASTQ2`
+example1: `mpirun -n 2 mpiBWAByChr mem -t 8 -b -f -o SAM REF FASTQ1 FASTQ2`
 
 the -f option add mate CIGAR, mate quality tags to each mate. This is equivalent to "samtools fixmate -m".
 This option permits to mark the duplicates with samtools markdup in downstream analisys. The overhead is negligible as this part is multithreaded. 
+
+example2: `mpirun -n 2 --map-by numa mpiBWA mem -t 8 -z numa -o SAM REF FASTQ1 FASTQ2`
+the -z will place the reference genome in the NUMA domain called NUMA-node.
+Each mpi job are placed in a NUMA node (--map-by numa) and the reference genome is loaded in the memory of this domain.
+NUMA domains are important for memory bandwidth optimizations(see memory section in Informatics ressources). 
 
 ### output
 
@@ -142,6 +148,27 @@ Indeed it is easier to mark them separately and pass the result in the chromosom
 ### Memory
 
 The total memory used during the alignment if approximately the size of the `.map` file plus the size of the SAM chunks loaded by each bwa tasks. A bwa thread takes around 300 MB of memory.
+To optimize the access to reference genome you can put the reference in a NUMA domain. To get the number of numa domain use lstopo.
+
+For instance AMD milan architecture:
+
+lstopo | grep NUMA<br/>
+      NUMANode L#0 (P#0 31GB)<br/>
+      NUMANode L#1 (P#1 31GB)<br/>
+      NUMANode L#2 (P#2 31GB)<br/>
+      NUMANode L#3 (P#3 31GB)<br/>
+      NUMANode L#4 (P#4 31GB)<br/>
+      NUMANode L#5 (P#5 31GB)<br/>
+      NUMANode L#6 (P#6 31GB)<br/>
+      NUMANode L#7 (P#7 31GB)<br/>
+
+and each NUMANode has 16 cores associated.
+  
+We have then 8 NUMANodes with each 31GB on the same node, enough for the human genome reference.
+Then place each MPI job in a NUMANode (mpirun -n 8 --map-by numa) and the reference genome in the memory associated ($MPIBWA mem -t 16 -z numa -o $OUTPUT $REF $FASTQ1 $FASTQ2).
+
+NB: This feature has only been tested with openMPI. 
+
  
 ### Cpu
 
@@ -335,4 +362,6 @@ This work is based on the original bwa aligner ([Burrow-Wheeler Aligner for shor
 Shared memory with MPI:
 
 * Latham R. et al. [Implementing MPI-IO Atomic Mode and Shared File Pointers Using MPI One-Sided Communication](https://journals.sagepub.com/doi/abs/10.1177/1094342007077859), 2007.
+
+
 

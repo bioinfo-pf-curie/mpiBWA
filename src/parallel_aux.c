@@ -62,6 +62,56 @@ The fact that you are presently reading this means that you have had knowledge o
 #else
 #define xfprintf(...) /**/
 #endif
+/*
+int request_counter = 0;
+pthread_mutex_t lock;
+size_t total_buffer_to_write_per_rank = 0;
+size_t total_buffer_written_per_rank = 0;
+int alignment_finish = 0;
+struct queue_root *queue;
+*/
+
+void init_queue(struct queue_root* queue){
+    queue->head = queue->tail = NULL;
+    queue->size = 0;
+    queue->total_to_wrt = 0;
+}
+
+void push_queue(struct queue_root* queue, char *contents){
+    struct queue_item *item = malloc(sizeof(struct queue_item));
+    item->contents = malloc(strlen(contents)+1);
+    item->contents[strlen(contents)]=0;
+    memcpy(item->contents, contents, strlen(contents));
+    queue->total_to_wrt += strlen(contents); 
+    free(contents);
+    item->next = NULL;
+    if (queue->head == NULL){
+        queue->head = queue->tail = item;
+    } else {
+        queue->tail = queue->tail->next = item;
+    }
+     queue->size++;
+}
+
+int size_queue(struct queue_root* queue){ return queue->size;}
+size_t size_to_write_queue(struct queue_root* queue){ return queue->total_to_wrt;}
+
+char *pop_queue(struct queue_root* queue){
+    char *popped;
+    if (queue->head == NULL){
+        return NULL; // causes a compile warning.  Just check for ==NULL when popping.
+    } else {
+        popped = queue->head->contents;
+        struct queue_item* next = queue->head->next;
+        free(queue->head);
+        queue->head = next;
+        if (queue->head == NULL)
+            queue->tail = NULL;
+    }
+    queue->size--;
+    queue->total_to_wrt = queue->total_to_wrt - strlen(popped);
+    return popped;
+}
 
 
 void init_goff(size_t *goff, MPI_File mpi_filed, size_t fsize,int numproc,int rank){
@@ -169,7 +219,7 @@ void find_process_starting_offset_mt(size_t *goff, size_t size, char* file_to_re
 		 memset( buffer_r0, 0, tmp_sz * sizeof(char));
         	k++;
 	}
-	fprintf(stderr, "finish finding offset rank =%d \n", rank_num);
+	//fprintf(stderr, "finish finding offset rank =%d \n", rank_num);
         ///free the resources no longer needed
         free(buffer_r0);
         res = MPI_File_close(&mpi_fd);
@@ -201,7 +251,7 @@ void *find_reads_size_and_offsets_mt(void *thread_arg){
     //res = MPI_File_open(MPI_COMM_WORLD, file_to_read, MPI_MODE_RDONLY, MPI_INFO_NULL, &mpi_fd);
     //assert(res==MPI_SUCCESS);
     fd = open(file_to_read, O_RDONLY);
-    //fprintf(stderr, "in find_reads_size_and_offsets_mt rank %d thread %d step 1 \n", rank_num, thread_num);
+    //fprintf(stderr, "in find_reads_size_and_offsets_mt rank %d thread %d step 1 :::: offset_in_file = %zu ::: siz2read = %zu \n", rank_num, thread_num, offset_in_file, siz2read);
 
     char *buffer_r;
     char *b, *r, *t, *e;
@@ -229,6 +279,8 @@ void *find_reads_size_and_offsets_mt(void *thread_arg){
 
         pread(fd, buffer_r, read_buffer_sz, offset_in_file);
 
+
+	//fprintf(stderr, "in find_reads_size_and_offsets_mt rank %d thread %d after pread \n", rank_num, thread_num);
 	assert(*buffer_r == '@');
 
         b = buffer_r;
@@ -248,7 +300,7 @@ void *find_reads_size_and_offsets_mt(void *thread_arg){
         e = buffer_r + offset_end_buff;
         lines = 0;
         while (t++ < e){if (*t == '\n') lines++;}
-
+	//fprintf(stderr, "in find_reads_size_and_offsets_mt rank %d thread %d lines = %zu \n", rank_num, thread_num, lines);
 
         *p_local_num_reads =  (lines/4);
         *p_total_num_reads += *p_local_num_reads;
@@ -315,6 +367,7 @@ void *find_reads_size_and_offsets_mt(void *thread_arg){
     }
 
     assert(total_parsing == siz2read);
+    //fprintf(stderr, "finish find_reads_size_and_offsets_mt rank %d thread %d step 1 \n", rank_num, thread_num);
     //MPI_File_close(&mpi_fd);
     close(fd);
 }
@@ -331,7 +384,7 @@ void *copy_local_read_info_mt(void *thread_arg){
         int    rank_num                 = my_data->rank_num_mt;
         int    thread_num               = my_data->thread_num_mt;
     
-    
+        //fprintf(stderr, "in copy_local_read_info_mt rank %d thread %d step 1 \n", rank_num, thread_num);   
         size_t offset = my_data->previous_read_num;
     	int *p      = my_data->local_read_size + offset;
     	memmove(p, *local_read_size, *p_total_num_reads * sizeof(int));
@@ -341,7 +394,7 @@ void *copy_local_read_info_mt(void *thread_arg){
 
     	size_t *p2  = my_data->local_read_bytes + offset;
     	memmove(p2, *local_read_bytes, *p_total_num_reads * sizeof(size_t));
-
+	//fprintf(stderr, "finish copy_local_read_info_mt rank %d thread %d step 1 \n", rank_num, thread_num);
 }
 
 
@@ -1453,7 +1506,7 @@ void find_chunks_info(  size_t *begin_offset_chunk,
 //			bwa parameter
 //			i don't know what this is
 //			pointer on he window of shared memory used to save the mapped indexes
-void map_indexes(char *file_map, int *count, bwaidx_t *indix, int *ignore_alt, MPI_Win *win_shr)
+void map_indexes(char *file_map, int *count, bwaidx_t *indix, int *ignore_alt, MPI_Win *win_shr, char *shared_mem)
 {
 	
 	//MPI resources
@@ -1487,7 +1540,35 @@ void map_indexes(char *file_map, int *count, bwaidx_t *indix, int *ignore_alt, M
 	assert(res == MPI_SUCCESS);
 	res = MPI_File_get_size(fh_map, &size_map);
 	assert(res == MPI_SUCCESS);
-	res = MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &comm_shr);
+	#ifdef OPEN_MPI
+                if (strcmp(shared_mem, "numa") == 0)
+                        res = MPI_Comm_split_type(MPI_COMM_WORLD, OMPI_COMM_TYPE_NUMA, 0, MPI_INFO_NULL, &comm_shr);
+                if (strcmp(shared_mem, "l1") == 0)
+                        res = MPI_Comm_split_type(MPI_COMM_WORLD, OMPI_COMM_TYPE_L1CACHE, 0, MPI_INFO_NULL, &comm_shr);
+                if (strcmp(shared_mem, "l2") == 0)
+                        res = MPI_Comm_split_type(MPI_COMM_WORLD, OMPI_COMM_TYPE_L2CACHE, 0, MPI_INFO_NULL, &comm_shr);
+                if (strcmp(shared_mem, "l3") == 0)
+                        res = MPI_Comm_split_type(MPI_COMM_WORLD, OMPI_COMM_TYPE_L3CACHE, 0, MPI_INFO_NULL, &comm_shr);
+                if (strcmp(shared_mem, "socket") == 0)
+                        res = MPI_Comm_split_type(MPI_COMM_WORLD, OMPI_COMM_TYPE_SOCKET, 0, MPI_INFO_NULL, &comm_shr);
+                if (strcmp(shared_mem, "shared") == 0)
+			res = MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &comm_shr);
+		//default option is core 
+		if (strcmp(shared_mem, "core") == 0)
+                        res = MPI_Comm_split_type(MPI_COMM_WORLD, OMPI_COMM_TYPE_CORE, 0, MPI_INFO_NULL, &comm_shr);
+
+        #endif
+        #ifndef OPEN_MPI
+		if (strcmp(shared_mem, "core") == 0){
+			//we create a communicator by rank
+			int rank_num = 0;
+			res = MPI_Comm_rank(MPI_COMM_WORLD, &rank_num);
+        		assert(res == MPI_SUCCESS);
+			res = MPI_Comm_split(MPI_COMM_WORLD, rank_num, 0, &comm_shr);
+		}
+		if (strcmp(shared_mem, "shared") == 0)	
+                	res = MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &comm_shr);
+        #endif
 	assert(res == MPI_SUCCESS);
 	res = MPI_Comm_rank(comm_shr, &rank_shr);
 	assert(res == MPI_SUCCESS);
@@ -2475,7 +2556,89 @@ void *pread_fastq_chunck(void *thread_arg ){
     assert(res == MPI_SUCCESS);
     assert(count == (int)size2read);
 }
+/*
+void *copy_buffer_thr(void *thread_arg){
+    struct struct_data_thread *my_data;
+    my_data = (struct struct_data_thread *) thread_arg;
+    time_t now, later;
+    double seconds;
 
+    fprintf(stderr, "IN COPY BUFFER THREAD :::: thread_id =  %d \n",  my_data->thread_id);
+    int i = 0;
+    for (i = my_data->begin_index; i < my_data->end_index; i++){
+        my_data->seqs_thr[i].l_seq = strlen(my_data->seqs_thr[i].sam);
+        my_data->size_thr += my_data->seqs_thr[i].l_seq;
+    }
+
+    my_data->buffer_out = malloc( my_data->size_thr + 1);
+    assert(my_data->buffer_out);
+    my_data->buffer_out[my_data->size_thr]=0;
+    char *p = my_data->buffer_out;
+    MPI_Status status;
+    for (i = my_data->begin_index; i < my_data->end_index; i++){
+        memmove(p, my_data->seqs_thr[i].sam, strlen(my_data->seqs_thr[i].sam) * sizeof(char));
+        p += my_data->seqs_thr[i].l_seq;
+    }
+    my_data->size_thr = strlen(my_data->buffer_out);
+    pthread_mutex_lock(&lock);
+    total_buffer_to_write_per_rank +=1;
+    pthread_mutex_unlock(&lock);
+    pthread_exit(0);
+}
+
+void *write_sam_mt(void *thread_arg){
+
+    struct struct_data_thread *my_data;
+    my_data = (struct struct_data_thread *) thread_arg;
+    int res;
+    int count;
+    clock_t now, later;
+    double seconds;
+    MPI_Status status;
+    int id;
+    int core_id;
+    fprintf(stderr, "IN WRITE SAM MT :::: thread_id =  %d ::: alignment_finish = %d \n", my_data->thread_id ,alignment_finish);                                                
+    
+    while (!alignment_finish){
+
+          while (  size_queue(queue) > 0){
+            
+            size_t written = 0;
+            char *buffer_out = NULL ;
+            MPI_Request req;
+            pthread_mutex_lock(&lock);
+            buffer_out=pop_queue(queue);
+            assert(buffer_out);
+            pthread_mutex_unlock(&lock);
+             
+            size_t size = strlen(buffer_out);
+            MPI_Status status; 
+        
+            
+            fprintf(stderr, "IN WRITE SAM MT :::: thread_id =  %d ::: size queue = %d  ::::write_sam_mt size_to write = %zu \n",  my_data->thread_id, size_queue(queue) ,size);
+            clock_t begin = clock();
+	    res = MPI_File_write_shared(my_data->file_desc, buffer_out, size, MPI_CHAR, &status);
+            assert(res == MPI_SUCCESS);
+            res = MPI_Get_count(&status, MPI_BYTE, (int *)&written);
+            assert(res == MPI_SUCCESS);
+            assert(written == (int)size);
+            free(buffer_out); 
+            clock_t end = clock();
+            unsigned long millis = (end -  begin) / CLOCKS_PER_SEC;
+	    total_buffer_written_per_rank += 1;
+            fprintf(stderr, "IN WRITE SAM MT ::: Thread ID = %d  : buffer to write = %d :::: buffer written = %d in %ld s\n", my_data->thread_id, total_buffer_to_write_per_rank, total_buffer_written_per_rank ,millis );
+ 
+            
+        }
+        usleep(2000);
+    }
+
+    pthread_exit(0);
+
+}
+*/
+
+/*
 void *write_sam_mt(void *thread_arg){
 
     struct struct_data_thread *my_data;
@@ -2514,7 +2677,7 @@ void *write_sam_mt(void *thread_arg){
     free(l_seq);
 
 }
-/*
+
 void *compress_and_write_bgzf_thread(void *threadarg){
 
         struct thread_data_compress *my_data;

@@ -78,7 +78,7 @@ The fact that you are presently reading this means that you have had knowledge o
 #define min(a,b) (a>=b?b:a)
 #define MAX_CHAR_SIZE 2048
 #define MAX_CHR_NAME_SIZE 200
-#define SMALL_STACK (1024*1024)
+#define SMALL_STACK (1024*1024*512)
 #define BIG_STACK (1024*1024*512)
 
 #ifdef TIMING
@@ -87,9 +87,119 @@ The fact that you are presently reading this means that you have had knowledge o
 #define xfprintf(...) /**/
 #endif
 
+pthread_mutex_t lock;
+pthread_mutex_t write_lock;
 
+size_t total_buffer_to_write_per_rank = 0;
+size_t total_buffer_written_per_rank = 0;
+int alignment_finish = 0;
+struct queue_root *queue;
 
+void *copy_buffer_thr(void *thread_arg){
+    struct struct_data_thread *my_data;
+    my_data = (struct struct_data_thread *) thread_arg;
+    time_t now, later;
+    double seconds;
 
+    //fprintf(stderr, "IN COPY BUFFER THREAD :::: thread_id =  %d \n",  my_data->thread_id);
+    int i = 0;
+    for (i = my_data->begin_index; i < my_data->end_index; i++){
+        my_data->seqs_thr[i].l_seq = strlen(my_data->seqs_thr[i].sam);
+        my_data->size_thr += my_data->seqs_thr[i].l_seq;
+    }
+
+    my_data->buffer_out = malloc( my_data->size_thr + 1);
+    assert(my_data->buffer_out);
+    my_data->buffer_out[my_data->size_thr]=0;
+    char *p = my_data->buffer_out;
+    MPI_Status status;
+    for (i = my_data->begin_index; i < my_data->end_index; i++){
+        memmove(p, my_data->seqs_thr[i].sam, strlen(my_data->seqs_thr[i].sam) * sizeof(char));
+        p += my_data->seqs_thr[i].l_seq;
+    }
+    my_data->size_thr = strlen(my_data->buffer_out);
+    pthread_mutex_lock(&lock);
+    total_buffer_to_write_per_rank +=1;
+    pthread_mutex_unlock(&lock);
+    pthread_exit(0);
+}
+
+void *write_sam_mt(void *thread_arg){
+
+    struct struct_data_thread *my_data;
+    my_data = (struct struct_data_thread *) thread_arg;
+    int res;
+    int count;
+    clock_t now, later;
+    double seconds;
+    MPI_Status status;
+    int id;
+    int core_id;
+    size_t tmp_size_buffer = 1024*1024*1024;
+    size_t tmp_size_buffer2 = tmp_size_buffer;
+    clock_t begin;
+    //fprintf(stderr, "IN WRITE SAM MT :::: thread_id =  %d ::: alignment_finish = %d \n", my_data->thread_id ,alignment_finish);
+
+    while (!alignment_finish){
+
+          while (  size_queue(queue) > 0){
+
+            size_t written = 0;
+            char *buffer_out = NULL ;
+            MPI_Request req;
+            pthread_mutex_lock(&lock);
+            buffer_out=pop_queue(queue);
+            assert(buffer_out);
+            pthread_mutex_unlock(&lock);
+
+            size_t samSize = strlen(buffer_out);
+            MPI_Status status;
+
+            if (samSize < tmp_size_buffer){
+		//begin = clock();    
+		res = MPI_File_write_shared(my_data->file_desc, buffer_out, samSize, MPI_CHAR, &status);
+                assert(res == MPI_SUCCESS);
+                res = MPI_Get_count(&status, MPI_BYTE, (int *)&written);
+                assert(res == MPI_SUCCESS);
+                assert(written == (int)samSize);
+            }else{
+	        //fprintf(stderr, "IN WRITE SAM MT :::: thread_id =  %d ::: size queue = %d  ::::write_sam_mt size_to write = %zu \n",  my_data->thread_id, size_queue(queue) ,samSize);
+            	//begin = clock();
+ 
+		pthread_mutex_lock(&write_lock);
+                char *buff_tmp = buffer_out;
+                size_t tmp1 = 0;
+                size_t write_offset = 0;
+		tmp_size_buffer2 = tmp_size_buffer;
+
+                while (tmp_size_buffer2 > 0){
+                        res = MPI_File_write_shared(my_data->file_desc, buff_tmp, tmp_size_buffer2, MPI_CHAR, &status);
+                        assert(res == MPI_SUCCESS);
+                        res = MPI_Get_count(&status, MPI_BYTE, (int *)&written);
+                        assert(written == (int)tmp_size_buffer2);
+                        buff_tmp += tmp_size_buffer2;
+                        tmp1 += tmp_size_buffer2;
+                        write_offset += tmp_size_buffer2;
+                        if ( (samSize - tmp1) > tmp_size_buffer ) tmp_size_buffer2 = tmp_size_buffer;
+                        else tmp_size_buffer2 = (samSize - tmp1);
+
+                }
+               pthread_mutex_unlock(&write_lock);
+
+            }
+
+	free(buffer_out);
+        //clock_t end = clock();
+        //unsigned long millis = (end -  begin) / CLOCKS_PER_SEC;
+	pthread_mutex_lock(&lock);
+        total_buffer_written_per_rank += 1;
+	pthread_mutex_unlock(&lock);
+        //fprintf(stderr, "IN WRITE SAM MT ::: Thread ID = %d  : buffer to write = %d :::: buffer written = %d in %ld s\n", my_data->thread_id, total_buffer_to_write_per_rank, total_buffer_written_per_rank ,millis );
+        }
+        usleep(2000);
+    }
+    pthread_exit(0);
+}
 
 int main(int argc, char *argv[]) {
 	
@@ -100,6 +210,7 @@ int main(int argc, char *argv[]) {
 	char *buffer_r1, *buffer_r2;
 	char *file_out = NULL;
 	char *buffer_out;
+	char *shared_mem = NULL;
 	char *file_ref = NULL;
 	char *rg_line = NULL, *hdr_line = NULL, *pg_line = NULL;
 	char file_map[PATH_MAX], file_tmp[PATH_MAX];
@@ -123,6 +234,7 @@ int main(int argc, char *argv[]) {
 	off_t locoff, locsiz, *alloff, *curoff, maxsiz, totsiz, filsiz;
 	struct stat stat_r1, stat_r2, stat_map, stat_file_out;
 	size_t n_processed = 0;
+	
 	MPI_Aint size_shr;
 	MPI_Comm comm_shr;
 	MPI_File fh_map, fh_r1, fh_r2, fh_out, fh_tmp;
@@ -150,6 +262,7 @@ int main(int argc, char *argv[]) {
 	    	"\t-f to fix the mate on the fly for compatibility with samtools markdup (optional)\n"
 	    	"\t-b to write output in BAM format (optional)\n"
 	    	"\t-g to write output in BGZF format (optional)\n"
+		"\t-z to tell where to place the reference genome (available with openMPI: socket, numa, l1, l2, l3, shared) (optional)\n"
             "\tREFERENCE_GENOME: reference genome name (e.g. myReferenceGenome.fa).\n"
             "\t\tDo not provide the '.map' extension of the file genareted with 'mpiBWAIdx'\n"
             "\n\tFASTQ_R1: fastq file for R1\n"
@@ -158,7 +271,7 @@ int main(int argc, char *argv[]) {
             "\noptions: 'bwa mem' options can be passed from command line (e.g. mpiBWA mem -t 8 -k 18)\n"
             "\nFor more detailed documentation visit:\n"
             "\thttps://github.com/bioinfo-pf-curie/mpiBWA\n"
-            "\nCopyright (C) 2020  Institut Curie <http://www.curie.fr> \n"
+            "\nCopyright (C) 2022  Institut Curie <http://www.curie.fr> \n"
             "\nThis program comes with ABSOLUTELY NO WARRANTY. \n"
             "This is free software, and you are welcome to redistribute it \n"
             "under the terms of the CeCILL License. \n"
@@ -173,13 +286,14 @@ int main(int argc, char *argv[]) {
 	else {
 		//create pg_line for create_sam_header
 		asprintf(&pg_line, "@PG\tID:bwa\tPN:bwa\tVN:%s\tCL:%s", VERSION, argv[0]);
-		for (int i = 1; i < argc; ++i) asprintf(&pg_line, "%s %s", pg_line, argv[i]);
+		int i=0;
+		for (i = 1; i < argc; ++i) asprintf(&pg_line, "%s %s", pg_line, argv[i]);
 	}
 
 	/* initialize the BWA-MEM parameters to the default values */
 	opt = mem_opt_init();
 	memset(&opt0, 0, sizeof(opt0));
-	while ((c = getopt(argc-1, argv+1, "bg51qpaMCSPVYjk:K:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:W:x:G:h:y:K:X:H:o:f")) >= 0) {
+	while ((c = getopt(argc-1, argv+1, "bg51qpaMCSPVYjk:K:c:v:s:r:t:R:A:B:O:E:U:w:L:d:T:Q:D:m:I:N:W:x:G:h:y:K:X:H:o:f:z:")) >= 0) {
 		if (c == 'k') opt->min_seed_len = atoi(optarg), opt0.min_seed_len = 1;
 		else if (c == '1') ; /* FIXME: unsupported */
 		else if (c == 'x') mode = optarg;
@@ -187,7 +301,8 @@ int main(int argc, char *argv[]) {
 		else if (c == 'A') opt->a = atoi(optarg), opt0.a = 1;
 		else if (c == 'B') opt->b = atoi(optarg), opt0.b = 1;
 		else if (c == 'b') write_format = 1;
-        else if (c == 'g') write_format = 0;
+        	else if (c == 'g') write_format = 0;
+		else if (c == 'z') shared_mem = optarg;
 		else if (c == 'T') opt->T = atoi(optarg), opt0.T = 1;
 		else if (c == 'U') opt->pen_unpaired = atoi(optarg), opt0.pen_unpaired = 1;
 		else if (c == 't') opt->n_threads = atoi(optarg), opt->n_threads = opt->n_threads > 1? opt->n_threads : 1;
@@ -419,7 +534,9 @@ int main(int argc, char *argv[]) {
 	 // some internal structures
 	char *p1, *q1, *e1, *p2, *q2, *e2;
 	int line_number, line_number2;
-	int NUM_THREADS = opt->n_threads;	
+	int NUM_THREADS = opt->n_threads;
+	int NUM_THREADS_2 = 1;
+    	int fh_out2;	
 	int64_t bases;
 	double local_time_spend_mapping = 0;
 	double before_local_mapping = 0;
@@ -456,7 +573,8 @@ int main(int argc, char *argv[]) {
 
 
 	pthread_attr_t attr;
-    pthread_t threads[NUM_THREADS];
+    	pthread_t threads[NUM_THREADS];
+	pthread_t writter_threads[NUM_THREADS_2];
 
 	//MPI_Info finfo;
 	//MPI_Info_create(&finfo);
@@ -518,26 +636,100 @@ int main(int argc, char *argv[]) {
 
 	fixed_chunk_size = fixed_chunk_size > 0? fixed_chunk_size : opt->chunk_size * opt->n_threads;
 
+	//check shared_mem argument
+	if (shared_mem != NULL){
+                if (OPEN_MPI) {
+                        if ((strcmp(shared_mem, "numa") == 0 ||
+                                strcmp(shared_mem, "l1") == 0 || strcmp(shared_mem, "l2") == 0 ||
+                                        strcmp(shared_mem, "l3") == 0  || strcmp(shared_mem, "socket") == 0 || 
+						strcmp(shared_mem, "shared") == 0  || strcmp(shared_mem, "core") == 0)){
+
+                                        if (rank_num == 0)
+                                                fprintf(stderr, "%s: shared memory is set to : %s \n", __func__, shared_mem);
+                        }
+                        else{
+                                if (rank_num == 0){
+                                        fprintf(stderr, "%s: shared memory options %s not recognized. \n", __func__, shared_mem);
+                                        fprintf(stderr, "%s: available options are numa, l1, l2, l3, socket, shared(default) \n", __func__);
+                                        res = MPI_Finalize();
+                			assert(res == MPI_SUCCESS);
+                			exit(2);
+
+                                }
+                        }
+                }
+                else{
+
+			if ((strcmp(shared_mem, "numa") == 0 ||
+                                strcmp(shared_mem, "l1") == 0 || strcmp(shared_mem, "l2") == 0 ||
+                                        strcmp(shared_mem, "l3") == 0  || strcmp(shared_mem, "socket") == 0 )){
+
+				if (rank_num == 0){
+                                        fprintf(stderr, "%s: shared memory options %s not recognized. \n", __func__, shared_mem);
+					fprintf(stderr, "%s: you are not using openMPI only available options are shrared or core \n", __func__);
+                                        res = MPI_Finalize();
+                                        assert(res == MPI_SUCCESS);
+                                        exit(2);
+
+                                }
+			}
+			if (strcmp(shared_mem, "core") == 0){
+			 	if (rank_num == 0){
+                                        fprintf(stderr, "%s: shared memory is set to core \n", __func__);
+                                        shared_mem = "core";
+                         	}
+			}
+
+			if (strcmp(shared_mem, "shared") == 0){
+                                if (rank_num == 0){
+                                        fprintf(stderr, "%s: shared memory is set to shared \n", __func__);
+                                        shared_mem = "shared";
+                                }
+                        }        
+                }
+        }
+	else{
+                fprintf(stderr, "%s: shared memory is set to core \n", __func__);  
+                shared_mem = "core";
+        }
 
 	if (rank_num == 0)
                fprintf(stderr, "%s: controls are done. Start analyzing fastqs it could take few minutes...\n", __func__);
 
 
-    char* file_out_ext = (char*)malloc((strlen(file_out) + 40) * sizeof(char));
+    	char* file_out_ext = (char*)malloc((strlen(file_out) + 40) * sizeof(char));
 
 
-    if(write_format == 2){
-        sprintf(file_out_ext, "%s.sam", file_out);
-    }
-    else if (write_format == 1){
-    	sprintf(file_out_ext, "%s.bam", file_out);
-    }
-    else {
-        sprintf(file_out_ext,"%s.gz",file_out);
-    }
+    	if(write_format == 2){
+        	sprintf(file_out_ext, "%s.sam", file_out);
+    	}
+    	else if (write_format == 1){
+    		sprintf(file_out_ext, "%s.bam", file_out);
+    	}
+    	else {
+        	sprintf(file_out_ext,"%s.gz",file_out);
+    	}
 
-
+	//init mutex for async IO for 
 	
+	struct struct_data_thread *td1=NULL;
+        int total_to_write_by_rank = 0;
+        pthread_mutex_init(&lock, NULL);
+	pthread_mutex_init(&write_lock, NULL);
+	queue = malloc(sizeof(struct queue_root));
+        init_queue(queue);    
+
+	//we create a RMA window to hold index chunk
+	MPI_Win win;
+	uint64_t *index_chunk;
+	uint64_t incr = 1;
+	uint64_t u1 = 0;
+	int rank_target=0;
+
+	if ( proc_num > 1) 
+            MPI_Win_allocate(sizeof(uint64_t),  1, MPI_INFO_NULL, MPI_COMM_WORLD, &index_chunk, &win);
+                
+
 	if ( (file_r1 != NULL && file_r2 != NULL  && (stat_r1.st_size == stat_r2.st_size)))  {
 	
 		/*
@@ -586,19 +778,6 @@ int main(int argc, char *argv[]) {
 		/*
 		 * Split sequence files in chunks
 		 */
-		MPI_File mpi_fd_in1, mpi_fd_in2;
-		bef = MPI_Wtime();
-
-		res = MPI_File_open(MPI_COMM_WORLD, file_r1,  MPI_MODE_RDONLY , MPI_INFO_NULL, &mpi_fd_in1);
-		assert(res == MPI_SUCCESS);
-		
-		res = MPI_File_open(MPI_COMM_WORLD, file_r1,  MPI_MODE_RDONLY , MPI_INFO_NULL, &mpi_fd_in2);
-		assert(res == MPI_SUCCESS);
-		
-		/*
-		 * first we parse the buffer and see
-		 * how many reads we have
-		 */
 
 		size_t read_number=0;
 		assert(fd_in1 != -1);
@@ -609,14 +788,14 @@ int main(int argc, char *argv[]) {
 		bef = MPI_Wtime();
         	find_process_starting_offset_mt(goff, stat_r1.st_size, file_r1, proc_num, rank_num, NUM_THREADS);
         	aft = MPI_Wtime();
-		fprintf(stderr, "%s: rank %d time spend in finding process start offset = (%.02f) \n", __func__, rank_num, aft - bef);
+		if (rank_num == 0)
+			fprintf(stderr, "%s: rank %d time spend in finding process start offset = (%.02f) \n", __func__, rank_num, aft - bef);
 
 		int i12=0;
         	for ( i12 = 0; i12 < proc_num * NUM_THREADS + 1; i12++ )  {
 			//fprintf(stderr, "rank %d :: goff[%d] = %zu \n", rank_num, i12, goff[i12] );
 			goff_inter[i12] = goff[i12];
             	}
-		char *current_line = NULL;
 
 		//now we exchange the goff buffer between all proc
 		//rank 0 gather the vector
@@ -746,7 +925,6 @@ int main(int argc, char *argv[]) {
 			
 		if (goff) free(goff);
 	
-		MPI_File_close(&mpi_fd_in2);			
 		res = MPI_Reduce(&total_num_reads, &grand_total_num_reads, 1,MPI_LONG_LONG_INT, MPI_SUM, 0,MPI_COMM_WORLD);
 		assert ( res == MPI_SUCCESS);	
 		res = MPI_Bcast(&grand_total_num_reads, 1, MPI_LONG_LONG_INT, 0, MPI_COMM_WORLD);
@@ -788,7 +966,8 @@ int main(int argc, char *argv[]) {
 
 		maxsiz = fixed_chunk_size / 2; 
 		MPI_Barrier(MPI_COMM_WORLD);
-		fprintf(stderr,"rank %d ::: Call find_chunks_info \n", rank_num);
+		if (rank_num == 0)
+			fprintf(stderr,"rank %d ::: Call find_chunks_info \n", rank_num);
 		// the detail of he paramters is at the function definition
 		// fprintf(stderr, "rank %d ::: begin_offset_chunk = %zu \n", rank_num, begin_offset_chunk[0]);
 		// fprintf(stderr, "rank %d ::: begin_offset_chunk_2 = %zu \n", rank_num, begin_offset_chunk_2[0]);
@@ -810,7 +989,8 @@ int main(int argc, char *argv[]) {
 				 &chunk_count);		
 
 		aft = MPI_Wtime();
-		fprintf(stderr, "%s: rank %d time spend evaluating chunks = (%.02f) \n", __func__, rank_num, aft - bef);
+		if (rank_num == 0)
+			fprintf(stderr, "%s: rank %d time spend evaluating chunks = (%.02f) \n", __func__, rank_num, aft - bef);
 
 		free(local_read_offsets);
 		free(local_read_size);
@@ -899,10 +1079,10 @@ int main(int argc, char *argv[]) {
 		 * Map reference genome indexes in shared memory (by host)
 		 */
         	bef = MPI_Wtime();
-        	map_indexes(file_map, &count, &indix, &ignore_alt, &win_shr);
+        	map_indexes(file_map, &count, &indix, &ignore_alt, &win_shr, shared_mem);
         	aft = MPI_Wtime();
-	
-		fprintf(stderr, "%s: mapped indexes (%.02f)\n", __func__, aft - bef);
+		if (rank_num == 0)
+			fprintf(stderr, "%s: mapped indexes (%.02f)\n", __func__, aft - bef);
 
 		/*
 		 * Create SAM header
@@ -942,17 +1122,51 @@ int main(int argc, char *argv[]) {
 			assert(res == MPI_SUCCESS);
 		}
 
-		buffer_r1 = buffer_r2 = NULL; seqs = NULL;
 
+		/*
+ 		 * Initialization chunck index of the chunk index window
+                 */
 
-		// here we loop until there's nothing to read
-		// in the offset and size file
+		if (proc_num > 1){
+			bef = MPI_Wtime();
 		
-		
+			MPI_Win_lock(MPI_LOCK_EXCLUSIVE, rank_target, 0, win);		
+			MPI_Request req;
+        		MPI_Rget(&index_chunk, 1, MPI_UINT64_T, rank_target, 0, 1, MPI_UINT64_T, win, &req);
+        		MPI_Wait(&req, MPI_STATUS_IGNORE);
+			u1 = (uint64_t)index_chunk;
+			MPI_Fetch_and_op(&incr, &index_chunk, MPI_UINT64_T, rank_target, 0, MPI_SUM, win);
+        		MPI_Win_flush(rank_target, win);
+        		MPI_Win_unlock(rank_target, win);
+				
+			aft = MPI_Wtime();
+			fprintf(stderr, "rank %d ::: initial u1 = %zu :: time %.02f \n",rank_num, u1, aft-bef);
+		}
+
+		 /*
+ 		  *   Start thread for writing  
+                  */
+
+		int ret_code2;
+                pthread_t threads_write[NUM_THREADS_2];
+                struct struct_data_thread *td2 = malloc (NUM_THREADS_2 * sizeof(struct struct_data_thread));
+                int rc;
+                int policy;
+                pthread_attr_t attr_tmp;
+                struct sched_param param;
+                pthread_attr_init (&attr_tmp);
+                pthread_attr_setschedpolicy(&attr_tmp, SCHED_RR);
+
+                for ( n = 0; n < NUM_THREADS_2; n++){
+                        td2[n].file_desc = fh_out;
+                        td2[n].thread_id = rank_num;
+                        ret_code2 = pthread_create(&threads_write[n], &attr_tmp, write_sam_mt, (void *)(&td2[n]));
+                }
+
+ 		buffer_r1 = buffer_r2 = NULL; seqs = NULL;
 		before_local_mapping = MPI_Wtime();
-
 		//we loop the chunck_count
-		size_t u1 = rank_num;
+		//size_t u1 = rank_num;
 		while ( u1 < total_chunks){
 
 			offset_chunk = all_begin_offset_chunk[u1];
@@ -1033,11 +1247,16 @@ int main(int argc, char *argv[]) {
             		assert(strlen(buffer_r2) == size_chunk);
             		assert(*buffer_r2 == '@');
 
+			for (n = 0; n < NUM_THREADS_2; n++)
+				if (total_to_write_by_rank > 0)  push_queue(queue, td1[n].buffer_out);
+			
+
+			/*
             		if (u1 < total_chunks){
                 		MPI_File_seek(fh_r1, (MPI_Offset)all_begin_offset_chunk[u1 + proc_num], MPI_SEEK_CUR ) ;
                 		MPI_File_seek(fh_r2, (MPI_Offset)all_begin_offset_chunk[u1 + proc_num], MPI_SEEK_CUR ) ;
             		}
-
+			*/
 
 			aft = MPI_Wtime();
 			fprintf(stderr, "%s: read sequences (%.02f)\n", __func__, aft - bef);
@@ -1157,43 +1376,47 @@ int main(int argc, char *argv[]) {
                 		fprintf(stderr, "rank: %d :: %s: time spend in fixmate (%.02f) \n", rank_num, __func__, aft - bef);
 
             		}
-			//MPI_Barrier(MPI_COMM_WORLD);
+			
 			/* Write results ... */
 			if ( write_format == 2){
 
 				bef = MPI_Wtime();
-                		pthread_attr_t attr;
-                		pthread_attr_init(&attr);
-                		pthread_attr_setstacksize(&attr, BIG_STACK);
-                		pthread_attr_setdetachstate(&attr, 0);
+                                if (td1 == NULL)
+                                        td1 = malloc (NUM_THREADS_2 * sizeof(struct struct_data_thread));
+                                else{
+                                        free(td1);
+                                        td1 = malloc (NUM_THREADS_2 * sizeof(struct struct_data_thread));
+                                }
 
-                		struct struct_data_thread *td;
-                		td = calloc (opt->n_threads, sizeof(struct struct_data_thread));
+                                int rest = reads%NUM_THREADS_2;
+                                int quot = reads/NUM_THREADS_2;
+                                pthread_t threads[NUM_THREADS_2];
 
-                		int rest = reads%NUM_THREADS;
-                		int quot = reads/NUM_THREADS;
-                		pthread_t threads[NUM_THREADS];
+                                int ret_code = 0;
 
-                		int ret_code = 0;
-                		for ( n = 0; n < NUM_THREADS; n++){
-                    			td[n].seqs_thr = seqs;
-                    			td[n].begin_index = n * quot;
-                    			td[n].end_index = ((n+1) * quot);
-                    			if ( n == (NUM_THREADS - 1)) td[n].end_index = reads;
-                    			td[n].file_desc = fh_out;
-                    			ret_code = pthread_create(&threads[n], &attr, write_sam_mt, (void *)(&td[n]));
-                		}
+                                for ( n = 0; n < NUM_THREADS_2; n++){
+                                        td1[n].thread_id = rank_num;
+                                        td1[n].file_desc = fh_out;
+                                        td1[n].seqs_thr = seqs;
+                                        td1[n].begin_index = n * quot;
+                                        td1[n].end_index = ((n+1) * quot);
+                                        if ( n == (NUM_THREADS_2 - 1)) td1[n].end_index = reads;
+                                        td1[n].size_thr = 0;
+                                        ret_code = pthread_create(&threads[n], NULL, copy_buffer_thr, (void *)(&td1[n]));
+                                }
 
-                		for (n = 0; n < NUM_THREADS; n++)
-                    			pthread_join(threads[n], (void *)(&td[n]));
+                                for (n = 0; n < NUM_THREADS_2; n++){
+                                        pthread_join(threads[n], (void *)(&td1[n]));
+                                        total_to_write_by_rank += 1;
+                               }
 
-                		pthread_attr_destroy(&attr);
-                		free(td);
+                                for (n = 0; n < reads; n++)
+                                        free(seqs[n].sam);
 
-                		aft = MPI_Wtime();
-                		total_time_writing += (aft - bef);
-                		free(buffer_r1);
-                		free(buffer_r2);
+                                aft = MPI_Wtime();
+                                total_time_writing += (aft - bef);
+                                free(buffer_r1);
+                                free(buffer_r2);
 			}
 			//BGZF
 			if ( write_format == 0) {
@@ -1273,20 +1496,49 @@ int main(int argc, char *argv[]) {
                     	}
             		fprintf(stderr, "%s: wrote results (%.02f)\n", __func__, aft - bef);
 
-			u1 += proc_num;
-
+			//we update u1
+			//get the index_chunk
+			if ( proc_num > 1){
+				bef = MPI_Wtime();
+			
+				MPI_Win_lock(MPI_LOCK_EXCLUSIVE, rank_target, 0, win);
+				MPI_Request req;
+				MPI_Rget(&index_chunk, 1, MPI_UINT64_T, rank_target, 0, 1, MPI_UINT64_T, win, &req);
+				MPI_Wait(&req, MPI_STATUS_IGNORE);
+				u1 = (uint64_t)index_chunk;
+				MPI_Fetch_and_op(&incr,&index_chunk, MPI_UINT64_T, rank_target, 0, MPI_SUM, win);
+				MPI_Win_flush(rank_target, win);
+				MPI_Win_unlock(rank_target, win);
+							
+				aft = MPI_Wtime();
+				fprintf(stderr, "rank %d ::: update u1 = %zu :: time %.02f \n",rank_num, u1, aft-bef);
+			}
+			else u1++;
 		} //end for (u1 = 0; u1 < chunk_count; u1++){
 
-		 MPI_Barrier(MPI_COMM_WORLD);
-		 if ( (write_format == 1) && (rank_num == 0)) {
-                        static uint8_t magic[28] =  "\x1f\x8b\x08\x04\x00\x00\x00\x00\x00\xff\x06\x00\x42\x43\x02\x00\x1b\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00";
-                        res = MPI_File_write_shared(fh_out, magic, 28, MPI_BYTE, &status);
-                        assert(res == MPI_SUCCESS);
-                        res = MPI_Get_count(&status, MPI_BYTE, &count);
-                        assert(res == MPI_SUCCESS);
-                        assert(count == 28);
-                }
+		//we write the last chunck
+		for (n = 0; n < NUM_THREADS_2; n++)
+        		if (total_to_write_by_rank > 0)  push_queue(queue, td1[n].buffer_out);
+		while (size_queue(queue) > 0){ sleep(10);}
+        	pthread_mutex_lock(&lock);
+        	alignment_finish = 1;
+        	pthread_mutex_unlock(&lock);
+    
+        	
+                for (n = 0; n < NUM_THREADS_2; n++)
+                       	pthread_join(threads_write[n], (void *)(&td2[n]));
+                free(td2);
 
+		MPI_Barrier(MPI_COMM_WORLD);
+		if ( (write_format == 1) && (rank_num == 0)) {
+                       static uint8_t magic[28] =  "\x1f\x8b\x08\x04\x00\x00\x00\x00\x00\xff\x06\x00\x42\x43\x02\x00\x1b\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00";
+                       res = MPI_File_write_shared(fh_out, magic, 28, MPI_BYTE, &status);
+                       assert(res == MPI_SUCCESS);
+                       res = MPI_Get_count(&status, MPI_BYTE, &count);
+                       assert(res == MPI_SUCCESS);
+                       assert(count == 28);
+                }
+		
 	} //end if (file_r2 != NULL && stat_r1.st_size == stat_r2.st_size)
 	
 	if (file_r1 != NULL && file_r2 != NULL && stat_r1.st_size != stat_r2.st_size) {
@@ -1301,64 +1553,42 @@ int main(int argc, char *argv[]) {
 		//global offset contains the starting offset in the fastq for each process
 		//TODO?: use only one vector for all the global offsets iot reduce communications
 		size_t *goff 	= NULL;
-		size_t *goff2 	= NULL;
-		goff 	= malloc((proc_num * NUM_THREADS + 1) * sizeof(size_t));
-		goff2 	= malloc((proc_num * NUM_THREADS + 1) * sizeof(size_t));
-
+		goff 	= calloc((proc_num * NUM_THREADS + 1) , sizeof(size_t));
 		size_t *goff_inter = calloc( (proc_num * NUM_THREADS + 1) , sizeof(size_t));
-		size_t *goff_inter_2 = calloc( (proc_num * NUM_THREADS + 1) , sizeof(size_t));
-
+		
 		//this function is used to fill the goff vectors
 		bef = MPI_Wtime();
 		find_process_starting_offset_mt(goff, stat_r1.st_size, file_r1, proc_num, rank_num, NUM_THREADS);
-		find_process_starting_offset_mt(goff2, stat_r2.st_size, file_r2, proc_num, rank_num, NUM_THREADS);
 		aft = MPI_Wtime();
-                fprintf(stderr, "%s: rank %d time spend in finding process start offset = (%.02f) \n", __func__, rank_num, aft - bef);
+		if (rank_num == 0)
+                	fprintf(stderr, "%s: rank %d time spend in finding process start offset = (%.02f) \n", __func__, rank_num, aft - bef);
 
-		//now we exchange the goff buffer between all proc
-		//rank 0 gather the vector
-		//size_t goff_inter   = goff[rank_num]; //avoid memcpy overlap
-		//size_t goff_inter_2 = goff2[rank_num];
-		
 		
 		int i12=0;
                 for ( i12 = 0; i12 < proc_num * NUM_THREADS + 1; i12++ ){  
 			goff_inter[i12] = goff[i12];
-			goff_inter_2[i12] = goff2[i12];
 		}
 
 		res = MPI_Allgather(&goff_inter[rank_num*NUM_THREADS], NUM_THREADS, MPI_LONG_LONG_INT, goff , NUM_THREADS, MPI_LONG_LONG_INT, MPI_COMM_WORLD);
 		assert(res == MPI_SUCCESS);
 	
-		res = MPI_Allgather(&goff_inter_2[rank_num*NUM_THREADS], NUM_THREADS, MPI_LONG_LONG_INT, goff2 , NUM_THREADS, MPI_LONG_LONG_INT, MPI_COMM_WORLD);
-		assert(res == MPI_SUCCESS);
-	
 		free(goff_inter);
-		free(goff_inter_2);
 		//we compute the new size according to the shift
 		//We calculate the size to read for each process
 		int ind = rank_num;
 				
 		MPI_Barrier(MPI_COMM_WORLD);
-	
 
 		///resources needed to find the offsets and size of each read.	
 		size_t grand_total_num_reads 	= 0; 
-		size_t grand_total_num_reads_2	= 0;
 		size_t local_num_reads 		= 0;
-		size_t local_num_reads_2	= 0;
 		size_t total_num_reads 		= 0;
-		size_t total_num_reads_2	= 0;
-
+		
 		//Here I decided to keep separated vectors because otherwise with all the reallocs they would be too big and take too much contiguous memory space
 		int *local_read_size    	= NULL;
-		int *local_read_size_2    	= NULL;
 		size_t *local_read_bytes    	= NULL;
-		size_t *local_read_bytes_2    	= NULL;
 		size_t *local_read_offsets 	= NULL;
-		size_t *local_read_offsets_2 	= NULL;
 
-		
 		///find offsets and sizes for the first file
 		
 		/*
@@ -1383,7 +1613,6 @@ int main(int argc, char *argv[]) {
 
                 pthread_t threads_1[NUM_THREADS];
 
-                struct struct_data_thread_1 *td_1;
 
                 size_t *local_num_reads_t            = calloc(NUM_THREADS, sizeof(size_t));
                 size_t *total_num_reads_t            = calloc(NUM_THREADS, sizeof(size_t));
@@ -1391,8 +1620,7 @@ int main(int argc, char *argv[]) {
                 size_t **local_read_bytes_t          = calloc(NUM_THREADS, sizeof(size_t*));
                 int **local_read_size_t              = calloc(NUM_THREADS, sizeof(int*));
 
-                td_1 = calloc(NUM_THREADS, sizeof(struct struct_data_thread_1));
-
+		struct struct_data_thread_1 *td_1 =  malloc(NUM_THREADS * sizeof(struct struct_data_thread_1));
                 int ret_code_1 = 0;
                 int goff_idx = 0;
                 for ( n = 0; n < NUM_THREADS; n++){
@@ -1411,14 +1639,14 @@ int main(int argc, char *argv[]) {
                         td_1[n].thread_num_mt             = n;
                         td_1[n].previous_read_num         = 0;
                         ret_code_1 = pthread_create(&threads_1[n], &attr, find_reads_size_and_offsets_mt, (void *)(&td_1[n]));
-		
+			
 		}
-
                 total_num_reads = 0;
                 for (n = 0; n < NUM_THREADS; n++){
                         pthread_join(threads_1[n], (void *)(&td_1[n]));
                         total_num_reads += *(td_1[n].total_num_reads_mt);
                 }
+
 
 		local_read_offsets  = calloc(total_num_reads, sizeof(size_t));
                 local_read_size     = calloc(total_num_reads, sizeof(int));
@@ -1458,6 +1686,9 @@ int main(int argc, char *argv[]) {
                 pthread_attr_destroy(&attr);
                 free(td_1);
 
+
+		MPI_Barrier(MPI_COMM_WORLD);
+
 		aft = MPI_Wtime();
 		fprintf(stderr, "%s: rank %d num reads parsed: %zu ::: time spend reading and parsing entire buffer 1 = (%.02f) \n", __func__, rank_num, total_num_reads, aft - bef);
 
@@ -1466,7 +1697,6 @@ int main(int argc, char *argv[]) {
 		//communications about the first file 
 		res = MPI_Reduce(&total_num_reads, &grand_total_num_reads, 1, MPI_LONG_LONG_INT, MPI_SUM, 0,MPI_COMM_WORLD);
 		assert ( res == MPI_SUCCESS);	
-
 		res = MPI_Bcast(&grand_total_num_reads, 1, MPI_LONG_LONG_INT, 0, MPI_COMM_WORLD);
 		assert ( res == MPI_SUCCESS);	
 
@@ -1491,6 +1721,27 @@ int main(int argc, char *argv[]) {
 									rank_num);
 		*/
 
+		size_t *goff2   = calloc((proc_num * NUM_THREADS + 1) , sizeof(size_t));
+                size_t *goff_inter_2 = calloc( (proc_num * NUM_THREADS + 1) , sizeof(size_t));
+                find_process_starting_offset_mt(goff2, stat_r2.st_size, file_r2, proc_num, rank_num, NUM_THREADS);
+
+	 
+                for ( i12 = 0; i12 < proc_num * NUM_THREADS + 1; i12++ ){
+                        goff_inter_2[i12] = goff2[i12];
+                }
+
+                res = MPI_Allgather(&goff_inter_2[rank_num*NUM_THREADS], NUM_THREADS, MPI_LONG_LONG_INT, goff2 , NUM_THREADS, MPI_LONG_LONG_INT, MPI_COMM_WORLD);
+                assert(res == MPI_SUCCESS);
+
+		free(goff_inter_2);
+
+		size_t grand_total_num_reads_2  = 0;
+ 		size_t local_num_reads_2        = 0;
+ 		size_t total_num_reads_2        = 0;
+ 		size_t *local_read_bytes_2      = NULL;
+ 		size_t *local_read_offsets_2    = NULL;
+ 		int *local_read_size_2          = NULL;
+
 		pthread_attr_t attr2;
                 pthread_attr_init(&attr2);
                 pthread_attr_setstacksize(&attr2, SMALL_STACK);
@@ -1498,15 +1749,13 @@ int main(int argc, char *argv[]) {
 
                 pthread_t threads_2[NUM_THREADS];
 
-                struct struct_data_thread_1 *td_2;
-
                 size_t *local_num_reads_t2            = calloc(NUM_THREADS, sizeof(size_t));
                 size_t *total_num_reads_t2            = calloc(NUM_THREADS, sizeof(size_t));
                 size_t **local_read_offsets_t2        = calloc(NUM_THREADS, sizeof(size_t*));
                 size_t **local_read_bytes_t2          = calloc(NUM_THREADS, sizeof(size_t*));
                 int **local_read_size_t2              = calloc(NUM_THREADS, sizeof(int*));
 
-                td_2 = calloc(NUM_THREADS, sizeof(struct struct_data_thread_1));
+		struct struct_data_thread_1 *td_2 =  malloc(NUM_THREADS * sizeof(struct struct_data_thread_1));
 
                 int ret_code_2 = 0;
                 int goff_idx2 = 0;
@@ -1532,7 +1781,7 @@ int main(int argc, char *argv[]) {
                 
                 total_num_reads_2 = 0;
                 for (n = 0; n < NUM_THREADS; n++){
-                        pthread_join(threads_1[n], (void *)(&td_2[n]));
+                        pthread_join(threads_2[n], (void *)(&td_2[n]));
                         total_num_reads_2 += *(td_2[n].total_num_reads_mt);
                 }
 
@@ -1608,8 +1857,8 @@ int main(int argc, char *argv[]) {
 		size_t bases_tmp 	= 0;
 		size_t chunck_num 	= 0;
 		size_t chunck_num_2	= 0;
-
-		fprintf(stderr,"Rank %d :: fixed chunk size = %zu\n", rank_num, fixed_chunk_size);
+		if (rank_num == 0)
+			fprintf(stderr,"Rank %d :: fixed chunk size = %zu\n", rank_num, fixed_chunk_size);
 
 		for(i=0; i < min_num_read; i++)   {
 			bases_tmp  += (local_read_size[i] + local_read_size_2[i]);
@@ -1877,9 +2126,10 @@ int main(int argc, char *argv[]) {
 
 		/// Map reference genome indexes in shared memory (by host)
 		bef = MPI_Wtime();
-		map_indexes(file_map, &count, &indix, &ignore_alt, &win_shr);
+		map_indexes(file_map, &count, &indix, &ignore_alt, &win_shr, shared_mem);
 		aft = MPI_Wtime();
-		fprintf(stderr, "%s ::: rank %d ::: mapped indexes (%.02f)\n", __func__, rank_num, aft - bef);
+		if (rank_num == 0)
+			fprintf(stderr, "%s ::: rank %d ::: mapped indexes (%.02f)\n", __func__, rank_num, aft - bef);
 
 		///Create SAM header
 		//TODO: Add line for BWA version
@@ -1911,14 +2161,54 @@ int main(int argc, char *argv[]) {
 			assert(res == MPI_SUCCESS);
 		}
 
-	//	fprintf(stderr, "%s ::: rank %d ::: test1\n", __func__, rank_num);
+	
+		/*
+                 * Initialization chunck index of the chunk index window
+ 		 */
 
-		buffer_r1 = buffer_r2 = NULL; seqs = NULL;
+		bef = MPI_Wtime();
+                if (proc_num > 1 ){
+			bef = MPI_Wtime();
+                        MPI_Win_lock(MPI_LOCK_EXCLUSIVE, rank_target, 0, win);
+                        MPI_Request req;
+                        MPI_Rget(&index_chunk, 1, MPI_UINT64_T, rank_target, 0, 1, MPI_UINT64_T, win, &req);
+                        MPI_Wait(&req, MPI_STATUS_IGNORE);
+                        u1 = (uint64_t)index_chunk;
+                        MPI_Fetch_and_op(&incr, &index_chunk, MPI_UINT64_T, rank_target, 0, MPI_SUM, win);
+                        MPI_Win_flush(rank_target, win);
+                        MPI_Win_unlock(rank_target, win);
+			aft = MPI_Wtime();
+	                fprintf(stderr, "rank %d ::: initial u1 = %zu :: time %.02f \n",rank_num, u1, aft-bef);
+                }
+                
+		/*
+ 		 *   Start thread for writing  
+		 */
+		int ret_code2;
+            	pthread_t threads_write[NUM_THREADS_2];
+            	struct struct_data_thread *td2 = malloc (NUM_THREADS_2 * sizeof(struct struct_data_thread));
+            	int rc;
+            	int policy;
+            	pthread_attr_t attr_tmp;
+            	struct sched_param param;
+            	pthread_attr_init (&attr_tmp);
+            	pthread_attr_setschedpolicy(&attr_tmp, SCHED_RR);
+            	
+	    	for ( n = 0; n < NUM_THREADS_2; n++){
+                	td2[n].file_desc = fh_out;
+                	td2[n].thread_id = rank_num;
+                	ret_code2 = pthread_create(&threads_write[n], &attr_tmp, write_sam_mt, (void *)(&td2[n]));
+                }
+		
+ 		buffer_r1 = buffer_r2 = NULL; seqs = NULL;
 		before_local_mapping = MPI_Wtime();
 
 		// here we loop until there's nothing to read
 		//we loop the chunck_count
-		size_t u1 = rank_num; 
+	
+		if (rank_num == 0) 
+			fprintf(stderr, "%s ::: rank %d ::: total_chunks = %d \n", __func__, rank_num, total_chunks);
+
 		while ( u1 < total_chunks ){
 
 			offset_chunk 		= all_begin_offset_chunk[u1];
@@ -1999,16 +2289,16 @@ int main(int argc, char *argv[]) {
 
             		assert(strlen(buffer_r2) == size_chunk_2);
             		assert(*buffer_r2 == '@');
-
-            		if (u1 < total_chunks){
-                		MPI_File_seek(fh_r1, (MPI_Offset)all_begin_offset_chunk[u1 + proc_num], MPI_SEEK_CUR ) ;
-                		MPI_File_seek(fh_r2, (MPI_Offset)all_begin_offset_chunk[u1 + proc_num], MPI_SEEK_CUR ) ;
-            		}
-
-			///some stats
+			
+				
+            		///some stats
 			aft = MPI_Wtime();
 			fprintf(stderr, "%s: num_rank = %d :: read sequences (%.02f)\n", __func__, rank_num, aft - bef);
 			total_time_reading_seq += (aft - bef);
+
+			 for (n = 0; n < NUM_THREADS_2; n++)
+                                if (total_to_write_by_rank > 0)  push_queue(queue, td1[n].buffer_out);
+
 
 			///operations on the number of reads
 			bef = MPI_Wtime();
@@ -2152,39 +2442,44 @@ int main(int argc, char *argv[]) {
 
 			/* Write results ... */
             		if (write_format == 2) {            
-				bef = MPI_Wtime();
-                		pthread_attr_t attr;
-               	 		pthread_attr_init(&attr);
-                		pthread_attr_setstacksize(&attr, BIG_STACK);
-                		pthread_attr_setdetachstate(&attr, 0);
 
-                		struct struct_data_thread *td;
-                		td = calloc (opt->n_threads, sizeof(struct struct_data_thread));
-                
-                		int rest = reads%NUM_THREADS;
-                		int quot = reads/NUM_THREADS;
-                		pthread_t threads[NUM_THREADS];
-                
-                		int ret_code = 0;
-                		for ( n = 0; n < NUM_THREADS; n++){
-                    			td[n].seqs_thr = seqs;
-                    			td[n].begin_index = n * quot;
-                    			td[n].end_index = ((n+1) * quot);
-                    			if ( n == (NUM_THREADS - 1)) td[n].end_index = reads;
-                    			td[n].file_desc = fh_out;
-                    			ret_code = pthread_create(&threads[n], &attr, write_sam_mt, (void *)(&td[n]));
+				bef = MPI_Wtime();
+                               	if (td1 == NULL)
+                    	   		td1 = malloc (NUM_THREADS_2 * sizeof(struct struct_data_thread));
+                    		else{
+                       			free(td1);
+                       			td1 = malloc (NUM_THREADS_2 * sizeof(struct struct_data_thread));
+                    		}
+
+                		int rest = reads%NUM_THREADS_2;
+                		int quot = reads/NUM_THREADS_2;
+                		pthread_t threads[NUM_THREADS_2];
+
+                    		int ret_code = 0;
+                    
+                    		for ( n = 0; n < NUM_THREADS_2; n++){
+                        		td1[n].thread_id = rank_num;
+                        		td1[n].file_desc = fh_out;
+                        		td1[n].seqs_thr = seqs;
+                        		td1[n].begin_index = n * quot;
+                    			td1[n].end_index = ((n+1) * quot);
+					if ( n == (NUM_THREADS_2 - 1)) td1[n].end_index = reads;
+                        		td1[n].size_thr = 0;
+                    			ret_code = pthread_create(&threads[n], NULL, copy_buffer_thr, (void *)(&td1[n]));
                 		}
 
-                		for (n = 0; n < NUM_THREADS; n++)
-                    			pthread_join(threads[n], (void *)(&td[n]));
+                		for (n = 0; n < NUM_THREADS_2; n++){
+                    			pthread_join(threads[n], (void *)(&td1[n]));
+                       			total_to_write_by_rank += 1;
+                               }
 
-                		pthread_attr_destroy(&attr);
-                		free(td);
-                		aft = MPI_Wtime();
+                   		for (n = 0; n < reads; n++) 
+                        		free(seqs[n].sam); 
+
+                    		aft = MPI_Wtime();
                 		total_time_writing += (aft - bef);
                 		free(buffer_r1);
                 		free(buffer_r2);
-
 			}
 
 			if (write_format == 0) {
@@ -2261,12 +2556,38 @@ int main(int argc, char *argv[]) {
                 		free(buffer_r1);
                 		free(buffer_r2);
             		}
+					
+			if ( proc_num > 1){
+            			fprintf(stderr, "%s: wrote results (%.02f)\n", __func__, aft - bef);
+				bef = MPI_Wtime();
+                        
+                        	MPI_Win_lock(MPI_LOCK_EXCLUSIVE, rank_target, 0, win);
+                        	MPI_Request req;
+                        	MPI_Rget(&index_chunk, 1, MPI_UINT64_T, rank_target, 0, 1, MPI_UINT64_T, win, &req);
+                        	MPI_Wait(&req, MPI_STATUS_IGNORE);
+                        	u1 = (uint64_t)index_chunk;
+                        	MPI_Fetch_and_op(&incr,&index_chunk, MPI_UINT64_T, rank_target, 0, MPI_SUM, win);
+                        	MPI_Win_flush(rank_target, win);
+                        	MPI_Win_unlock(rank_target, win);
+                    
+                        	aft = MPI_Wtime();
+				fprintf(stderr, "rank %d ::: update u1 = %zu :: time %.02f \n",rank_num, u1, aft-bef);
+			}
+			else u1++;
+		} //end for loop on chunks
 
-            		fprintf(stderr, "%s: wrote results (%.02f)\n", __func__, aft - bef);
-			u1 += proc_num;
+		for (n = 0; n < NUM_THREADS_2; n++)
+                        if (total_to_write_by_rank > 0)  push_queue(queue, td1[n].buffer_out);
+                while (size_queue(queue) > 0){ sleep(10);}
+                pthread_mutex_lock(&lock);
+                alignment_finish = 1;
+                pthread_mutex_unlock(&lock);
 
-			} //end for loop on chunks
-		
+                
+                for (n = 0; n < NUM_THREADS_2; n++)
+                        pthread_join(threads_write[n], (void *)(&td2[n]));
+                free(td2);
+	
 		MPI_Barrier(MPI_COMM_WORLD);
 		//write magic number
 		if ( (write_format == 1) && (rank_num == 0)) {
@@ -2277,7 +2598,8 @@ int main(int argc, char *argv[]) {
                 	assert(res == MPI_SUCCESS);
                 	assert(count == 28);
 		}
-         
+	
+		 
 	}// end else case files are trimmed
 
 	if (file_r1 != NULL && file_r2 == NULL){
@@ -2302,7 +2624,8 @@ int main(int argc, char *argv[]) {
 		bef = MPI_Wtime();
 		find_process_starting_offset_mt(goff, stat_r1.st_size, file_r1, proc_num, rank_num, NUM_THREADS);
 		aft = MPI_Wtime();
-                fprintf(stderr, "%s: rank %d time spend in finding process start offset = (%.02f) \n", __func__, rank_num, aft - bef);
+		if (rank_num == 0)
+                	fprintf(stderr, "%s: rank %d time spend in finding process start offset = (%.02f) \n", __func__, rank_num, aft - bef);
 
 		int i12=0;
                 for ( i12 = 0; i12 < proc_num * NUM_THREADS + 1; i12++ )  goff_inter[i12] = goff[i12];
@@ -2341,7 +2664,6 @@ int main(int argc, char *argv[]) {
 
                 pthread_t threads_1[NUM_THREADS];
 
-                struct struct_data_thread_1 *td_1;
 
                 size_t *local_num_reads_t            = calloc(NUM_THREADS, sizeof(size_t));
                 size_t *total_num_reads_t            = calloc(NUM_THREADS, sizeof(size_t));
@@ -2349,7 +2671,7 @@ int main(int argc, char *argv[]) {
                 size_t **local_read_bytes_t          = calloc(NUM_THREADS, sizeof(size_t*));
                 int **local_read_size_t              = calloc(NUM_THREADS, sizeof(int*));
 
-                td_1 = calloc(NUM_THREADS, sizeof( struct struct_data_thread_1));
+                struct struct_data_thread_1 *td_1 =  malloc(NUM_THREADS * sizeof(struct struct_data_thread_1));
 
                 int ret_code_1 = 0;
                 int goff_idx = 0;
@@ -2653,7 +2975,7 @@ int main(int argc, char *argv[]) {
 
 		/// Map reference genome indexes in shared memory (by host)
 		bef = MPI_Wtime();
-		map_indexes(file_map, &count, &indix, &ignore_alt, &win_shr);
+		map_indexes(file_map, &count, &indix, &ignore_alt, &win_shr, shared_mem);
 		aft = MPI_Wtime();
 		fprintf(stderr, "%s ::: rank %d ::: mapped indexes (%.02f)\n", __func__, rank_num, aft - bef);
 
@@ -2682,12 +3004,42 @@ int main(int argc, char *argv[]) {
 			assert(res == MPI_SUCCESS);
 		}
 		
-		buffer_r1 = NULL; seqs = NULL;
-		before_local_mapping = MPI_Wtime();
+		bef = MPI_Wtime();
+                if ( proc_num > 1){
+                	MPI_Win_lock(MPI_LOCK_EXCLUSIVE, rank_target, 0, win);
+                	MPI_Request req;
+                	MPI_Rget(&index_chunk, 1, MPI_UINT64_T, rank_target, 0, 1, MPI_UINT64_T, win, &req);
+                	MPI_Wait(&req, MPI_STATUS_IGNORE);
+                	u1 = (uint64_t)index_chunk;
+                	MPI_Fetch_and_op(&incr, &index_chunk, MPI_UINT64_T, rank_target, 0, MPI_SUM, win);
+                	MPI_Win_flush(rank_target, win);
+                	MPI_Win_unlock(rank_target, win);
+                
+                	aft = MPI_Wtime();
+                	fprintf(stderr, "rank %d ::: initial u1 = %zu :: time %.02f \n",rank_num, u1, aft-bef);
+		}
+
+		int ret_code2;
+                pthread_t threads_write[NUM_THREADS_2];
+                struct struct_data_thread *td2 = malloc (NUM_THREADS_2 * sizeof(struct struct_data_thread));
+                int rc;
+                int policy;
+                pthread_attr_t attr_tmp;
+                struct sched_param param;
+                pthread_attr_init (&attr_tmp);
+                pthread_attr_setschedpolicy(&attr_tmp, SCHED_RR);
+
+                for ( n = 0; n < NUM_THREADS_2; n++){
+                        td2[n].file_desc = fh_out;
+                        td2[n].thread_id = rank_num;
+                        ret_code2 = pthread_create(&threads_write[n], &attr_tmp, write_sam_mt, (void *)(&td2[n]));
+                }
+
+                buffer_r1 = buffer_r2 = NULL; seqs = NULL;
+                before_local_mapping = MPI_Wtime();
 
 		// here we loop until there's nothing to read
 		//we loop the chunck_count
-		size_t u1 = rank_num; 
 		while ( u1 < total_chunks){
 
 			offset_chunk 		= all_begin_offset_chunk[u1];
@@ -2731,6 +3083,9 @@ int main(int argc, char *argv[]) {
 
 			assert(strlen(buffer_r1) == size_chunk);
             		assert(*buffer_r1 == '@');
+
+			for (n = 0; n < NUM_THREADS_2; n++)
+                                if (total_to_write_by_rank > 0)  push_queue(queue, td1[n].buffer_out);
 
 			///some stats
 			aft = MPI_Wtime();
@@ -2804,38 +3159,42 @@ int main(int argc, char *argv[]) {
 			/* Write results ... */
 			if (write_format == 2) {
 				bef = MPI_Wtime();
-                		pthread_attr_t attr;
-                		pthread_attr_init(&attr);
-                		pthread_attr_setstacksize(&attr, BIG_STACK);
-                		pthread_attr_setdetachstate(&attr, 0);
-	
-                		struct struct_data_thread *td;
-                		td = calloc (opt->n_threads, sizeof(struct struct_data_thread));
+                                if (td1 == NULL)
+                                        td1 = malloc (NUM_THREADS_2 * sizeof(struct struct_data_thread));
+                                else{
+                                        free(td1);
+                                        td1 = malloc (NUM_THREADS_2 * sizeof(struct struct_data_thread));
+                                }
 
-                		int rest = reads%NUM_THREADS;
-                		int quot = reads/NUM_THREADS;
-                		pthread_t threads[NUM_THREADS];
+                                int rest = reads%NUM_THREADS_2;
+                                int quot = reads/NUM_THREADS_2;
+                                pthread_t threads[NUM_THREADS_2];
 
-                		int ret_code = 0;
-                		for ( n = 0; n < NUM_THREADS; n++){
-                    			td[n].seqs_thr = seqs;
-                    			td[n].begin_index = n * quot;
-                    			td[n].end_index = ((n+1) * quot);
-                    			if ( n == (NUM_THREADS - 1)) td[n].end_index = reads;
-                    			td[n].file_desc = fh_out;
-                    			ret_code = pthread_create(&threads[n], &attr, write_sam_mt, (void *)(&td[n]));
-                		}
+                                int ret_code = 0;
 
-                		for (n = 0; n < NUM_THREADS; n++)
-                    			pthread_join(threads[n], (void *)(&td[n]));
+                                for ( n = 0; n < NUM_THREADS_2; n++){
+                                        td1[n].thread_id = rank_num;
+                                        td1[n].file_desc = fh_out;
+                                        td1[n].seqs_thr = seqs;
+                                        td1[n].begin_index = n * quot;
+                                        td1[n].end_index = ((n+1) * quot);
+                                        if ( n == (NUM_THREADS_2 - 1)) td1[n].end_index = reads;
+                                        td1[n].size_thr = 0;
+                                        ret_code = pthread_create(&threads[n], NULL, copy_buffer_thr, (void *)(&td1[n]));
+                                }
 
-                		pthread_attr_destroy(&attr);
-                		free(td);
-                		free(seqs);
-                		free(buffer_r1);
-				aft = MPI_Wtime();
-				total_time_writing += (aft - bef);
+                                for (n = 0; n < NUM_THREADS_2; n++){
+                                        pthread_join(threads[n], (void *)(&td1[n]));
+                                        total_to_write_by_rank += 1;
+                               }
 
+                                for (n = 0; n < reads; n++)
+                                        free(seqs[n].sam);
+
+                                aft = MPI_Wtime();
+                                total_time_writing += (aft - bef);
+                                free(buffer_r1);
+                                free(buffer_r2);
 			}
 			if (write_format == 0) {
 				int ret_code = 0;
@@ -2908,8 +3267,35 @@ int main(int argc, char *argv[]) {
             		}
 			aft = MPI_Wtime();
             		fprintf(stderr, "%s: wrote results (%.02f)\n", __func__, aft - bef);
-			u1 += proc_num;
+			
+			if ( proc_num > 1){
+				bef = MPI_Wtime();
+                        	MPI_Win_lock(MPI_LOCK_EXCLUSIVE, rank_target, 0, win);
+                        	MPI_Request req;
+                        	MPI_Rget(&index_chunk, 1, MPI_UINT64_T, rank_target, 0, 1, MPI_UINT64_T, win, &req);
+                        	MPI_Wait(&req, MPI_STATUS_IGNORE);
+                        	u1 = (uint64_t)index_chunk;
+                        	MPI_Fetch_and_op(&incr,&index_chunk, MPI_UINT64_T, rank_target, 0, MPI_SUM, win);
+                        	MPI_Win_flush(rank_target, win);
+                        	MPI_Win_unlock(rank_target, win);
+
+                        	aft = MPI_Wtime();
+                        	fprintf(stderr, "rank %d ::: update u1 = %zu :: time %.02f \n",rank_num, u1, aft-bef);
+			}
+			else u1++;
+	
 		} //end for loop on chunks
+
+		for (n = 0; n < NUM_THREADS_2; n++)
+                        if (total_to_write_by_rank > 0)  push_queue(queue, td1[n].buffer_out);
+                while (size_queue(queue) > 0){ sleep(10);}
+                pthread_mutex_lock(&lock);
+                alignment_finish = 1;
+                pthread_mutex_unlock(&lock);
+                
+                for (n = 0; n < NUM_THREADS_2; n++)
+                        pthread_join(threads_write[n], (void *)(&td2[n]));
+                free(td2);
 
 		MPI_Barrier(MPI_COMM_WORLD);
 		//write magic number
@@ -2923,7 +3309,10 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-
+	//free the local window 
+ 	if ( proc_num > 1) { MPI_Win_free(&win);}
+	pthread_mutex_destroy(&lock);
+	free(queue);                 
 
 	/*
 	*
