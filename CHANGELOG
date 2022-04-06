@@ -1,3 +1,6 @@
+version-1.5.2
+    - fix arguments with getopt (issue #53)
+    
 version-1.5.1
     - fix bug in trimmed fastq condition  (thanks to Jianshu) (issue #45) (issue #51) 
     - fix load balancing (thanks to Vasim) (issue #47)
