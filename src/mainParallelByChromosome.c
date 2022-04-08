@@ -59,12 +59,15 @@ The fact that you are presently reading this means that you have had knowledge o
 #define MPI_OFFSET MPI_LONG_LONG
 #endif
 
+#ifndef OPEN_MPI
+#define OPEN_MPI 0
+#endif
+
 #ifdef TIMIMG
 #define xfprintf fprintf
 #else
 #define xfprintf(...) /**/
 #endif
-
 
 #define STRIPING_FACTOR "6"
 //#define STRIPING_UNIT "4194304"   // 4 MB
