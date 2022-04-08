@@ -266,29 +266,29 @@ int readParsing (char *sam_buff, readInfo *read, bwaidx_t *indix) {
 	
                 break;
 
-           case 10:
+        case 10:
 
                 getTokenTab(&q, &tokenCar);
-		read->qual=strndup(tokenCar, strlen(read->seq));	
+		        read->qual=strndup(tokenCar, strlen(read->seq));	
 		
-	        read->score=0;
-	      	uint8_t *u = read->qual;
-        	int i;
+	            read->score=0;
+	      	    uint8_t *u = read->qual;
+        	    int i;
 		
-    		for (i = 0; i < strlen(read->seq); i++) {
-        	    if (( u[i] -33 )>= MD_MIN_QUALITY) read->score += (u[i] - 33);
-    		}
-
-                q = strchr(q, '\t') + 1;	
+    		    for (i = 0; i < strlen(read->seq); i++) 
+        	        if (( u[i] -33 )>= MD_MIN_QUALITY) read->score += (u[i] - 33);
+    		
                 free(tokenCar);
                 break;
 
 	   case 11:
-		/*  after quality string we have the 
- 		 *  auxillary tags we copy it in the 
- 		 *  read->aux
- 		 */
-                if ( *q == '\t' ) q++;
+		        /*  after quality string we have the 
+ 		        *  auxillary tags we copy it in the 
+ 		        *  read->aux
+ 		        */
+                //we are at the end of quality string
+                q = strchr(q, '\t');
+                q++;
                 char *start = q;
                 char *end = strchr(q, '\n');
                 int res = 0;
