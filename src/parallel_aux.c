@@ -156,7 +156,7 @@ void find_process_starting_offset_mt(size_t *goff, size_t size, char* file_to_re
 {
 	///MPI related resources
 	int res; //used to assert success of MPI communications
-	MPI_File mpi_fd; // file descriptor used to open and read from the right file
+	MPI_File mpi_fd = NULL; // file descriptor used to open and read from the right file
 	MPI_Status status;
 	res = MPI_File_open(MPI_COMM_WORLD, file_to_read,  MPI_MODE_RDONLY , MPI_INFO_NULL, &mpi_fd); //open the wanted file
 	assert(res==MPI_SUCCESS);
@@ -164,6 +164,7 @@ void find_process_starting_offset_mt(size_t *goff, size_t size, char* file_to_re
 	///other resources
 	off_t tmp_sz = 1024; //size of the sample from the file, big enough to contain a full read
     	char *buffer_r0 = malloc( tmp_sz + 1); //buffer used to save the sample
+	assert(buffer_r0);
 	buffer_r0[tmp_sz] = '\0'; 
 	size_t lsize = size/(proc_num * nthreads); //proportion of the file 1 process should read
 	int i; //used as an iterator
@@ -245,7 +246,7 @@ void *find_reads_size_and_offsets_mt(void *thread_arg){
     int    rank_num                 = my_data->rank_num_mt;
     int    thread_num               = my_data->thread_num_mt;
 
-    MPI_File  mpi_fd;
+    MPI_File  mpi_fd = NULL;
     int fd;
     int res;
     //res = MPI_File_open(MPI_COMM_WORLD, file_to_read, MPI_MODE_RDONLY, MPI_INFO_NULL, &mpi_fd);
@@ -253,7 +254,6 @@ void *find_reads_size_and_offsets_mt(void *thread_arg){
     fd = open(file_to_read, O_RDONLY);
     //fprintf(stderr, "in find_reads_size_and_offsets_mt rank %d thread %d step 1 :::: offset_in_file = %zu ::: siz2read = %zu \n", rank_num, thread_num, offset_in_file, siz2read);
 
-    char *buffer_r;
     char *b, *r, *t, *e;
     size_t offset_end_buff;
     size_t pos_in_vect = 0;
@@ -268,14 +268,33 @@ void *find_reads_size_and_offsets_mt(void *thread_arg){
 
     *p_total_num_reads = 0;
     size_t read_buffer_sz = 0;
+    size_t new_read_buffer_sz = 0;
+
     if ( siz2read < DEFAULT_INBUF_SIZE ) read_buffer_sz = siz2read;
     else read_buffer_sz = DEFAULT_INBUF_SIZE;
 
+    char *buffer_r = calloc((read_buffer_sz + 1),sizeof(char));
+    assert( buffer_r != NULL );
+    buffer_r[read_buffer_sz] = '\0';
+
+    new_read_buffer_sz = read_buffer_sz;
+
      while (1){
 
-        buffer_r = malloc(read_buffer_sz + 1);
-        assert( buffer_r != NULL );
-        buffer_r[read_buffer_sz] = '0';
+        if (new_read_buffer_sz != read_buffer_sz){
+                read_buffer_sz = new_read_buffer_sz;
+                //buffer_r = (char *)realloc(buffer_r, sizeof(char) * read_buffer_sz + 1);
+                //assert( buffer_r != NULL );
+                //buffer_r[read_buffer_sz] = '\0';
+		free(buffer_r);
+		buffer_r = calloc((read_buffer_sz + 1),sizeof(char));
+		assert( buffer_r != NULL );
+    		buffer_r[read_buffer_sz] = '\0';
+        }
+	else{
+		memset( buffer_r, 0, read_buffer_sz + 1 );
+		buffer_r[read_buffer_sz] = '\0';
+	}
 
         pread(fd, buffer_r, read_buffer_sz, offset_in_file);
 
@@ -359,11 +378,11 @@ void *find_reads_size_and_offsets_mt(void *thread_arg){
         total_parsing   += offset_end_buff;
         if (total_parsing == siz2read) {free(buffer_r); break;}
         if ((siz2read - total_parsing) < DEFAULT_INBUF_SIZE)
-            read_buffer_sz = siz2read - total_parsing;
-        else read_buffer_sz = DEFAULT_INBUF_SIZE;
+            new_read_buffer_sz = siz2read - total_parsing;
+        else new_read_buffer_sz = DEFAULT_INBUF_SIZE;
 
         offset_in_file  += offset_end_buff + 1;
-        free(buffer_r);
+        
     }
 
     assert(total_parsing == siz2read);

@@ -725,8 +725,8 @@ int main(int argc, char *argv[]) {
         init_queue(queue);    
 
 	//we create a RMA window to hold index chunk
-	MPI_Win win;
-	uint64_t *index_chunk;
+	MPI_Win win = NULL;
+	uint64_t *index_chunk = NULL;
 	uint64_t incr = 1;
 	uint64_t u1 = 0;
 	int rank_target=0;
@@ -829,8 +829,8 @@ int main(int argc, char *argv[]) {
 
 		pthread_attr_t attr;
         	pthread_attr_init(&attr);
-        	pthread_attr_setstacksize(&attr, SMALL_STACK);
-        	pthread_attr_setdetachstate(&attr, 0);
+        	//pthread_attr_setstacksize(&attr, SMALL_STACK);
+        	//pthread_attr_setdetachstate(&attr, 0);
 
         	pthread_t threads_1[NUM_THREADS];
 
@@ -1160,7 +1160,7 @@ int main(int argc, char *argv[]) {
                 pthread_attr_t attr_tmp;
                 struct sched_param param;
                 pthread_attr_init (&attr_tmp);
-                pthread_attr_setschedpolicy(&attr_tmp, SCHED_RR);
+                //pthread_attr_setschedpolicy(&attr_tmp, SCHED_RR);
 
                 for ( n = 0; n < NUM_THREADS_2; n++){
                         td2[n].file_desc = fh_out;
