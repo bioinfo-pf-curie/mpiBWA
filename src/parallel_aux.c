@@ -45,7 +45,7 @@ The fact that you are presently reading this means that you have had knowledge o
 #include "bgzf.h"
 #include "bgzf.c"
 
-#define DEFAULT_INBUF_SIZE (1024*1024*1024)
+#define DEFAULT_INBUF_SIZE (1024*1024*256)
 #define NB_PROC  "16" //numer of threads for writing
 #define CB_NODES "2" //numer of server for writing
 #define CB_BLOCK_SIZE  "268435456" /* 256 MBytes - should match FS block size */

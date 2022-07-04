@@ -1,3 +1,8 @@
+version-1.5.3
+    - fix a memory leak with trimmed reads and single end (#57)
+    - improved performances with trimmed alignment 
+    
+
 version-1.5.2
     - fix arguments with getopt (issue #53)
     - fix compilation error (issue #54)
