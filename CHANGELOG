@@ -1,7 +1,9 @@
+version-1.5.4
+    - improve IO (#59)
+
 version-1.5.3
     - fix a memory leak with trimmed reads and single end (#57)
     - improved performances with trimmed alignment 
-    
 
 version-1.5.2
     - fix arguments with getopt (issue #53)
@@ -9,15 +11,8 @@ version-1.5.2
     - fix fixmates (issue#55)
 
 version-1.5.1
-    - fix bug in trimmed fastq condition  (thanks to Jianshu) (issue #45) (issue #51) 
+    - fix bug in trimmed fastq condition  (issue #45)
     - fix load balancing (thanks to Vasim) (issue #47)
-    - overlap writing and computing (only done for mpiBWA) (issue #48)
-    - NEW! shared memory reference is no more the defaut placement. By default reference is shared by individual mpi job (issue #43)
-    - NEW! add NUMA aware option -z for placement in memory of the reference genome 
-	   options available with openMPI are shared, socket, numa, l1, l2, l3, core 
-	   options available for other MPI are shared, core
-	   from experiences pinning mpi jobs by numa and sharing 
-	   the reference by numa has the better throughput (see documentation) (thanks to tahashmi) (issue #43) 
 	    
 version-1.5
     - Multithread IO reading/writing (issue #40)
