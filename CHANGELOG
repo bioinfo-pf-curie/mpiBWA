@@ -1,3 +1,7 @@
+version-1.5.5
+    - remove compilation warning
+    - fixes in mpiBWAByChr
+   
 version-1.5.4
     - improve IO (#59)
 
