@@ -424,6 +424,7 @@ int sam_write_discordant(readInfo *read, char **final_buffer, bwaidx_t *indix){
     	free(read->cigar);
     	free(read->seq);
 	free(read->qual);
+	free(read->mcigar);
 	size_t len1 = 0;
 	if (*final_buffer) len1=strlen(*final_buffer);
         size_t len2 = strlen(current_line);
@@ -475,6 +476,7 @@ int sam_write_unmapped_and_munmapped(readInfo *read, char **final_buffer, bwaidx
         free(read->cigar);
         free(read->seq);
 	free(read->qual);
+	
         size_t len1 = 0;
         if (*final_buffer) len1=strlen(*final_buffer);
         size_t len2 = strlen(current_line);
@@ -505,12 +507,13 @@ int sam_write_mate_unmapped(readInfo *read, char **final_buffer, bwaidx_t *indix
 
 	//read->mscore = bswap_32(read->mscore);
 	//SWAP_UINT32(read->mscore);
-	if ( read->flag&BAM_FUNMAP)
-        res = asprintf(&current_line, "%s\t%d\t%s\t%zu\t%d\t%s\t%s\t%zu\t%d\t%s\t%s\tMQ:i:%d\tMC:Z:%s\tms:i:%u\t%s", read->name,
+	if ( read->flag&BAM_FUNMAP){
+        	res = asprintf(&current_line, "%s\t%d\t%s\t%zu\t%d\t%s\t%s\t%zu\t%d\t%s\t%s\tMQ:i:%d\tMC:Z:%s\tms:i:%u\t%s", read->name,
                         read->flag, indix->bns->anns[read->tid].name, read->pos,
                             read->mapq, read->cigar, mchr, read->mpos, read->dist2mate,
                                 read->seq,  read->qual, read->mmapq, read->mcigar, read->mscore, read->aux);
-
+		free(read->mcigar);	
+	}
 	else 
 		res = asprintf(&current_line, "%s\t%d\t%s\t%zu\t%d\t%s\t%s\t%zu\t%d\t%s\t%s\tMC:Z:*\tms:i:%u\t%s", read->name,
                                 read->flag, indix->bns->anns[read->tid].name, read->pos,
@@ -524,7 +527,7 @@ int sam_write_mate_unmapped(readInfo *read, char **final_buffer, bwaidx_t *indix
         free(read->cigar);
         free(read->seq);
 	free(read->qual);
-        assert(current_line);
+	assert(current_line);
         size_t len1 = 0;
         if (*final_buffer) len1=strlen(*final_buffer);
         size_t len2 = strlen(current_line);
