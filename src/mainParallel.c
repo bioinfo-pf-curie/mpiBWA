@@ -1420,7 +1420,8 @@ int main(int argc, char *argv[]) {
 
                                 for (n = 0; n < reads; n++)
                                         free(seqs[n].sam);
-
+                                free(seqs);
+                            
                                 aft = MPI_Wtime();
                                 total_time_writing += (aft - bef);
                                 free(buffer_r1);
@@ -2425,8 +2426,9 @@ int main(int argc, char *argv[]) {
                    		for (n = 0; n < reads; n++) 
                         		free(seqs[n].sam); 
 				
-				free(seqs);	
-                    		aft = MPI_Wtime();
+				        free(seqs);	
+
+                        aft = MPI_Wtime();
                 		total_time_writing += (aft - bef);
                 		free(buffer_r1);
                 		free(buffer_r2);
