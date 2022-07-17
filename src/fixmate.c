@@ -568,11 +568,12 @@ int sam_write(readInfo *read, char **final_buffer, bwaidx_t *indix){
 						read->seq,  read->qual, read->mmapq, read->mscore, read->aux);
 
 
-    	assert( res > 0 );
-    	free(read->aux);
-    	free(read->cigar);
-    	free(read->seq);
-        free(read->qual);    
+    assert( res > 0 );
+    free(read->aux);
+    free(read->cigar);
+    free(read->seq);
+    free(read->qual);
+    free(read->mcigar);
 	assert(current_line);
 	size_t len1 = strlen(*final_buffer);
 	size_t len2 = strlen(current_line);
