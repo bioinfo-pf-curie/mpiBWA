@@ -2,7 +2,8 @@ version-1.5.5
     - remove compilation warning (#61,#64)
     - fixes in mpiBWAByChr(#61)
     - fix memory leaks (#64,#63,#62)
-   
+    - fix parsing fastq (#65)
+
 version-1.5.4
     - improve IO (#59)
 
