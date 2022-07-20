@@ -247,8 +247,8 @@ void *find_reads_size_and_offsets_mt(void *thread_arg){
     size_t **local_read_offsets     = my_data->local_read_offsets_mt;
     int    **local_read_size        = my_data->local_read_size_mt;
     size_t **local_read_bytes       = my_data->local_read_bytes_mt;
-    int    rank_num                 = my_data->rank_num_mt;
-    int    thread_num               = my_data->thread_num_mt;
+    //int    rank_num                 = my_data->rank_num_mt;
+    //int    thread_num               = my_data->thread_num_mt;
 
     MPI_File  mpi_fd = NULL;
     MPI_Status status;
