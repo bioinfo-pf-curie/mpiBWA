@@ -254,6 +254,7 @@ void *find_reads_size_and_offsets_mt(void *thread_arg){
     MPI_Status status;
     int res;
     res = MPI_File_open(MPI_COMM_WORLD, file_to_read, MPI_MODE_RDONLY, MPI_INFO_NULL, &mpi_fd);
+    assert(res==MPI_SUCCESS);
     char *b, *r, *t, *e, *i;
     size_t offset_end_buff;
     size_t pos_in_vect = 0;
