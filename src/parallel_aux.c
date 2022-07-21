@@ -168,7 +168,7 @@ void find_process_starting_offset_mt(size_t *goff, size_t size, char* file_to_re
 	buffer_r0[tmp_sz] = '\0'; 
 	size_t lsize = size/(proc_num * nthreads); //proportion of the file 1 process should read
 	int i; //used as an iterator
-    	char *p, *q, *e; //pointers on the buffer ot find the start of a read
+    	char *p, *e; //pointers on the buffer ot find the start of a read
 	
 	///define the arbitrary offsets
 	goff[0]=0;
@@ -356,7 +356,7 @@ void *find_reads_size_and_offsets_mt(void *thread_arg){
 /*
  *
  * LEFT FOR BACKUP 
- * BUT 
+ * BUT... 
 void *find_reads_size_and_offsets_mt(void *thread_arg){
 
 
