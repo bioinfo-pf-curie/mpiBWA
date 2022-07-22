@@ -12,9 +12,8 @@
 
 #define min(a,b) (a>=b?b:a)
 
-#define SWAP_UINT16(x) (((x) >> 8) | ((x) << 8))
-#define SWAP_UINT32(x) (((x) >> 24) | (((x) & 0x00FF0000) >> 8) | (((x) & 0x0000FF00) << 8) | ((x) << 24))
-
+//#define SWAP_UINT16(x) (((x) >> 8) | ((x) << 8))
+//#define SWAP_UINT32(x) (((x) >> 24) | (((x) & 0x00FF0000) >> 8) | (((x) & 0x0000FF00) << 8) | ((x) << 24))
 
 const unsigned char seq_nt16_table2[256] = {
     15,15,15,15, 15,15,15,15, 15,15,15,15, 15,15,15,15,
@@ -160,19 +159,11 @@ hts_pos_t bam_cigar2rlen(int n_cigar, const uint32_t *cigar)
 
 int readParsing (char *sam_buff, readInfo *read, bwaidx_t *indix) {
 
-    int rank, num_proc;
     char *q = sam_buff;
     char *tokenCar;
-    char *u;
-    uint8_t *v;
-    unsigned int readUnmapped;
-    unsigned int mateUnmapped;
-    unsigned int secondaryAlignment;
-    unsigned int supplementaryAlignment;
-    unsigned int firstInPair;
+    char *v;
     int i = 0;
     int j = 0;
-    uint32_t score;
       
     char *start;
     char *end;
@@ -433,6 +424,7 @@ int sam_write_discordant(readInfo *read, char **final_buffer, bwaidx_t *indix){
     	free(read->cigar);
     	free(read->seq);
 	free(read->qual);
+	free(read->mcigar);
 	size_t len1 = 0;
 	if (*final_buffer) len1=strlen(*final_buffer);
         size_t len2 = strlen(current_line);
@@ -472,7 +464,7 @@ int sam_write_unmapped_and_munmapped(readInfo *read, char **final_buffer, bwaidx
         //memcpy(&mscore_t, (uint8_t *)&read->mscore, sizeof(uint32_t));
 
 	//read->mscore = bswap_32(read->mscore);
-	SWAP_UINT32(read->mscore);
+	//SWAP_UINT32(read->mscore);
     	assert(chr);
 	assert(mchr);
         res = asprintf(&current_line, "%s\t%d\t%s\t%zu\t%d\t%s\t%s\t%zu\t%d\t%s\t%s\tms:i:%u\t%s", read->name,
@@ -484,6 +476,7 @@ int sam_write_unmapped_and_munmapped(readInfo *read, char **final_buffer, bwaidx
         free(read->cigar);
         free(read->seq);
 	free(read->qual);
+	
         size_t len1 = 0;
         if (*final_buffer) len1=strlen(*final_buffer);
         size_t len2 = strlen(current_line);
@@ -513,13 +506,14 @@ int sam_write_mate_unmapped(readInfo *read, char **final_buffer, bwaidx_t *indix
         //memcpy(&mscore_t, (uint8_t *)&read->mscore, sizeof(uint32_t));
 
 	//read->mscore = bswap_32(read->mscore);
-	SWAP_UINT32(read->mscore);
-	if ( read->flag&BAM_FUNMAP)
-        res = asprintf(&current_line, "%s\t%d\t%s\t%zu\t%d\t%s\t%s\t%zu\t%d\t%s\t%s\tMQ:i:%d\tMC:Z:%s\tms:i:%u\t%s", read->name,
+	//SWAP_UINT32(read->mscore);
+	if ( read->flag&BAM_FUNMAP){
+        	res = asprintf(&current_line, "%s\t%d\t%s\t%zu\t%d\t%s\t%s\t%zu\t%d\t%s\t%s\tMQ:i:%d\tMC:Z:%s\tms:i:%u\t%s", read->name,
                         read->flag, indix->bns->anns[read->tid].name, read->pos,
                             read->mapq, read->cigar, mchr, read->mpos, read->dist2mate,
                                 read->seq,  read->qual, read->mmapq, read->mcigar, read->mscore, read->aux);
-
+		free(read->mcigar);	
+	}
 	else 
 		res = asprintf(&current_line, "%s\t%d\t%s\t%zu\t%d\t%s\t%s\t%zu\t%d\t%s\t%s\tMC:Z:*\tms:i:%u\t%s", read->name,
                                 read->flag, indix->bns->anns[read->tid].name, read->pos,
@@ -533,7 +527,7 @@ int sam_write_mate_unmapped(readInfo *read, char **final_buffer, bwaidx_t *indix
         free(read->cigar);
         free(read->seq);
 	free(read->qual);
-        assert(current_line);
+	assert(current_line);
         size_t len1 = 0;
         if (*final_buffer) len1=strlen(*final_buffer);
         size_t len2 = strlen(current_line);
@@ -567,18 +561,19 @@ int sam_write(readInfo *read, char **final_buffer, bwaidx_t *indix){
 	//memcpy(&mscore_t, (uint8_t *)&read->mscore, sizeof(uint32_t));
 
 	//read->mscore = bswap_32(read->mscore);
-	SWAP_UINT32(read->mscore);
+	//SWAP_UINT32(read->mscore);
 	res = asprintf(&current_line, "%s\t%d\t%s\t%zu\t%d\t%s\t%s\t%zu\t%d\t%s\t%s\tMQ:i:%d\tms:i:%u\t%s", read->name, 
 				read->flag, indix->bns->anns[read->tid].name, read->pos, 
 					read->mapq, read->cigar, mchr, read->mpos, read->dist2mate, 
 						read->seq,  read->qual, read->mmapq, read->mscore, read->aux);
 
 
-    	assert( res > 0 );
-    	free(read->aux);
-    	free(read->cigar);
-    	free(read->seq);
-        free(read->qual);    
+    assert( res > 0 );
+    free(read->aux);
+    free(read->cigar);
+    free(read->seq);
+    free(read->qual);
+    free(read->mcigar);
 	assert(current_line);
 	size_t len1 = strlen(*final_buffer);
 	size_t len2 = strlen(current_line);
@@ -622,62 +617,62 @@ int fixmate( int rank, bseq1_t *seqs_1, bseq1_t *seqs_2, int *reads_1, int *read
         seqs_fxmt1[0]=0;
         seqs_fxmt2[0]=0;
 
-
-		int d = 0;
-		char *m = seqs_1->sam;
-		int read_num_1 = 0;
-		while (d < strlen(seqs_1->sam)) {
-			if (*m++ == '\n') read_num_1++;
-			d++;
-		}
+	int d = 0;
+	char *m = seqs_1->sam;
+	int read_num_1 = 0;
+	while (d < strlen(seqs_1->sam)) {
+		if (*m++ == '\n') read_num_1++;
+		d++;
+	}
 		
-		d = 0;
-		m = seqs_2->sam;
+	d = 0;
+	m = seqs_2->sam;
         int read_num_2 = 0;
-        while ( d < strlen(seqs_2->sam)  ) {
-			if (*m++ == '\n') read_num_2++;
-			d++;
-		}
-		*reads_1 = read_num_1;
-		*reads_2 = read_num_2;	
-		//we allocate a read_info
-		//read_num_1 = read_num_2 = 10;
-		readInfo **reads = calloc ( (read_num_1 + read_num_2), sizeof(readInfo *));
-		int i = 0;
-		//we parse the sam buffer original
-		//fprintf(stderr, " read_num1 : %d ## read_num2 : %d \n", read_num_1, read_num_2);
-		// fprintf(stderr, " start analysing  seqs1=%s \n seqs2=%s\n", seqs_1->sam, seqs_2->sam);
-		char *q =seqs_1->sam; 
-		while (*q) {
-			char *tok;
-        		// parse read
-       	    		getLine(&q, &tok);
-			//we fill first info
-			reads[i] = malloc (sizeof(readInfo));
-			reads[i]->name = seqs_1->name;
-			//reads[i]->qual = seqs_1->qual;
-			reads[i]->l_seq = seqs_1->l_seq;
-			//now we get the rest
-            		assert (readParsing(tok, reads[i], indix) == 0);
-            		free(tok);
-			i++;
-		}
+
+	while ( d < strlen(seqs_2->sam)  ) {
+		if (*m++ == '\n') read_num_2++;
+		d++;
+	}
+	*reads_1 = read_num_1;
+	*reads_2 = read_num_2;	
+	//we allocate a read_info
+	//read_num_1 = read_num_2 = 10;
+	readInfo **reads = calloc ( (read_num_1 + read_num_2), sizeof(readInfo *));
+	int i = 0;
+	//we parse the sam buffer original
+	//fprintf(stderr, " read_num1 : %d ## read_num2 : %d \n", read_num_1, read_num_2);
+	// fprintf(stderr, " start analysing  seqs1=%s \n seqs2=%s\n", seqs_1->sam, seqs_2->sam);
+	char *q =seqs_1->sam; 
+	while (*q) {
+		char *tok;
+       		// parse read
+    		getLine(&q, &tok);
+		//we fill first info
+		reads[i] = malloc (sizeof(readInfo));
+		reads[i]->name = seqs_1->name;
+		//reads[i]->qual = seqs_1->qual;
+		reads[i]->l_seq = seqs_1->l_seq;
+		//now we get the rest
+       		assert (readParsing(tok, reads[i], indix) == 0);
+       		free(tok);
+		i++;
+	}
 		
-		char *q2 = seqs_2->sam;
-        	while (*q2) {
-            		char *tok2;
-            		// parse read
-            		getLine(&q2, &tok2);
-			reads[i] = malloc (sizeof(readInfo));
-            		//we fill first info
-            		reads[i]->name = seqs_2->name;
-            		//reads[i]->qual = seqs_2->qual;
-			reads[i]->l_seq = seqs_2->l_seq;
-            		//reads[i]->seq = seqs_2->seq;
-            		assert (readParsing(tok2, reads[i], indix) == 0);
-            		free(tok2);
-            		i++;
-       		}
+	char *q2 = seqs_2->sam;
+       	while (*q2) {
+       		char *tok2;
+       		// parse read
+       		getLine(&q2, &tok2);
+		reads[i] = malloc (sizeof(readInfo));
+       		//we fill first info
+       		reads[i]->name = seqs_2->name;
+       		//reads[i]->qual = seqs_2->qual;
+		reads[i]->l_seq = seqs_2->l_seq;
+       		//reads[i]->seq = seqs_2->seq;
+       		assert (readParsing(tok2, reads[i], indix) == 0);
+       		free(tok2);
+       		i++;
+	}
               
 		/*
 		if ( i != ( read_num_1 + read_num_2)){ 
@@ -686,12 +681,10 @@ int fixmate( int rank, bseq1_t *seqs_1, bseq1_t *seqs_2, int *reads_1, int *read
 		}
 		assert(i == ( read_num_1 + read_num_2));
 		*/
-		int curr = 0; int has_prev = 0;
-		size_t pre_end, cur_end;
 		
 		//read from the first pair (not supplementary or secondary)
-		readInfo *read1;
-		readInfo *read2;
+		readInfo *read1 = NULL;
+		readInfo *read2 = NULL;
 		int have_pair1 = 0; //check we have a pair of BAM_FPAIRED reads	
 		int pair1_idx1 = 0;
 		int pair1_idx2 = 0;	
@@ -699,8 +692,6 @@ int fixmate( int rank, bseq1_t *seqs_1, bseq1_t *seqs_2, int *reads_1, int *read
 		int pair2_idx1 = 0;
 		int pair2_idx2 = 0;
 
-		int both_mapped=0;
-		int both_unmapped=0;
 		int supplemtary=0;
 		
 		//now we care for the unmapped and mate unmapped		

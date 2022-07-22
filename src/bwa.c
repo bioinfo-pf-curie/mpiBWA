@@ -313,14 +313,26 @@ int bwa_mem2idx(int64_t l_mem, uint8_t *mem, bwaidx_t *idx)
 	int i;
 
 	// generate idx->bwt
-	x = sizeof(bwt_t); idx->bwt = malloc(x); memcpy(idx->bwt, mem + k, x); k += x;
+	x = sizeof(bwt_t); 
+	//idx->bwt = malloc(x); 
+	//memcpy(idx->bwt, mem + k, x); 
+	idx->bwt = (bwt_t *)mem;
+	k += x;
 	x = idx->bwt->bwt_size * 4; idx->bwt->bwt = (uint32_t*)(mem + k); k += x;
 	x = idx->bwt->n_sa * sizeof(bwtint_t); idx->bwt->sa = (bwtint_t*)(mem + k); k += x;
 
 	// generate idx->bns and idx->pac
-	x = sizeof(bntseq_t); idx->bns = malloc(x); memcpy(idx->bns, mem + k, x); k += x;
+	x = sizeof(bntseq_t); 
+	//idx->bns = malloc(x); 
+	//memcpy(idx->bns, mem + k, x); 
+	idx->bns = (bntseq_t*)(mem + k);
+	k += x;
 	x = idx->bns->n_holes * sizeof(bntamb1_t); idx->bns->ambs = (bntamb1_t*)(mem + k); k += x;
-	x = idx->bns->n_seqs  * sizeof(bntann1_t); idx->bns->anns = malloc(x); memcpy(idx->bns->anns, mem + k, x); k += x;
+	x = idx->bns->n_seqs  * sizeof(bntann1_t); 
+	//idx->bns->anns = malloc(x); 
+	//memcpy(idx->bns->anns, mem + k, x); 
+	idx->bns->anns = (bntann1_t *)(mem + k);
+	k += x;
 	for (i = 0; i < idx->bns->n_seqs; ++i) {
 		idx->bns->anns[i].name = (char*)(mem + k); k += strlen(idx->bns->anns[i].name) + 1;
 		idx->bns->anns[i].anno = (char*)(mem + k); k += strlen(idx->bns->anns[i].anno) + 1;
