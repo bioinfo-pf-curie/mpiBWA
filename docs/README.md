@@ -363,18 +363,21 @@ One option is to use bzip2 for a better compression of fastq (on average 20% bet
 
 Here is an example tested on a 2 sockets AMD EPYC with 8 numa Nodes of 18 cores each
 
+
+```shell
 #MSUB -r MPI.MPIBWA.1NODE.128CPU               
-#MSUB -N 1
-#MSUB -n 8
-#MSUB --tasks-per-node=8
-#MSUB -c 16
-#MSUB -t 60000
-#MSUB -x         
+#MSUB -N 1  
+#MSUB -n 8 
+#MSUB --tasks-per-node=8 
+#MSUB -c 16 
+#MSUB -t 6000 
+#MSUB -x   
 #MSUB -o test.HG002.HiSeq30x.mpi.bwa.%I.o            
 #MSUB -e test.HG002.HiSeq30x.mpi.bwa.%I.e    
 
 mpirun --map-by 'numa:PE=16' --bind-to core numactl -N 0,1,2,3,4,5,6,7 -l mpiBWA mem -t 16 -f -z numa -Y -K 100000000 -o HG002.HiSeq30x hg19.fasta HG002.HiSeq30x.subsampled.R1.fastq HG002.HiSeq30x.subsampled.R2.fastq
 
+```
 
 ## References
 
