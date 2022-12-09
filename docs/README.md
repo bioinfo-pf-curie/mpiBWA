@@ -357,7 +357,7 @@ The algorithm consists of 3 parts:
 ### Why mpiBWA don't take fasq.gz as input?
 
 Due to DEFLATE gunzip cannot be parallelized and therefore is a bottleneck.   
-One option is to use bzip2 for a better compression of fastq (on average 20% better) and pbzip, mpibzip2, unpigz for staging in the fastqs.
+One option is to use bzip2 for a better compression of fastq (on average 20% better) and pbzip2, mpibzip2, unpigz for staging in the fastqs in parallel.
 
 ### Give an example of how pinning/mapping jobs on multi NUMA nodes architecture?
 
