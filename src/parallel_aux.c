@@ -45,7 +45,7 @@ The fact that you are presently reading this means that you have had knowledge o
 #include "bgzf.h"
 #include "bgzf.c"
 
-#define DEFAULT_INBUF_SIZE (1024*1024*512)
+#define DEFAULT_INBUF_SIZE (1024*1024*1024)
 #define NB_PROC  "16" //numer of threads for writing
 #define CB_NODES "2" //numer of server for writing
 #define CB_BLOCK_SIZE  "268435456" /* 256 MBytes - should match FS block size */
@@ -55,7 +55,7 @@ The fact that you are presently reading this means that you have had knowledge o
 #define MAX_CHAR_SIZE 2048
 #define MAX_CHR_NAME_SIZE 200
 #define SMALL_STACK (1024*1024)
-
+#define BIG_STACK (1024*1024*512)
 
 #ifdef TIMING
 #define xfprintf fprintf
@@ -142,6 +142,113 @@ void init_goff(size_t *goff, MPI_File mpi_filed, size_t fsize,int numproc,int ra
 	return;
 }
 
+void *find_reads_number_mt(void *thread_arg){
+
+    	#define _read_token_ret(_p) (_p); do { char *tab = strchr((_p), '\n'); if (!tab) goto err_ret;  (_p) = tab + 1; } while (0)
+    	struct struct_data_thread_1 *my_data;
+    	my_data = (struct struct_data_thread_1 *) thread_arg;
+
+    	size_t offset_in_file           = my_data->offset_in_file_mt;
+    	size_t siz2read                 = my_data->size2read_mt;
+    	char   *file_to_read            = my_data->file_r1_mt;
+    	size_t *p_local_num_reads       = my_data->local_num_reads_mt;
+    	size_t *p_total_num_reads       = my_data->total_num_reads_mt;
+    	int    proc_num                 = my_data->proc_num_mt;
+    	int    rank_num                 = my_data->rank_num_mt;
+    	int    thread_num               = my_data->thread_num_mt;
+
+    	MPI_File  mpi_fd;
+    	MPI_Status status;
+    	int count;
+    	//int fd;
+    	int res;
+    	res = MPI_File_open(MPI_COMM_SELF, file_to_read, MPI_MODE_RDONLY, MPI_INFO_NULL, &mpi_fd);
+    	assert(res==MPI_SUCCESS);
+	char *b, *r, *t, *e, *p, *q;
+    	size_t total_computed = 0;
+    	size_t offset_end_buff;
+    	size_t pos_in_vect = 0;
+    	size_t lines = 0;
+    	size_t total_parsing = 0;
+    	size_t g=0;
+
+    	
+    	//preallocation
+    	char *buffer_r = malloc(DEFAULT_INBUF_SIZE + 1);
+    	assert( buffer_r != NULL );
+    	buffer_r[DEFAULT_INBUF_SIZE] = '0';
+
+
+    	*p_total_num_reads = 0;
+    	size_t read_buffer_sz = 0;
+    	if ( siz2read < DEFAULT_INBUF_SIZE ) read_buffer_sz = siz2read;
+    	else read_buffer_sz = DEFAULT_INBUF_SIZE;
+ 	double bef,aft;	
+	
+	while (1){
+
+		//bef = MPI_Wtime();
+        	res = MPI_File_read_at(mpi_fd, (MPI_Offset)offset_in_file, buffer_r, read_buffer_sz, MPI_CHAR, &status);
+        	assert(res == MPI_SUCCESS);
+        	res = MPI_Get_count(&status, MPI_CHAR, &count);
+        	assert(res == MPI_SUCCESS);
+        	assert(*buffer_r == '@');
+		//aft = MPI_Wtime();
+        	//fprintf(stderr, "%s: rank %d thread %d time to read a chunck %f\n", __func__, rank_num, thread_num, aft - bef);
+
+		//bef = MPI_Wtime();
+		b = buffer_r;
+        	r = b + read_buffer_sz;
+
+        	if ( read_buffer_sz == DEFAULT_INBUF_SIZE){
+            		while (r-- != b){if (*r == '\n' && *(r+1) == '+') {r--; break;}}
+            		while (r-- != b){if (*r == '\n') break;}
+            		while (r-- != b){if (*r == '@') break;}
+            		r--;
+            		offset_end_buff = (r - b);
+        	}
+        	else
+            		offset_end_buff = (r - b);
+
+        	t = buffer_r ;
+        	e = buffer_r + offset_end_buff;
+        	lines = 0;
+        	p = buffer_r;
+        	q = buffer_r;
+        	total_computed = 0;
+
+        	while (p <  e) { q = _read_token_ret(p);  lines++; q = p; }
+
+        	*p_local_num_reads =  (lines/4);
+        	*p_total_num_reads += *p_local_num_reads;
+
+
+        	total_parsing   += offset_end_buff;
+        	if (total_parsing == siz2read) { break;}
+        	if ((siz2read - total_parsing) < DEFAULT_INBUF_SIZE)
+            		read_buffer_sz = siz2read - total_parsing;
+        	else read_buffer_sz = DEFAULT_INBUF_SIZE;
+
+        	offset_in_file  += offset_end_buff + 1;
+		//aft = MPI_Wtime();
+                //fprintf(stderr, "%s: rank %d thread %d time to analyze a chunck %f\n", __func__, rank_num, thread_num, aft - bef);
+    	}
+
+    	free(buffer_r);
+    	assert(total_parsing == siz2read);
+    	MPI_File_close(&mpi_fd);
+
+	return (void *)0;
+
+	err_ret:
+      		return (void *)-2;
+
+}
+
+
+
+
+
 ///Function used to find the starting reading offset in a given file according to the number of processes used.
 //Parameters (ordered):	pointer on the vector that will save these offsets
 //			the size of the given file
@@ -162,13 +269,13 @@ void find_process_starting_offset_mt(size_t *goff, size_t size, char* file_to_re
 	assert(res==MPI_SUCCESS);
 	
 	///other resources
-	off_t tmp_sz = 2048; //size of the sample from the file, big enough to contain a full read
+	off_t tmp_sz = 1024; //size of the sample from the file, big enough to contain a full read
     	char *buffer_r0 = malloc( tmp_sz + 1); //buffer used to save the sample
 	assert(buffer_r0);
 	buffer_r0[tmp_sz] = '\0'; 
 	size_t lsize = size/(proc_num * nthreads); //proportion of the file 1 process should read
 	int i; //used as an iterator
-    	char *p, *e; //pointers on the buffer ot find the start of a read
+    	char *p, *e, *q; //pointers on the buffer ot find the start of a read
 	
 	///define the arbitrary offsets
 	goff[0]=0;
@@ -180,50 +287,39 @@ void find_process_starting_offset_mt(size_t *goff, size_t size, char* file_to_re
 
     	while ( k < nthreads){
 
-  
-    		res = MPI_File_read_at(mpi_fd,  (MPI_Offset)goff[first_index + k], buffer_r0, tmp_sz, MPI_CHAR, &status); //read the wanted part of the file nd save it into the buffer
+      		res = MPI_File_read_at(mpi_fd,  (MPI_Offset)goff[first_index + k], buffer_r0, tmp_sz, MPI_CHAR, &status);
     		assert(res == MPI_SUCCESS);
 		p = buffer_r0;
     		e = buffer_r0 + tmp_sz;
 
-		//browse the buffer to find the beginning of the next read
-        	
-			/*
-                	while (p < e) {
-                        	if (*p != '+') { p++; continue; }
-                        	if (p != buffer_r0 && *(p-1) != '\n') { p++; continue; }
-				while (p < e && *p != '\n') p++;
-                        	p++;
-                        	while (p < e && *p != '\n') p++;
-                        	p++;
-                        	if (p < e && *p == '@') break;
-                        	p++;
-                	}
-			*/
-            /*
-			while (p < e) {
-                		if (*p != '@') { p++; continue; }
-                		if (p != buffer_r0 && *(p-1) != '\n') { p++; continue; }
-                		q = p + 1;
-                		while (q < e && *q != '\n') q++; 
-				        q++;
-                		while (q < e && *q != '\n') q++; 
-				        q++;
-                		if (q < e && *q == '+') break;
-                		p++;
-        		}
-            */
-        	while (p++ != e){if (*p == '\n' && *(p+1) == '+' && *(p+2) == '\n') {p++; break;}}
-            p++;
-            while (p++ != e){if (*p == '\n') break;}
-            p++;
-
-		    assert(*p == '@');
+		/*
+		while (p++ != e){if (*p == '\n' && *(p+1) == '+' && *(p+2) == '\n') {p++; break;}}
+            	p++;
+            	while (p++ != e){if (*p == '\n') break;}
+            	p++;
+   		assert(*p == '@');
 
         	//we update begining offsets with the found value
         	goff[first_index + k] += p - buffer_r0;        
 		    memset( buffer_r0, 0, tmp_sz * sizeof(char));
         	k++;
+		*/
+		while (p < e) {
+                        if (*p != '@') { p++; continue; }
+                        if (p != buffer_r0 && *(p-1) != '\n') { p++; continue; }
+                        q = p + 1;
+                        while (q < e && *q != '\n') q++; q++;
+                        while (q < e && *q != '\n') q++; q++;
+                if (q < e && *q == '+') break;
+                p++;
+
+                }
+
+                assert(*p == '@');
+                //we update begining offsets with the found value
+                goff[first_index + k] += p - buffer_r0;
+                memset( buffer_r0, 0, tmp_sz * sizeof(char));
+                k++;
 	}
 	//fprintf(stderr, "finish finding offset rank =%d \n", rank_num);
     ///free the resources no longer needed
@@ -235,129 +331,153 @@ void find_process_starting_offset_mt(size_t *goff, size_t size, char* file_to_re
 }
 void *find_reads_size_and_offsets_mt(void *thread_arg){
 
+	#define _read_token_ret(_p) (_p); do { char *tab = strchr((_p), '\n'); if (!tab) goto err_ret; (_p) = tab + 1; } while (0)
 
-    struct struct_data_thread_1 *my_data;
-    my_data = (struct struct_data_thread_1 *) thread_arg;
+    	struct struct_data_thread_2 *my_data;
+    	my_data = (struct struct_data_thread_2 *) thread_arg;
 
-    size_t offset_in_file           = my_data->offset_in_file_mt;
-    size_t siz2read                 = my_data->size2read_mt;
-    char   *file_to_read            = my_data->file_r1_mt;
-    size_t *p_local_num_reads       = my_data->local_num_reads_mt;
-    size_t *p_total_num_reads       = my_data->total_num_reads_mt;
-    size_t **local_read_offsets     = my_data->local_read_offsets_mt;
-    int    **local_read_size        = my_data->local_read_size_mt;
-    size_t **local_read_bytes       = my_data->local_read_bytes_mt;
-    //int    rank_num                 = my_data->rank_num_mt;
-    //int    thread_num               = my_data->thread_num_mt;
+    	size_t offset_in_file           = my_data->offset_in_file_mt;
+    	size_t siz2read                 = my_data->size2read_mt;
+    	char   *file_to_read            = my_data->file_r1_mt;
+    	size_t *local_read_offsets      = my_data->local_read_offsets;
+    	int    *local_read_size         = my_data->local_read_size;
+    	size_t *local_read_bytes        = my_data->local_read_bytes;
+    	int    proc_num                 = my_data->proc_num_mt;
+    	int    rank_num                 = my_data->rank_num_mt;
+    	int    thread_num               = my_data->thread_num_mt;
 
-    MPI_File  mpi_fd = NULL;
-    MPI_Status status;
-    int res;
-    res = MPI_File_open(MPI_COMM_WORLD, file_to_read, MPI_MODE_RDONLY, MPI_INFO_NULL, &mpi_fd);
-    assert(res==MPI_SUCCESS);
-    char *b, *r, *t, *e, *i;
-    size_t offset_end_buff;
-    size_t pos_in_vect = 0;
-    size_t lines = 0;
-    size_t lines3 = 0;
-    int size = 0;
-    size_t total_parsing = 0;
-    size_t g=0;
-    size_t start_read_offset = 0;
-    *p_total_num_reads = 0;
-    size_t read_buffer_sz = 0;
-    if ( siz2read < DEFAULT_INBUF_SIZE ) read_buffer_sz = siz2read;
-    else read_buffer_sz = DEFAULT_INBUF_SIZE;
-    char *buffer_r = NULL;
-    int last_round = 0;
-    while (1){
-        buffer_r = malloc((read_buffer_sz + 1)*sizeof(char));
-        assert(buffer_r );
-        buffer_r[read_buffer_sz] = '\0';
-        res = MPI_File_read_at(mpi_fd,  (MPI_Offset)offset_in_file, buffer_r, read_buffer_sz, MPI_CHAR, &status);
-        assert(res == MPI_SUCCESS);
-        assert(*buffer_r == '@');
-        read_buffer_sz = strlen(buffer_r);
-        b = buffer_r;
-        r = buffer_r + read_buffer_sz;
-        if ( read_buffer_sz == DEFAULT_INBUF_SIZE){
-            while (r-- != b){if ((*r == '+') && (*(r+1) == '\n') && (*(r-1) == '\n')) {r--; break;}}
-            while (r-- != b){if (*r == '@') break;}
-            r--;
-            offset_end_buff = (r - b);
-        }
-        else{
-            last_round = 1;
-            offset_end_buff = (r - b);
-            assert( offset_end_buff == read_buffer_sz);
-        }
-        t = buffer_r ;
-        e = buffer_r +  offset_end_buff;
-        lines = 0;
-        do{
-            if (*t == '\n') lines++;
-        } while (t++ < e);
-        *p_local_num_reads =  (lines/4);
-        *p_total_num_reads += *p_local_num_reads;
-        *local_read_size    = (int *)realloc(*local_read_size, sizeof(int) * (*p_total_num_reads));
-        *local_read_offsets = (size_t *)realloc(*local_read_offsets, sizeof(size_t) * (*p_total_num_reads));
-        *local_read_bytes   = (size_t *)realloc(*local_read_bytes, sizeof(size_t) * (*p_total_num_reads));
-        assert( *local_read_offsets != NULL);
-        assert( *local_read_size    != NULL);
-        assert( *local_read_bytes   != NULL);
-                                                                                                                                                                                                                                          i= buffer_r;
-        lines3 = 0;
-        size = 0;
-        start_read_offset = 0;
-        g = offset_in_file;
-        do{
-            if (lines3 == lines) break;
-            assert( *i == '@');
-            start_read_offset = g;
-            while (*i != '\n'){ i++; g++;}
-            i++;g++; lines3++;
-            while (*i != '\n' ){ size++; i++; g++;}
-            i++;g++; lines3++;
-            while (*i != '\n' ){ i++; g++;}
-            i++;g++; lines3++;
-            while (*i != '\n' ){ i++; g++;}
-            lines3++;
-            (*local_read_offsets)[pos_in_vect]  = start_read_offset;
-            (*local_read_bytes)[pos_in_vect]    = (g - start_read_offset) + 1;
-            assert((*local_read_bytes)[pos_in_vect] != 0);
-            (*local_read_size)[pos_in_vect]     = size;
-            assert((*local_read_size)[pos_in_vect] != 0);
+    	MPI_File  mpi_fd;
+    	MPI_Status status;
+    	int count;
+    	//int fd;
+    	int res;
+    	res = MPI_File_open(MPI_COMM_SELF, file_to_read, MPI_MODE_RDONLY, MPI_INFO_NULL, &mpi_fd);
+    	assert(res==MPI_SUCCESS);
+    	//fd = open(file_to_read, O_RDONLY);
 
-            size = 0;
-            pos_in_vect++;
-            i++;g++;
-        }while (i < e);
 
-        assert( lines == lines3 );
-        if (!last_round)
-            total_parsing   += offset_end_buff + 1;
-        else
-            total_parsing   += offset_end_buff;
+    	//char *buffer_r;
+    	char *b, *r, *t, *e, *p, *q, *start_read_p, *end_read_p;
+    	size_t total_computed = 0;
+    	size_t offset_end_buff;
+    	size_t start_read_offset = 0;
+    	size_t end_read_offset = 0;
+    	size_t pos_in_vect =  my_data->previous_read_num;
+    	size_t lines = 0;
+    	size_t total_parsing = 0;
+    	size_t g=0;
+    	size_t start_read=0;
 
-        if (total_parsing == siz2read) {free(buffer_r); break;}
-        free(buffer_r);
-        if ((siz2read - total_parsing) < DEFAULT_INBUF_SIZE)
-            read_buffer_sz = siz2read - total_parsing;
-        else
-            read_buffer_sz = DEFAULT_INBUF_SIZE;
+    	MPI_Datatype arraytype;
+    	MPI_Datatype arraytype0;
+    	MPI_Datatype arraytype_r1;
+    	MPI_Datatype arraytype_r2;
 
-        offset_in_file  += offset_end_buff + 1;
-    }
-    assert(total_parsing == siz2read);
-    MPI_File_close(&mpi_fd);
-    return 0;
+    	double bef,aft;
+    	//preallocation
+    	char *buffer_r = malloc(DEFAULT_INBUF_SIZE + 1);
+    	assert( buffer_r != NULL );
+    	buffer_r[DEFAULT_INBUF_SIZE] = '0';
+    	size_t read_buffer_sz = 0;
+    	if ( siz2read < DEFAULT_INBUF_SIZE ) read_buffer_sz = siz2read;
+    	else read_buffer_sz = DEFAULT_INBUF_SIZE;
+
+	assert(local_read_offsets);
+    	assert(local_read_size);
+    	assert(local_read_bytes);
+
+    	while (1){
+
+
+        	//bef = MPI_Wtime();
+
+        	res = MPI_File_read_at(mpi_fd, (MPI_Offset)offset_in_file, buffer_r, read_buffer_sz, MPI_CHAR, &status);
+        	assert(res == MPI_SUCCESS);
+        	res = MPI_Get_count(&status, MPI_CHAR, &count);
+        	assert(res == MPI_SUCCESS);
+        	assert(*buffer_r == '@');
+
+       		/*       
+        	aft = MPI_Wtime();
+        	if (rank_num == 0 && thread_num == 0)
+                	fprintf(stderr, "%s: rank %d thread %d time to read a chunck  = %f\n", __func__, rank_num, thread_num, aft - bef);
+        	*/
+
+        	b = buffer_r;
+        	r = b + read_buffer_sz;
+
+        	if ( read_buffer_sz == DEFAULT_INBUF_SIZE){
+            		while (r-- != b){if (*r == '\n' && *(r+1) == '+') {r--; break;}}
+            		while (r-- != b){if (*r == '\n') break;}
+            		while (r-- != b){if (*r == '@') break;}
+            		r--;
+            		offset_end_buff = (r - b);
+        	}
+        	else
+            		offset_end_buff = (r - b);
+
+        	p =  buffer_r;
+        	q =  buffer_r;
+        	t = buffer_r;
+        	e = buffer_r + offset_end_buff;
+        	int size=0;
+        	start_read_offset = 0;
+        	g = offset_in_file;
+
+		while (p < e){
+
+            		//qname
+            		start_read_p = p;
+
+            		q = _read_token_ret(p);
+            		q = p;
+            		//read
+            		q = _read_token_ret(p);
+            		size = p - q - 1;
+            		q = p;
+            		//+
+            		q = _read_token_ret(p);
+            		q = p;
+            		//qual
+            		q = _read_token_ret(p);
+            		q = p;
+            		end_read_p = p;
+
+            		(local_read_offsets)[pos_in_vect]  = g;
+            		(local_read_bytes)[pos_in_vect]    = (end_read_p - start_read_p);
+            		assert((local_read_bytes)[pos_in_vect] != 0);
+            		(local_read_size)[pos_in_vect]     = size;
+            		assert((local_read_size)[pos_in_vect] != 0);
+
+            		size = 0;
+            		pos_in_vect++;
+            		g += (end_read_p - start_read_p);
+            		//t++;g++;
+
+        	}
+
+        	total_parsing   += offset_end_buff;
+		if (total_parsing == siz2read) { break;}
+        	if ((siz2read - total_parsing) < DEFAULT_INBUF_SIZE)
+            		read_buffer_sz = siz2read - total_parsing;
+        	else read_buffer_sz = DEFAULT_INBUF_SIZE;
+
+        	offset_in_file  += offset_end_buff + 1;
+    	}
+
+	free(buffer_r);
+    	assert(total_parsing == siz2read);
+    	MPI_File_close(&mpi_fd);
+    	
+	return (void *)0;
+
+	err_ret:
+		return (void *)-2;
 }
-
-
 /*
  *
  * LEFT FOR BACKUP 
- * BUT... 
+ * BUT 
 void *find_reads_size_and_offsets_mt(void *thread_arg){
 
 
@@ -514,7 +634,7 @@ void *find_reads_size_and_offsets_mt(void *thread_arg){
     close(fd);
     return 0;
 }
-*/
+
 
 void *copy_local_read_info_mt(void *thread_arg){
 	struct struct_data_thread_1 *my_data;
@@ -537,7 +657,7 @@ void *copy_local_read_info_mt(void *thread_arg){
 	//fprintf(stderr, "finish copy_local_read_info_mt rank %d thread %d step 1 \n", rank_num, thread_num);
 	return 0;	
 }
-
+*/
 
 
 
