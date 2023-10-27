@@ -95,6 +95,7 @@ void *compress_thread_by_chr(void *threadarg);
 void *compress_thread_by_chr_single(void *threadarg);
 void *call_fixmate(void *threadarg);
 void *copy_local_read_info_mt(void *thread_arg);
+void *find_reads_number_mt(void *thread_arg);
 void *find_reads_size_and_offsets_mt(void *thread_arg);
 void *copy_buffer_write_thr(void *thread_arg);
 void compute_buffer_size_thr(void *thread_arg);
@@ -187,16 +188,26 @@ struct struct_data_thread{
     
 };
 
-//struct used to find read size, offset, and bytes in multithread
 struct struct_data_thread_1{
             size_t offset_in_file_mt;
             size_t size2read_mt;
             char   *file_r1_mt;
             size_t *local_num_reads_mt;
             size_t *total_num_reads_mt;
-            size_t **local_read_offsets_mt;
-            int    **local_read_size_mt;
-            size_t **local_read_bytes_mt;
+            int proc_num_mt;
+            int rank_num_mt;
+            int thread_num_mt;
+};
+
+//struct used to find read size, offset, and bytes in multithread
+struct struct_data_thread_2{
+            size_t offset_in_file_mt;
+            size_t size2read_mt;
+            char   *file_r1_mt;
+            size_t total_num_read;
+            size_t *local_read_offsets_mt;
+            int    *local_read_size_mt;
+            size_t *local_read_bytes_mt;
             size_t *local_read_offsets;
             int    *local_read_size;
             size_t *local_read_bytes;
@@ -204,9 +215,7 @@ struct struct_data_thread_1{
             int proc_num_mt;
             int rank_num_mt;
             int thread_num_mt;
-            MPI_Comm comm_mt;
 };
-
 
 struct struct_pread_fastq{
 
