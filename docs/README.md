@@ -74,7 +74,7 @@ The [genome.sh](../examples/genome.sh) script provides an example to build the `
 
 `mpiBWA` is executed with the `mpirun` program, for example:
 
-`mpirun -n 2 mpiBWA mem -t 8 -o ./HCC1187C.sam hg19.small.fa examples/data/HCC1187C_R1_10K.fastq examples/data/HCC1187C_R2_10K.fastq`
+`mpirun -n 2 mpiBWA mem -t 8 -o ./HCC1187C hg19.small.fa examples/data/HCC1187C_R1_10K.fastq examples/data/HCC1187C_R2_10K.fastq`
 
 This command launches 2 processes MPI and 8 threads will be created by mpiBWA.
 
@@ -91,7 +91,7 @@ The `-n` options passed to `mpirun` indicates the number of processes to run in 
 
 If you want to split the results of the alignment by chromosome, use `mpiBWAByChr`, for example:
 
-`mpirun -n 2 mpiBWAByChr mem -t 8 -o ./HCC1187C.sam hg19.small.fa examples/data/HCC1187C_R1_10K.fastq examples/data/HCC1187C_R2_10K.fastq`
+`mpirun -n 2 mpiBWAByChr mem -t 8 -o ./HCC1187C hg19.small.fa examples/data/HCC1187C_R1_10K.fastq examples/data/HCC1187C_R2_10K.fastq`
 
 `mpiBWAByChr` requires several mandatory arguments:
 
